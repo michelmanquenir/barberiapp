@@ -15,6 +15,8 @@ function BookingFlow() {
   const [currentStep, setCurrentStep] = useState(1)
   const [services, setServices] = useState([])
   const [barbers, setBarbers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [booking, setBooking] = useState({
     serviceId: null,
     date: '',
@@ -35,24 +37,35 @@ function BookingFlow() {
 
 
   useEffect(() => {
-    const fetchServices = async () => {
-      const { data } = await supabase
-        .from('services')
-        .select('*')
-        .eq('active', true)
-      setServices(data || [])
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const [servicesRes, barbersRes] = await Promise.all([
+          supabase.from('services').select('*').eq('active', true),
+          supabase.from('barbers').select('*').eq('active', true)
+        ])
+
+        if (servicesRes.error) {
+          console.error('Error fetching services:', servicesRes.error)
+          setError('No se pudieron cargar los servicios. Verifica tu conexión.')
+          return
+        }
+        if (barbersRes.error) {
+          console.error('Error fetching barbers:', barbersRes.error)
+        }
+
+        setServices(servicesRes.data || [])
+        setBarbers(barbersRes.data || [])
+      } catch (err) {
+        console.error('Error connecting to Supabase:', err)
+        setError('Error de conexión. Intenta de nuevo más tarde.')
+      } finally {
+        setLoading(false)
+      }
     }
 
-    const fetchBarbers = async () => {
-      const { data } = await supabase
-        .from('barbers')
-        .select('*')
-        .eq('active', true)
-      setBarbers(data || [])
-    }
-
-    fetchServices()
-    fetchBarbers()
+    fetchData()
   }, [])
 
   const nextStep = () => {
@@ -83,7 +96,7 @@ function BookingFlow() {
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return <ServiceSelection services={services} booking={booking} setBooking={setBooking} />
+        return <ServiceSelection services={services} booking={booking} setBooking={setBooking} loading={loading} error={error} />
       case 2:
         return <DateTimeSelection booking={booking} setBooking={setBooking} />
       case 3:
@@ -192,7 +205,36 @@ function BookingFlow() {
   )
 }
 
-function ServiceSelection({ services, booking, setBooking }) {
+function ServiceSelection({ services, booking, setBooking, loading, error }) {
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-500">Cargando servicios...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-500 text-5xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-red-600 mb-2">Error</h2>
+        <p className="text-gray-600">{error}</p>
+      </div>
+    )
+  }
+
+  if (services.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-gray-400 text-5xl mb-4">✂️</div>
+        <h2 className="text-xl font-bold text-gray-600 mb-2">Sin servicios disponibles</h2>
+        <p className="text-gray-500">No hay servicios disponibles en este momento.</p>
+      </div>
+    )
+  }
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Selecciona un Servicio</h2>
