@@ -1,29 +1,47 @@
 import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 
 function Wallet() {
-  const transactions = [
-    {
-      id: 1,
-      type: 'debit',
-      description: 'Pago de Corte de Pelo',
-      amount: 15000,
-      date: '2024-12-15'
-    },
-    {
-      id: 2,
-      type: 'credit',
-      description: 'Recarga de Saldo',
-      amount: 50000,
-      date: '2024-12-10'
-    },
-    {
-      id: 3,
-      type: 'debit',
-      description: 'Pack Completo',
-      amount: 30000,
-      date: '2024-12-05'
-    },
-  ]
+  const { user } = useAuth()
+  const [balance, setBalance] = useState(0)
+  const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      api.getBalance(user.userId),
+      api.getTransactions(user.userId),
+    ])
+      .then(([balanceData, txData]) => {
+        setBalance(balanceData?.balance ?? 0)
+        setTransactions(txData || [])
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleAddFunds = async () => {
+    const input = prompt('¿Cuánto deseas agregar?')
+    const amount = parseInt(input)
+    if (!amount || amount <= 0) return
+    try {
+      await api.addFunds(user.userId, amount)
+      setBalance(prev => prev + amount)
+    } catch (err) {
+      console.error('Error al agregar fondos:', err)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-500">Cargando wallet...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -34,8 +52,11 @@ function Wallet() {
           <WalletIcon className="h-8 w-8" />
           <span className="text-lg">Saldo Disponible</span>
         </div>
-        <div className="text-4xl font-bold mb-6">$125.000</div>
-        <button className="btn-primary bg-white text-primary-700 hover:bg-gray-100 flex items-center gap-2">
+        <div className="text-4xl font-bold mb-6">${balance.toLocaleString()}</div>
+        <button
+          onClick={handleAddFunds}
+          className="btn-primary bg-white text-primary-700 hover:bg-gray-100 flex items-center gap-2"
+        >
           <Plus className="h-5 w-5" />
           Agregar Fondos
         </button>
@@ -82,10 +103,16 @@ function Wallet() {
                   }`}
               >
                 {transaction.type === 'credit' ? '+' : '-'}$
-                {transaction.amount.toLocaleString()}
+                {transaction.amount?.toLocaleString()}
               </span>
             </div>
           ))}
+
+          {transactions.length === 0 && (
+            <p className="text-center text-gray-500 py-6">
+              No hay transacciones aún
+            </p>
+          )}
         </div>
       </div>
     </div>

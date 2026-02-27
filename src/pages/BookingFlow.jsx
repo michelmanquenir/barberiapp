@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 import {
   Scissors,
   Calendar,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 
 function BookingFlow() {
+  const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
   const [services, setServices] = useState([])
   const [barbers, setBarbers] = useState([])
@@ -41,25 +43,15 @@ function BookingFlow() {
       setLoading(true)
       setError(null)
       try {
-        const [servicesRes, barbersRes] = await Promise.all([
-          supabase.from('services').select('*').eq('active', true),
-          supabase.from('barbers').select('*').eq('active', true)
+        const [servicesData, barbersData] = await Promise.all([
+          api.getServices(),
+          api.getBarbers(),
         ])
-
-        if (servicesRes.error) {
-          console.error('Error fetching services:', servicesRes.error)
-          setError('No se pudieron cargar los servicios. Verifica tu conexión.')
-          return
-        }
-        if (barbersRes.error) {
-          console.error('Error fetching barbers:', barbersRes.error)
-        }
-
-        setServices(servicesRes.data || [])
-        setBarbers(barbersRes.data || [])
+        setServices(servicesData || [])
+        setBarbers(barbersData || [])
       } catch (err) {
-        console.error('Error connecting to Supabase:', err)
-        setError('Error de conexión. Intenta de nuevo más tarde.')
+        console.error('Error al conectar con el backend:', err)
+        setError('Error de conexión. Verifica que el servidor esté activo.')
       } finally {
         setLoading(false)
       }
@@ -192,7 +184,23 @@ function BookingFlow() {
           </button>
         ) : (
           <button
-            onClick={() => alert('Cita confirmada!')}
+            onClick={async () => {
+              try {
+                await api.createAppointment({
+                  userId: user.userId,
+                  serviceId: booking.serviceId,
+                  barberId: booking.barberId,
+                  date: booking.date,
+                  time: booking.time,
+                  locationType: booking.locationType,
+                  paymentMethod: booking.paymentMethod,
+                })
+                alert('¡Cita confirmada exitosamente!')
+              } catch (err) {
+                alert('Error al confirmar la cita. Intenta de nuevo.')
+                console.error(err)
+              }
+            }}
             disabled={!canProceed()}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
@@ -325,65 +333,74 @@ function DateTimeSelection({ booking, setBooking }) {
 }
 
 function BarberSelection({ barbers, booking, setBooking }) {
+  const parseSpecialties = (specialties) => {
+    if (!specialties) return []
+    if (Array.isArray(specialties)) return specialties
+    try { return JSON.parse(specialties) } catch { return [] }
+  }
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Selecciona tu Barbero</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {barbers.map((barber) => (
-          <button
-            key={barber.id}
-            onClick={() => setBooking({ ...booking, barberId: barber.id })}
-            className={`
-              p-6 rounded-lg border-2 transition-all text-left
-              ${booking.barberId === barber.id
-                ? 'border-primary-600 bg-primary-50'
-                : 'border-gray-200 hover:border-primary-300'
-              }
-            `}
-          >
-            <div className="flex gap-4">
-              <div className="w-20 h-20 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-                {barber.image_url ? (
-                  <img
-                    src={barber.image_url}
-                    alt={barber.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    <Users className="h-10 w-10" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-lg">{barber.name}</h3>
-                  {booking.barberId === barber.id && (
-                    <Check className="h-5 w-5 text-primary-600" />
+        {barbers.map((barber) => {
+          const specialties = parseSpecialties(barber.specialties)
+          return (
+            <button
+              key={barber.id}
+              onClick={() => setBooking({ ...booking, barberId: barber.id })}
+              className={`
+                p-6 rounded-lg border-2 transition-all text-left
+                ${booking.barberId === barber.id
+                  ? 'border-primary-600 bg-primary-50'
+                  : 'border-gray-200 hover:border-primary-300'
+                }
+              `}
+            >
+              <div className="flex gap-4">
+                <div className="w-20 h-20 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+                  {barber.imageUrl ? (
+                    <img
+                      src={barber.imageUrl}
+                      alt={barber.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <Users className="h-10 w-10" />
+                    </div>
                   )}
                 </div>
-                <p className="text-gray-600 text-sm mb-2">{barber.bio}</p>
-                <div className="flex items-center gap-1">
-                  <span className="text-yellow-500">★</span>
-                  <span className="text-sm font-medium">{barber.rating}</span>
-                </div>
-                {barber.specialties && barber.specialties.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {barber.specialties.slice(0, 2).map((specialty, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded"
-                      >
-                        {specialty}
-                      </span>
-                    ))}
+
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-lg">{barber.name}</h3>
+                    {booking.barberId === barber.id && (
+                      <Check className="h-5 w-5 text-primary-600" />
+                    )}
                   </div>
-                )}
+                  <p className="text-gray-600 text-sm mb-2">{barber.bio}</p>
+                  <div className="flex items-center gap-1">
+                    <span className="text-yellow-500">★</span>
+                    <span className="text-sm font-medium">{barber.rating}</span>
+                  </div>
+                  {specialties.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {specialties.slice(0, 2).map((specialty, idx) => (
+                        <span
+                          key={idx}
+                          className="text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded"
+                        >
+                          {specialty}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          )
+        })}
       </div>
     </div>
   )

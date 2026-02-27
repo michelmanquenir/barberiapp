@@ -1,37 +1,44 @@
 import { Calendar, Clock, User, MapPin, CreditCard } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 
 function Appointments() {
+  const { user } = useAuth()
   const [filter, setFilter] = useState('upcoming')
+  const [appointments, setAppointments] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const appointments = [
-    {
-      id: 1,
-      service: 'Corte de Pelo',
-      barber: 'Carlos Martínez',
-      date: '2024-12-20',
-      time: '15:00',
-      location: 'En la Barbería',
-      payment: 'Efectivo',
-      status: 'confirmed',
-      price: 15000
-    },
-    {
-      id: 2,
-      service: 'Pack Completo',
-      barber: 'Juan Pérez',
-      date: '2024-12-15',
-      time: '10:00',
-      location: 'A Domicilio',
-      payment: 'Transferencia',
-      status: 'completed',
-      price: 30000
-    },
-  ]
+  useEffect(() => {
+    api.getAppointments(user.userId)
+      .then(data => setAppointments(data || []))
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [user.userId])
+
+  const handleCancel = async (id) => {
+    try {
+      const updated = await api.cancelAppointment(id, user.userId)
+      setAppointments(prev =>
+        prev.map(apt => apt.id === id ? updated : apt)
+      )
+    } catch (err) {
+      console.error('Error al cancelar la cita:', err)
+    }
+  }
 
   const filteredAppointments = appointments.filter(apt =>
     filter === 'upcoming' ? apt.status === 'confirmed' : apt.status === 'completed'
   )
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-500">Cargando citas...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -68,11 +75,11 @@ function Appointments() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">
-                      {appointment.service}
+                      {appointment.service?.name}
                     </h3>
                     <p className="text-gray-600 flex items-center gap-2 mt-1">
                       <User className="h-4 w-4" />
-                      {appointment.barber}
+                      {appointment.barber?.name}
                     </p>
                   </div>
                   <span
@@ -100,11 +107,11 @@ function Appointments() {
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                    {appointment.location}
+                    {appointment.location === 'home' ? 'A Domicilio' : 'En la Barbería'}
                   </div>
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
-                    {appointment.payment}
+                    {appointment.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia'}
                   </div>
                 </div>
               </div>
@@ -113,12 +120,15 @@ function Appointments() {
                 <div className="text-right mb-4">
                   <p className="text-sm text-gray-600 mb-1">Total</p>
                   <p className="text-2xl font-bold text-primary-600">
-                    ${appointment.price.toLocaleString()}
+                    ${appointment.totalPrice?.toLocaleString()}
                   </p>
                 </div>
 
                 {appointment.status === 'confirmed' && (
-                  <button className="btn-secondary w-full">
+                  <button
+                    onClick={() => handleCancel(appointment.id)}
+                    className="btn-secondary w-full"
+                  >
                     Cancelar Cita
                   </button>
                 )}

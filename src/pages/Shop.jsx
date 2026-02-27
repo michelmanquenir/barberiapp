@@ -1,59 +1,31 @@
 import { ShoppingCart, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
 
 function Shop() {
-  const [cart] = useState([])
+  const [cart, setCart] = useState([])
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const products = [
-    {
-      id: 1,
-      name: 'Pomada Premium',
-      description: 'Fijación fuerte, acabado mate',
-      price: 12000,
-      category: 'Styling',
-      stock: 15
-    },
-    {
-      id: 2,
-      name: 'Shampoo Anticaída',
-      description: 'Fortalece el cabello',
-      price: 18000,
-      category: 'Cuidado',
-      stock: 8
-    },
-    {
-      id: 3,
-      name: 'Aceite para Barba',
-      description: 'Hidratación y brillo natural',
-      price: 15000,
-      category: 'Barba',
-      stock: 12
-    },
-    {
-      id: 4,
-      name: 'Cera Moldeadora',
-      description: 'Control y definición',
-      price: 10000,
-      category: 'Styling',
-      stock: 20
-    },
-    {
-      id: 5,
-      name: 'Kit Completo Barba',
-      description: 'Peine, cepillo y aceite',
-      price: 35000,
-      category: 'Barba',
-      stock: 5
-    },
-    {
-      id: 6,
-      name: 'Gel Fijador',
-      description: 'Fijación extrema',
-      price: 8000,
-      category: 'Styling',
-      stock: 25
-    },
-  ]
+  useEffect(() => {
+    api.getProducts()
+      .then(data => setProducts(data || []))
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  const addToCart = (product) => {
+    setCart(prev => [...prev, product])
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-500">Cargando productos...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -70,7 +42,11 @@ function Shop() {
         {products.map((product) => (
           <div key={product.id} className="card hover:shadow-lg transition-shadow">
             <div className="aspect-square bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-              <span className="text-6xl">📦</span>
+              {product.imageUrl ? (
+                <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-lg" />
+              ) : (
+                <span className="text-6xl">📦</span>
+              )}
             </div>
 
             <div className="mb-2">
@@ -90,14 +66,17 @@ function Shop() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold text-primary-600">
-                  ${product.price.toLocaleString()}
+                  ${product.price?.toLocaleString()}
                 </p>
                 <p className="text-xs text-gray-500">
                   {product.stock} disponibles
                 </p>
               </div>
 
-              <button className="btn-primary flex items-center gap-2">
+              <button
+                onClick={() => addToCart(product)}
+                className="btn-primary flex items-center gap-2"
+              >
                 <Plus className="h-4 w-4" />
                 Agregar
               </button>
