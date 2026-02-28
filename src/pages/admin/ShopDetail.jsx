@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Scissors,
   ArrowLeft,
   LogOut,
-  UserPlus,
   UserMinus,
   Link2,
   Copy,
   Check,
-  Plus,
+  Search,
+  UserPlus,
   X,
 } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -21,43 +21,48 @@ function ShopDetail() {
   const navigate = useNavigate()
 
   const [shop, setShop] = useState(null)
-  const [allBarbers, setAllBarbers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
 
-  // Panel para agregar barbero existente
-  const [showAddPanel, setShowAddPanel] = useState(false)
-  const [selectedBarberId, setSelectedBarberId] = useState('')
-  const [addingBarber, setAddingBarber] = useState(false)
-  const [addError, setAddError] = useState(null)
+  // Buscador de barberos registrados
+  const [showSearch, setShowSearch] = useState(false)
+  const [query, setQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [addingId, setAddingId] = useState(null)
 
-  // Panel para crear nuevo barbero
-  const [showCreatePanel, setShowCreatePanel] = useState(false)
-  const [newBarber, setNewBarber] = useState({ name: '', bio: '', imageUrl: '' })
-  const [creatingBarber, setCreatingBarber] = useState(false)
-  const [createError, setCreateError] = useState(null)
-
-  const loadShop = () => {
-    return api
-      .getMyShops()
-      .then((shops) => {
-        const found = shops.find((s) => s.id === shopId)
-        if (!found) throw new Error('Negocio no encontrado')
-        setShop(found)
-      })
-  }
-
-  useEffect(() => {
-    Promise.all([loadShop(), api.getBarbers()])
-      .then(([, barbers]) => setAllBarbers(barbers))
-      .catch(() => setError('No se pudo cargar la información del negocio'))
-      .finally(() => setLoading(false))
+  const loadShop = useCallback(async () => {
+    const shops = await api.getMyShops()
+    const found = shops.find((s) => s.id === shopId)
+    if (!found) throw new Error('Negocio no encontrado')
+    setShop(found)
   }, [shopId])
 
-  const memberIds = new Set((shop?.barbers ?? []).map((b) => b.id))
+  useEffect(() => {
+    loadShop()
+      .catch(() => setError('No se pudo cargar la información del negocio'))
+      .finally(() => setLoading(false))
+  }, [loadShop])
 
-  const availableBarbers = allBarbers.filter((b) => !memberIds.has(b.id))
+  // Buscar barberos con debounce
+  useEffect(() => {
+    if (!showSearch) return
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const results = await api.searchBarbers(query)
+        // Filtrar los que ya están en el negocio
+        const memberIds = new Set((shop?.barbers ?? []).map((b) => b.id))
+        setSearchResults(results.filter((b) => !memberIds.has(b.id)))
+      } catch {
+        setSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query, showSearch, shop])
 
   const handleCopyLink = () => {
     if (!shop) return
@@ -66,21 +71,17 @@ function ShopDetail() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleAddBarber = async () => {
-    if (!selectedBarberId) return
-    setAddingBarber(true)
-    setAddError(null)
+  const handleAddBarber = async (barberId) => {
+    setAddingId(barberId)
     try {
-      await api.addBarberToShop(shopId, selectedBarberId)
-      setSelectedBarberId('')
-      setShowAddPanel(false)
-      setLoading(true)
+      await api.addBarberToShop(shopId, barberId)
       await loadShop()
+      // Actualizar resultados quitando el barbero recién agregado
+      setSearchResults((prev) => prev.filter((b) => b.id !== barberId))
     } catch {
-      setAddError('No se pudo agregar el barbero')
+      alert('No se pudo agregar el barbero')
     } finally {
-      setAddingBarber(false)
-      setLoading(false)
+      setAddingId(null)
     }
   }
 
@@ -88,33 +89,9 @@ function ShopDetail() {
     if (!window.confirm('¿Quitar este barbero del negocio?')) return
     try {
       await api.removeBarberFromShop(shopId, barberId)
-      setLoading(true)
       await loadShop()
     } catch {
       alert('No se pudo quitar el barbero')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCreateBarber = async (e) => {
-    e.preventDefault()
-    if (!newBarber.name.trim()) return
-    setCreatingBarber(true)
-    setCreateError(null)
-    try {
-      const created = await api.createBarberProfile(newBarber)
-      // Agregar el barbero recién creado al negocio
-      await api.addBarberToShop(shopId, created.id)
-      setNewBarber({ name: '', bio: '', imageUrl: '' })
-      setShowCreatePanel(false)
-      setLoading(true)
-      await Promise.all([loadShop(), api.getBarbers().then(setAllBarbers)])
-    } catch {
-      setCreateError('No se pudo crear el barbero')
-    } finally {
-      setCreatingBarber(false)
-      setLoading(false)
     }
   }
 
@@ -207,15 +184,9 @@ function ShopDetail() {
                       className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition whitespace-nowrap"
                     >
                       {copied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          Copiado
-                        </>
+                        <><Check className="w-3.5 h-3.5" />Copiado</>
                       ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          Copiar
-                        </>
+                        <><Copy className="w-3.5 h-3.5" />Copiar</>
                       )}
                     </button>
                     <button
@@ -234,130 +205,111 @@ function ShopDetail() {
                   <h3 className="text-lg font-semibold text-gray-900">
                     Barberos ({shop.barbers?.length ?? 0})
                   </h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setShowCreatePanel(!showCreatePanel)
-                        setShowAddPanel(false)
-                      }}
-                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Nuevo barbero
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowAddPanel(!showAddPanel)
-                        setShowCreatePanel(false)
-                      }}
-                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      Agregar existente
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setShowSearch(!showSearch)
+                      setQuery('')
+                      setSearchResults([])
+                    }}
+                    className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition ${
+                      showSearch
+                        ? 'bg-gray-100 text-gray-700'
+                        : 'bg-gray-900 text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    {showSearch ? (
+                      <><X className="w-3.5 h-3.5" />Cerrar</>
+                    ) : (
+                      <><UserPlus className="w-3.5 h-3.5" />Agregar barbero</>
+                    )}
+                  </button>
                 </div>
 
-                {/* Panel: Agregar barbero existente */}
-                {showAddPanel && (
-                  <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-medium text-blue-800">
-                        Agregar barbero existente
-                      </p>
-                      <button onClick={() => setShowAddPanel(false)}>
-                        <X className="w-4 h-4 text-blue-500" />
-                      </button>
+                {/* Buscador de barberos */}
+                {showSearch && (
+                  <div className="mb-5 border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Input */}
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
+                      <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Buscar barbero por nombre..."
+                        className="flex-1 bg-transparent text-sm focus:outline-none placeholder-gray-400"
+                      />
+                      {searching && (
+                        <div className="w-4 h-4 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin flex-shrink-0" />
+                      )}
                     </div>
-                    {addError && (
-                      <p className="text-xs text-red-600 mb-2">{addError}</p>
-                    )}
-                    {availableBarbers.length === 0 ? (
-                      <p className="text-sm text-blue-600">
-                        No hay barberos disponibles para agregar. Crea un nuevo barbero.
+
+                    {/* Resultados */}
+                    <div className="max-h-56 overflow-y-auto">
+                      {!searching && searchResults.length === 0 && (
+                        <div className="text-center py-6 text-sm text-gray-400">
+                          {query.trim()
+                            ? 'No se encontraron barberos con ese nombre'
+                            : 'Escribe un nombre para buscar barberos registrados'}
+                        </div>
+                      )}
+                      {searchResults.map((barber) => (
+                        <div
+                          key={barber.id}
+                          className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                        >
+                          <div className="flex items-center gap-3">
+                            {barber.imageUrl ? (
+                              <img
+                                src={barber.imageUrl}
+                                alt={barber.name}
+                                className="w-9 h-9 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                                <Scissors className="w-4 h-4 text-gray-400" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{barber.name}</p>
+                              {barber.bio && (
+                                <p className="text-xs text-gray-400 line-clamp-1">{barber.bio}</p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleAddBarber(barber.id)}
+                            disabled={addingId === barber.id}
+                            className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {addingId === barber.id ? 'Agregando...' : 'Agregar'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="px-4 py-2.5 bg-blue-50 border-t border-blue-100">
+                      <p className="text-xs text-blue-600">
+                        💡 Solo aparecen barberos registrados en la plataforma. Comparte el link de registro si aún no tiene cuenta.
                       </p>
-                    ) : (
-                      <div className="flex gap-2">
-                        <select
-                          value={selectedBarberId}
-                          onChange={(e) => setSelectedBarberId(e.target.value)}
-                          className="flex-1 border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        >
-                          <option value="">Seleccionar barbero...</option>
-                          {availableBarbers.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={handleAddBarber}
-                          disabled={!selectedBarberId || addingBarber}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50"
-                        >
-                          {addingBarber ? 'Agregando...' : 'Agregar'}
-                        </button>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )}
 
-                {/* Panel: Crear nuevo barbero */}
-                {showCreatePanel && (
-                  <form onSubmit={handleCreateBarber} className="mb-5 p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-green-800">Crear nuevo barbero</p>
-                      <button type="button" onClick={() => setShowCreatePanel(false)}>
-                        <X className="w-4 h-4 text-green-500" />
-                      </button>
-                    </div>
-                    {createError && (
-                      <p className="text-xs text-red-600">{createError}</p>
-                    )}
-                    <input
-                      type="text"
-                      placeholder="Nombre del barbero *"
-                      value={newBarber.name}
-                      onChange={(e) => setNewBarber((b) => ({ ...b, name: e.target.value }))}
-                      className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Biografía (opcional)"
-                      value={newBarber.bio}
-                      onChange={(e) => setNewBarber((b) => ({ ...b, bio: e.target.value }))}
-                      className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                    />
-                    <input
-                      type="url"
-                      placeholder="URL de foto (opcional)"
-                      value={newBarber.imageUrl}
-                      onChange={(e) => setNewBarber((b) => ({ ...b, imageUrl: e.target.value }))}
-                      className="w-full border border-green-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                    />
-                    <button
-                      type="submit"
-                      disabled={creatingBarber}
-                      className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
-                    >
-                      {creatingBarber ? 'Creando y agregando...' : 'Crear y agregar al negocio'}
-                    </button>
-                  </form>
-                )}
-
-                {/* Lista de barberos miembros */}
+                {/* Lista de miembros actuales */}
                 {(shop.barbers?.length ?? 0) === 0 ? (
                   <div className="text-center py-8 text-gray-400 text-sm">
-                    <Scissors className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    Aún no hay barberos en este negocio
+                    <Scissors className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    Aún no hay barberos en este negocio.
+                    <br />
+                    <span className="text-xs">Agrega barberos registrados usando el buscador.</span>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {shop.barbers.map((barber) => (
                       <div
                         key={barber.id}
-                        className="flex items-center justify-between py-3"
+                        className="flex items-center justify-between py-3.5"
                       >
                         <div className="flex items-center gap-3">
                           {barber.imageUrl ? (
@@ -372,15 +324,22 @@ function ShopDetail() {
                             </div>
                           )}
                           <div>
-                            <p className="text-sm font-medium text-gray-900">{barber.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-gray-900">{barber.name}</p>
+                              {barber.userId && (
+                                <span className="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                                  Registrado
+                                </span>
+                              )}
+                            </div>
                             {barber.bio && (
-                              <p className="text-xs text-gray-500 line-clamp-1">{barber.bio}</p>
+                              <p className="text-xs text-gray-400 line-clamp-1">{barber.bio}</p>
                             )}
                           </div>
                         </div>
                         <button
                           onClick={() => handleRemoveBarber(barber.id)}
-                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition px-2 py-1 rounded hover:bg-red-50"
+                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition px-2 py-1 rounded hover:bg-red-50"
                         >
                           <UserMinus className="w-3.5 h-3.5" />
                           Quitar

@@ -43,6 +43,8 @@ export const api = {
 
   // Barberos
   getBarbers: (shopId) => request(shopId ? `/barbers?shopId=${shopId}` : '/barbers'),
+  getMyBarberProfile: () => request('/barbers/me'),
+  searchBarbers: (q) => request(`/barbers/search?q=${encodeURIComponent(q ?? '')}`),
   createBarberProfile: (data) =>
     request('/barbers', { method: 'POST', body: JSON.stringify(data) }),
 
