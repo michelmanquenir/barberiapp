@@ -6,192 +6,133 @@ import {
   Store,
   ShoppingBag,
   TrendingUp,
-  LogOut,
   Star,
   User,
   ChevronRight,
+  CalendarDays,
+  Images,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { api } from '../../lib/api'
+import AdminNavbar from '../../components/AdminNavbar'
+import AvatarUpload from '../../components/AvatarUpload'
 
 function AdminDashboard() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const [shopCount, setShopCount] = useState('—')
   const [barberProfile, setBarberProfile] = useState(null)
-  const [barberShops, setBarberShops] = useState([]) // shops donde trabaja como barbero
+  const [todayCitas, setTodayCitas] = useState('—')
 
   useEffect(() => {
-    // Mis negocios (como dueño)
     api.getMyShops()
-      .then((shops) => setShopCount(shops.length))
+      .then(async (shops) => {
+        setShopCount(shops.length)
+        const today = new Date().toISOString().split('T')[0]
+        const results = await Promise.all(
+          shops.map((shop) => api.getShopAppointments(shop.id).catch(() => []))
+        )
+        const todayCount = results.flat().filter((a) => a.date === today && a.status !== 'cancelled').length
+        setTodayCitas(todayCount)
+      })
       .catch(() => setShopCount('—'))
 
-    // Mi perfil de barbero (vinculado al login)
     api.getMyBarberProfile()
-      .then((profile) => {
-        setBarberProfile(profile)
-      })
-      .catch(() => {
-        // 404 si aún no tiene perfil — no es error
-        setBarberProfile(null)
-      })
+      .then((profile) => setBarberProfile(profile))
+      .catch(() => setBarberProfile(null))
   }, [])
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login', { replace: true })
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar Admin */}
-      <nav className="bg-gray-900 text-white fixed w-full z-30 top-0">
-        <div className="px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Scissors className="w-6 h-6" />
-            <span className="text-xl font-bold">BarberShop Admin</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-300">{user?.fullName}</span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 text-sm text-gray-300 hover:text-white transition"
-            >
-              <LogOut className="w-4 h-4" />
-              Salir
-            </button>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
+      <AdminNavbar />
 
       <main className="pt-16">
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
 
-          {/* Bienvenida */}
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
               Bienvenido, {user?.fullName?.split(' ')[0]}
             </h2>
-            <p className="text-gray-500 mt-1">Panel de administración</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Panel de administración</p>
           </div>
 
-          {/* ── MI PERFIL DE BARBERO ─────────────────────────────── */}
           {barberProfile && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50">
-                <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+                <div className="w-8 h-8 bg-gray-900 dark:bg-gray-100 rounded-lg flex items-center justify-center">
+                  <User className="w-4 h-4 text-white dark:text-gray-900" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-sm">Mi perfil de barbero</h3>
-                  <p className="text-xs text-gray-500">Tu cuenta como empleado en barberías</p>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-sm">Mi perfil de barbero</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Tu cuenta como empleado en barberías</p>
                 </div>
               </div>
 
               <div className="p-6">
                 <div className="flex items-start gap-4 mb-6">
-                  {/* Avatar */}
-                  {barberProfile.imageUrl ? (
-                    <img
-                      src={barberProfile.imageUrl}
-                      alt={barberProfile.name}
-                      className="w-16 h-16 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                      <Scissors className="w-7 h-7 text-gray-400" />
-                    </div>
-                  )}
-
+                  <AvatarUpload
+                    currentUrl={barberProfile.imageUrl}
+                    userId={user?.userId}
+                    size="sm"
+                    name={barberProfile.name}
+                    onUploaded={async (url) => {
+                      try {
+                        const updated = await api.updateBarberImage(url)
+                        setBarberProfile((p) => ({ ...p, imageUrl: updated.imageUrl ?? url }))
+                      } catch (e) {
+                        console.error('Error actualizando imagen del barbero:', e)
+                      }
+                    }}
+                  />
                   <div className="flex-1">
-                    <p className="text-lg font-bold text-gray-900">{barberProfile.name}</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-50">{barberProfile.name}</p>
                     {barberProfile.bio && (
-                      <p className="text-sm text-gray-500 mt-0.5">{barberProfile.bio}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{barberProfile.bio}</p>
                     )}
                     <div className="flex items-center gap-3 mt-2">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                        <span className="text-sm font-semibold text-gray-700">
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                           {barberProfile.rating?.toFixed(1) ?? '5.0'}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400">·</span>
-                      <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">·</span>
+                      <span className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full font-medium">
                         Perfil activo
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Stats del barbero */}
                 <div className="grid grid-cols-3 gap-3">
                   <StatCard label="Citas pendientes" value="—" color="blue" />
                   <StatCard label="Cortes este mes" value="—" color="purple" />
                   <StatCard label="Clientes únicos" value="—" color="orange" />
                 </div>
 
-                <p className="text-xs text-gray-400 mt-3 text-center">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
                   Las barberías donde trabajas pueden verte en su panel. Tu agenda y cortes son visibles para los dueños de los negocios donde estás registrado.
                 </p>
               </div>
             </div>
           )}
 
-          {/* ── MIS NEGOCIOS (como dueño) ─────────────────────────── */}
           <div>
-            {/* Cards de resumen */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard
-                icon={<Calendar className="w-6 h-6 text-blue-600" />}
-                bg="bg-blue-50"
-                label="Citas del día"
-                value="—"
-              />
-              <SummaryCard
-                icon={<Store className="w-6 h-6 text-green-600" />}
-                bg="bg-green-50"
-                label="Mis negocios"
-                value={shopCount}
-              />
-              <SummaryCard
-                icon={<Scissors className="w-6 h-6 text-purple-600" />}
-                bg="bg-purple-50"
-                label="Barberos activos"
-                value="—"
-              />
-              <SummaryCard
-                icon={<TrendingUp className="w-6 h-6 text-orange-600" />}
-                bg="bg-orange-50"
-                label="Ingresos del mes"
-                value="—"
-              />
+              <SummaryCard icon={<Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />} bg="bg-blue-50 dark:bg-blue-950" label="Citas del día" value={todayCitas} onClick={() => navigate('/admin/appointments')} clickable />
+              <SummaryCard icon={<Store className="w-6 h-6 text-green-600 dark:text-green-400" />} bg="bg-green-50 dark:bg-green-950" label="Mis negocios" value={shopCount} />
+              <SummaryCard icon={<Scissors className="w-6 h-6 text-purple-600 dark:text-purple-400" />} bg="bg-purple-50 dark:bg-purple-950" label="Barberos activos" value="—" />
+              <SummaryCard icon={<TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />} bg="bg-orange-50 dark:bg-orange-950" label="Ingresos del mes" value="—" />
             </div>
 
-            {/* Accesos rápidos */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Gestión de negocios</h3>
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-4">Gestión de negocios</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <QuickLink
-                  icon={<Calendar className="w-5 h-5 text-gray-600" />}
-                  title="Citas"
-                  subtitle="Ver todas las citas"
-                  onClick={() => navigate('/appointments')}
-                />
-                <QuickLink
-                  icon={<Store className="w-5 h-5 text-gray-600" />}
-                  title="Mis Negocios"
-                  subtitle="Gestionar barberías"
-                  onClick={() => navigate('/admin/shops')}
-                />
-                <QuickLink
-                  icon={<ShoppingBag className="w-5 h-5 text-gray-600" />}
-                  title="Productos"
-                  subtitle="Gestionar inventario"
-                  onClick={() => {}}
-                />
+                <QuickLink icon={<CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400" />} title="Todas las citas" subtitle="Resumen de todos mis negocios" onClick={() => navigate('/admin/appointments')} highlight />
+                <QuickLink icon={<Store className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Mis Negocios" subtitle="Gestionar barberías" onClick={() => navigate('/admin/shops')} />
+                <QuickLink icon={<Images className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Mi Portafolio" subtitle="Galerías de mis trabajos" onClick={() => navigate('/admin/gallery')} />
+                <QuickLink icon={<ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Inventario" subtitle="Productos por negocio" onClick={() => navigate('/admin/shops')} />
               </div>
             </div>
           </div>
@@ -204,9 +145,9 @@ function AdminDashboard() {
 
 function StatCard({ label, value, color }) {
   const colors = {
-    blue: 'bg-blue-50 text-blue-700',
-    purple: 'bg-purple-50 text-purple-700',
-    orange: 'bg-orange-50 text-orange-700',
+    blue: 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400',
+    purple: 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-400',
+    orange: 'bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-400',
   }
   return (
     <div className={`rounded-lg p-3 text-center ${colors[color]}`}>
@@ -216,28 +157,35 @@ function StatCard({ label, value, color }) {
   )
 }
 
-function SummaryCard({ icon, bg, label, value }) {
+function SummaryCard({ icon, bg, label, value, onClick, clickable }) {
+  const base = 'bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-5'
+  const interactive = clickable ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm transition' : ''
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className={`${base} ${interactive}`} onClick={onClick}>
       <div className={`inline-flex p-2 rounded-lg ${bg} mb-3`}>{icon}</div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-sm text-gray-500 mt-0.5">{label}</p>
+      <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{value}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
+      {clickable && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1.5 font-medium">Ver detalles →</p>}
     </div>
   )
 }
 
-function QuickLink({ icon, title, subtitle, onClick }) {
+function QuickLink({ icon, title, subtitle, onClick, highlight }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition text-left w-full"
+      className={`flex items-center gap-3 p-4 rounded-lg border transition text-left w-full ${
+        highlight
+          ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 dark:hover:bg-blue-900'
+          : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+      }`}
     >
       {icon}
       <div className="flex-1">
-        <p className="text-sm font-medium text-gray-900">{title}</p>
-        <p className="text-xs text-gray-500">{subtitle}</p>
+        <p className={`text-sm font-medium ${highlight ? 'text-blue-900 dark:text-blue-200' : 'text-gray-900 dark:text-gray-50'}`}>{title}</p>
+        <p className={`text-xs ${highlight ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{subtitle}</p>
       </div>
-      <ChevronRight className="w-4 h-4 text-gray-300" />
+      <ChevronRight className={`w-4 h-4 ${highlight ? 'text-blue-400' : 'text-gray-300 dark:text-gray-600'}`} />
     </button>
   )
 }

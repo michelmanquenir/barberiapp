@@ -1,14 +1,18 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-function ProtectedRoute({ children, requireBarber = false }) {
-  const { isAuthenticated, isBarber } = useAuth()
+function ProtectedRoute({ children, requireBusinessOwner = false, requireSuperAdmin = false }) {
+  const { isAuthenticated, isBusinessOwner, isSuperAdmin } = useAuth()
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
 
-  if (requireBarber && !isBarber) {
+  if (requireSuperAdmin && !isSuperAdmin) {
+    return <Navigate to="/booking" replace />
+  }
+
+  if (requireBusinessOwner && !isBusinessOwner) {
     return <Navigate to="/booking" replace />
   }
 

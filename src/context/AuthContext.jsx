@@ -24,11 +24,25 @@ export function AuthProvider({ children }) {
     setAuth(null)
   }
 
+  /** Actualiza campos puntuales del usuario sin cerrar sesión (ej: avatarUrl, fullName) */
+  const updateUser = (fields) => {
+    setAuth((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, ...fields }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      return next
+    })
+  }
+
   const isAuthenticated = !!auth?.token
-  const isBarber = auth?.role === 'BARBER'
+  const isBusinessOwner = auth?.role === 'BUSINESS_OWNER'
+  const isSuperAdmin = auth?.role === 'SUPER_ADMIN'
+  const isPending = auth?.status === 'PENDING'
+  const isRejected = auth?.status === 'REJECTED'
+  const isActive = auth?.status === 'ACTIVE'
 
   return (
-    <AuthContext.Provider value={{ user: auth, token: auth?.token, login, logout, isAuthenticated, isBarber }}>
+    <AuthContext.Provider value={{ user: auth, token: auth?.token, login, logout, updateUser, isAuthenticated, isBusinessOwner, isSuperAdmin, isPending, isRejected, isActive }}>
       {children}
     </AuthContext.Provider>
   )
