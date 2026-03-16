@@ -173,13 +173,8 @@ function CreateShop() {
       }
       navigate('/admin/shops')
     } catch (err) {
-      setError(
-        err.message?.includes('400')
-          ? 'El slug ya está en uso. Elige otro nombre o modifica el slug.'
-          : isEdit
-            ? 'Error al actualizar el negocio. Intenta nuevamente.'
-            : 'Error al crear el negocio. Intenta nuevamente.'
-      )
+      // Mostrar el mensaje exacto del backend (incluye errores de validación de negocio/cuenta)
+      setError(err.message || (isEdit ? 'Error al actualizar el negocio.' : 'Error al crear el negocio.'))
     } finally {
       setLoading(false)
     }

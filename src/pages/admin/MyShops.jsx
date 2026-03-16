@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Scissors, Plus, Store, ChevronRight, CalendarDays } from 'lucide-react'
+import { Scissors, Plus, Store, ChevronRight, CalendarDays, Clock, AlertTriangle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import AdminNavbar from '../../components/AdminNavbar'
 
 function MyShops() {
   const navigate = useNavigate()
+  const { isPending, isRejected } = useAuth()
   const [shops, setShops] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -26,7 +27,7 @@ function MyShops() {
       <main className="pt-16">
         <div className="max-w-4xl mx-auto px-6 py-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Mis Negocios</h2>
               <p className="text-gray-500 dark:text-gray-400 mt-1">Gestiona tus barberías y salones</p>
@@ -40,14 +41,46 @@ function MyShops() {
                 Todas las citas
               </button>
               <button
-                onClick={() => navigate('/admin/shops/new')}
-                className="flex items-center gap-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2.5 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-300 transition text-sm font-medium"
+                onClick={() => !isPending && !isRejected && navigate('/admin/shops/new')}
+                disabled={isPending || isRejected}
+                title={isPending ? 'Tu cuenta está pendiente de aprobación' : isRejected ? 'Tu cuenta fue rechazada' : undefined}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition ${
+                  isPending || isRejected
+                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                    : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-300'
+                }`}
               >
                 <Plus className="w-4 h-4" />
                 Crear negocio
               </button>
             </div>
           </div>
+
+          {/* Banner cuenta pendiente */}
+          {isPending && (
+            <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-lg p-4 text-sm mb-6">
+              <Clock className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Cuenta pendiente de aprobación</p>
+                <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                  Un administrador debe aprobar tu cuenta antes de que puedas crear negocios. Te avisaremos cuando esté lista.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Banner cuenta rechazada */}
+          {isRejected && (
+            <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-lg p-4 text-sm mb-6">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Cuenta rechazada</p>
+                <p className="mt-0.5 text-red-700 dark:text-red-400">
+                  Tu cuenta fue rechazada. No puedes crear negocios. Contacta al administrador para más información.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Estado de carga */}
           {loading && (
@@ -63,7 +96,7 @@ function MyShops() {
           )}
 
           {/* Lista de negocios */}
-          {!loading && !error && shops.length === 0 && (
+          {!loading && !error && shops.length === 0 && !isPending && !isRejected && (
             <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
               <Store className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">

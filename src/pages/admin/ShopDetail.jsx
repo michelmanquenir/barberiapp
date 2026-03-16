@@ -586,15 +586,53 @@ function ShopDetail() {
           {shop && (
             <div className="space-y-6">
 
+              {/* ── Banner negocio pendiente de aprobación ── */}
+              {shop.approvalStatus === 'PENDING' && (
+                <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-lg p-4 text-sm">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Negocio pendiente de aprobación</p>
+                    <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                      Un administrador debe aprobar este negocio antes de que puedas agregar servicios, productos o recibir reservas públicas.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Banner negocio rechazado ── */}
+              {shop.approvalStatus === 'REJECTED' && (
+                <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-lg p-4 text-sm">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Negocio rechazado</p>
+                    <p className="mt-0.5 text-red-700 dark:text-red-400">
+                      Este negocio fue rechazado. No puedes agregar servicios ni productos. Contacta al administrador para más información.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* ── Info del negocio ── */}
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{shop.name}</h2>
                     {shop.description && <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{shop.description}</p>}
-                    <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded-full font-medium ${shop.active ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
-                      {shop.active ? 'Activo' : 'Inactivo'}
-                    </span>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${shop.active ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
+                        {shop.active ? 'Activo' : 'Inactivo'}
+                      </span>
+                      {shop.approvalStatus === 'PENDING' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                          En revisión
+                        </span>
+                      )}
+                      {shop.approvalStatus === 'REJECTED' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                          Rechazado
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <button onClick={() => navigate(`/admin/shops/${shopId}/book`)}
