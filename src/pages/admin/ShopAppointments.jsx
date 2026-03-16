@@ -440,7 +440,7 @@ function AppointmentCard({ appointment: apt, onConfirm, onComplete, onNoShow, on
             {/* Ubicación */}
             <div className="flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-              <span>{apt.location === 'home' ? 'A domicilio' : 'En la barbería'}</span>
+              <span>{apt.location === 'home' ? 'A domicilio' : 'En el local'}</span>
             </div>
 
             {/* Pago */}

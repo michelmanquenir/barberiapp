@@ -351,7 +351,7 @@ function AllShopsAppointments() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por cliente, barbero, servicio o negocio..."
+              placeholder="Buscar por cliente, profesional, servicio o negocio..."
               className="w-full border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-9 py-2.5 text-sm bg-white dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
             />
             {search && (
@@ -579,7 +579,7 @@ function AppointmentCard({ appointment: apt, shopColor, showShopBadge, onComplet
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-              <span>{apt.location === 'home' ? 'A domicilio' : 'En la barbería'}</span>
+              <span>{apt.location === 'home' ? 'A domicilio' : 'En el local'}</span>
             </div>
             <div className="flex items-center gap-2">
               <CreditCard className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />

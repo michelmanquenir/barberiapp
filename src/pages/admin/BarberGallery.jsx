@@ -495,7 +495,7 @@ export default function BarberGallery() {
 function GalleryShopSelector({ shops, value, onChange }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Asociar a barbería</label>
+      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Asociar a negocio</label>
       <div className="flex flex-wrap gap-2">
         {/* Opción General */}
         <button

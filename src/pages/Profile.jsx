@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Mail, Phone, MapPin, Calendar, Scissors, Heart,
-  Star, Clock, Edit2, CreditCard, User, ChevronRight,
+  Mail, Phone, MapPin, Calendar, Heart,
+  Star, Clock, Edit2, CreditCard, User, Users, ChevronRight,
   Crown, Repeat2,
 } from 'lucide-react'
 import { api } from '../lib/api'
@@ -143,8 +143,8 @@ export default function Profile() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           <StatCard
-            icon={<Scissors className="w-4 h-4" />}
-            label="Cortes"
+            icon={<Calendar className="w-4 h-4" />}
+            label="Servicios"
             value={completed.length}
           />
           <StatCard
@@ -211,7 +211,7 @@ export default function Profile() {
 
         {/* Accesos rápidos */}
         <Section title="Accesos rápidos">
-          <QuickLink icon={<Scissors />}  label="Mis Barberos"     to="/my-barbers"  navigate={navigate} />
+          <QuickLink icon={<Users />}     label="Mis Profesionales" to="/my-barbers"  navigate={navigate} />
           <QuickLink icon={<Heart />}     label="Favoritos"        to="/favorites"   navigate={navigate} />
           <QuickLink icon={<Clock />}     label="Mis Citas"        to="/appointments" navigate={navigate} />
           <QuickLink icon={<CreditCard />} label="Wallet"          to="/wallet"      navigate={navigate} />
@@ -261,14 +261,14 @@ function AppointmentRow({ apt }) {
   return (
     <div className="flex items-center gap-3 px-5 py-3">
       <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-        <Scissors className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+        <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
           {apt.service?.name ?? apt.serviceName ?? 'Servicio'}
         </p>
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          {apt.barber?.name ?? 'Barbero'} · {formatDate(apt.date)}
+          {apt.barber?.name ?? 'Profesional'} · {formatDate(apt.date)}
           {apt.time ? ` · ${apt.time}` : ''}
         </p>
       </div>

@@ -41,7 +41,7 @@ function SuperAdminProducts() {
   const handleApprove = async (product) => {
     const ok = await confirm(
       `Aprobar "${product.name}"`,
-      'El producto será visible para los clientes de esta barbería.',
+      'El producto será visible para los clientes de este negocio.',
       { confirmText: 'Sí, aprobar', icon: 'question' }
     )
     if (!ok) return
@@ -101,7 +101,7 @@ function SuperAdminProducts() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Productos</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Revisa y aprueba los productos que ofrecen las barberías.
+          Revisa y aprueba los productos que ofrecen los negocios.
         </p>
       </div>
 

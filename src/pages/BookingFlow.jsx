@@ -280,7 +280,7 @@ function BarberSelection({ barbers, booking, setBooking }) {
 
 function PaymentSelection({ booking, setBooking }) {
   const paymentMethods = [
-    { id: 'cash', label: 'Efectivo', icon: '💵', description: 'Paga en la barbería' },
+    { id: 'cash', label: 'Efectivo', icon: '💵', description: 'Paga en el local' },
     { id: 'transfer', label: 'Transferencia', icon: '💳', description: 'Transferencia bancaria' },
   ]
   return (
@@ -311,8 +311,8 @@ function PaymentSelection({ booking, setBooking }) {
 
 function LocationSelection({ booking, setBooking }) {
   const locations = [
-    { id: 'barbershop', label: 'En la Barbería', icon: '🏪', description: 'Visita nuestra barbería' },
-    { id: 'home', label: 'A Domicilio', icon: '🏠', description: 'El barbero va a tu hogar' },
+    { id: 'barbershop', label: 'En el Local', icon: '🏪', description: 'Visita el local' },
+    { id: 'home', label: 'A Domicilio', icon: '🏠', description: 'El profesional va a tu hogar' },
   ]
   return (
     <div>

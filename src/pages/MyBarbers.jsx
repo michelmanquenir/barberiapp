@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Scissors,
   Users,
   Star,
   Calendar,
@@ -111,18 +110,18 @@ function MyBarbers() {
 
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-gray-900 dark:bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Scissors className="w-5 h-5 text-white dark:text-gray-900" />
+            <Users className="w-5 h-5 text-white dark:text-gray-900" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Mis Barberos</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Historial de barberos con los que te has cortado</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Mis Profesionales</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Historial de profesionales con los que has agendado</p>
           </div>
         </div>
 
         {totalBarbers > 0 && (
           <div className="grid grid-cols-3 gap-3 mb-6">
-            <StatCard icon={<Users className="w-4 h-4" />}       label="Barberos"       value={totalBarbers}                    color="gray" />
-            <StatCard icon={<Scissors className="w-4 h-4" />}    label="Visitas"        value={totalVisits}                     color="blue" />
+            <StatCard icon={<Users className="w-4 h-4" />}       label="Profesionales"  value={totalBarbers}                    color="gray" />
+            <StatCard icon={<Calendar className="w-4 h-4" />}    label="Visitas"        value={totalVisits}                     color="blue" />
             <StatCard icon={<CreditCard className="w-4 h-4" />}  label="Total gastado"  value={`$${totalSpent.toLocaleString()}`} color="black" />
           </div>
         )}
@@ -132,7 +131,7 @@ function MyBarbers() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
               <input
-                type="text" placeholder="Buscar barbero..." value={search}
+                type="text" placeholder="Buscar profesional..." value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
               />
@@ -204,7 +203,7 @@ function BarberCard({ barber, visits, totalSpent, lastDate, services, navigate, 
 
       <div className="grid grid-cols-3 gap-2 text-center">
         {[
-          { icon: <Scissors className="w-3 h-3" />, label: 'Cortes',   val: visits },
+          { icon: <Calendar  className="w-3 h-3" />, label: 'Servicios', val: visits },
           { icon: <Calendar  className="w-3 h-3" />, label: 'Último',  val: timeAgo(lastDate) },
           { icon: <CreditCard className="w-3 h-3" />,label: 'Gastado', val: `$${totalSpent.toLocaleString()}` },
         ].map(({ icon, label, val }) => (
@@ -330,7 +329,7 @@ function PortfolioModal({ barber, onClose }) {
             )}
             {!loading && galleries.length === 0 && (
               <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-8 px-2">
-                Este barbero aún no tiene galerías publicadas
+                Este profesional aún no tiene galerías publicadas
               </p>
             )}
             {!loading && grouped.map((group) => (
@@ -499,14 +498,14 @@ function EmptyState({ navigate, hasHistory, search }) {
   }
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-      <Scissors className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-      <p className="font-medium text-gray-600 dark:text-gray-300 mb-1">Aún no tienes historial de barberos</p>
+      <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+      <p className="font-medium text-gray-600 dark:text-gray-300 mb-1">Aún no tienes historial de profesionales</p>
       <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">
-        Aquí aparecerán todos los barberos con los que te hayas cortado
+        Aquí aparecerán todos los profesionales con los que hayas agendado
       </p>
       <button onClick={() => navigate('/booking')}
         className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-gray-700 transition">
-        <Compass className="w-4 h-4" /> Explorar barberías
+        <Compass className="w-4 h-4" /> Explorar negocios
       </button>
     </div>
   )

@@ -224,19 +224,19 @@ function ShopDetail() {
       await loadShop()
       setSearchResults((prev) => prev.filter((b) => b.id !== barberId))
     } catch {
-      toast.error('No se pudo agregar el barbero')
+      toast.error('No se pudo agregar el profesional')
     } finally {
       setAddingId(null)
     }
   }
 
   const handleRemoveBarber = async (barberId) => {
-    if (!(await confirm('Quitar barbero', '¿Quitar este barbero del negocio?', { confirmText: 'Sí, quitar', icon: 'warning' }))) return
+    if (!(await confirm('Quitar profesional', '¿Quitar este profesional del negocio?', { confirmText: 'Sí, quitar', icon: 'warning' }))) return
     try {
       await api.removeBarberFromShop(shopId, barberId)
       await loadShop()
     } catch {
-      toast.error('No se pudo quitar el barbero')
+      toast.error('No se pudo quitar el profesional')
     }
   }
 
@@ -749,7 +749,7 @@ function ShopDetail() {
                   </div>
                 ) : services.length === 0 ? (
                   <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                    <Scissors className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <Tag className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     Este negocio no tiene servicios aún.
                     <br /><span className="text-xs">Agrega servicios usando el botón de arriba.</span>
                   </div>
@@ -1227,7 +1227,7 @@ function ShopDetail() {
               {/* ── Barberos ── */}
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Barberos ({shop.barbers?.length ?? 0})</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Profesionales ({shop.barbers?.length ?? 0})</h3>
                   <div className="flex items-center gap-2">
                     {myBarberProfile && !(shop.barbers ?? []).some((b) => b.id === myBarberProfile.id) && (
                       <button onClick={() => handleAddBarber(myBarberProfile.id)} disabled={addingId === myBarberProfile.id}
@@ -1239,7 +1239,7 @@ function ShopDetail() {
                     <button
                       onClick={() => { setShowSearch(!showSearch); setQuery(''); setSearchResults([]) }}
                       className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition ${showSearch ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200' : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-300'}`}>
-                      {showSearch ? <><X className="w-3.5 h-3.5" />Cerrar</> : <><UserPlus className="w-3.5 h-3.5" />Agregar barbero</>}
+                      {showSearch ? <><X className="w-3.5 h-3.5" />Cerrar</> : <><UserPlus className="w-3.5 h-3.5" />Agregar profesional</>}
                     </button>
                   </div>
                 </div>
@@ -1251,14 +1251,14 @@ function ShopDetail() {
                       <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                       <input type="text" autoFocus value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Buscar barbero por nombre..."
+                        placeholder="Buscar profesional por nombre..."
                         className="flex-1 bg-transparent text-sm dark:text-gray-100 focus:outline-none placeholder-gray-400 dark:placeholder-gray-500" />
                       {searching && <div className="w-4 h-4 border-2 border-gray-200 dark:border-gray-700 border-t-gray-500 dark:border-t-gray-300 rounded-full animate-spin flex-shrink-0" />}
                     </div>
                     <div className="max-h-56 overflow-y-auto">
                       {!searching && searchResults.length === 0 && (
                         <div className="text-center py-6 text-sm text-gray-400 dark:text-gray-500">
-                          {query.trim() ? 'No se encontraron barberos con ese nombre' : 'Escribe un nombre para buscar barberos registrados'}
+                          {query.trim() ? 'No se encontraron profesionales con ese nombre' : 'Escribe un nombre para buscar profesionales registrados'}
                         </div>
                       )}
                       {searchResults.map((barber) => (
@@ -1266,7 +1266,7 @@ function ShopDetail() {
                           <div className="flex items-center gap-3">
                             {barber.imageUrl
                               ? <img src={barber.imageUrl} alt={barber.name} className="w-9 h-9 rounded-full object-cover" />
-                              : <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Scissors className="w-4 h-4 text-gray-400 dark:text-gray-500" /></div>}
+                              : <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Users className="w-4 h-4 text-gray-400 dark:text-gray-500" /></div>}
                             <div>
                               <p className="text-sm font-medium text-gray-900 dark:text-gray-50">{barber.name}</p>
                               {barber.bio && <p className="text-xs text-gray-400 dark:text-gray-500 line-clamp-1">{barber.bio}</p>}
@@ -1280,7 +1280,7 @@ function ShopDetail() {
                       ))}
                     </div>
                     <div className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950 border-t border-blue-100 dark:border-blue-800">
-                      <p className="text-xs text-blue-600 dark:text-blue-400">Solo aparecen barberos registrados en la plataforma.</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">Solo aparecen profesionales registrados en la plataforma.</p>
                     </div>
                   </div>
                 )}
@@ -1288,9 +1288,9 @@ function ShopDetail() {
                 {/* Lista de barberos con panel de horarios */}
                 {(shop.barbers?.length ?? 0) === 0 ? (
                   <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                    <Scissors className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    Aún no hay barberos en este negocio.
-                    <br /><span className="text-xs">Agrega barberos registrados usando el buscador.</span>
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    Aún no hay profesionales en este negocio.
+                    <br /><span className="text-xs">Agrega profesionales registrados usando el buscador.</span>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -1301,7 +1301,7 @@ function ShopDetail() {
                           <div className="flex items-center gap-3">
                             {barber.imageUrl
                               ? <img src={barber.imageUrl} alt={barber.name} className="w-10 h-10 rounded-full object-cover" />
-                              : <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Scissors className="w-4 h-4 text-gray-500 dark:text-gray-400" /></div>}
+                              : <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Users className="w-4 h-4 text-gray-500 dark:text-gray-400" /></div>}
                             <div>
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-medium text-gray-900 dark:text-gray-50">{barber.name}</p>
@@ -1376,7 +1376,7 @@ function SchedulePanel({ schedules, loading, schedForm, setSchedForm, saving, de
           Horario en este negocio
         </p>
         <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-          Si tiene citas en otra barbería con menos de 30 min de diferencia, el sistema mostrará un aviso al reservar.
+          Si tiene citas en otro negocio con menos de 30 min de diferencia, el sistema mostrará un aviso al reservar.
         </p>
       </div>
 

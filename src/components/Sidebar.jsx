@@ -6,7 +6,7 @@ import {
   Heart,
   Settings,
   Compass,
-  Scissors,
+  Briefcase,
 } from 'lucide-react'
 
 function Sidebar({ isOpen }) {
@@ -16,7 +16,7 @@ function Sidebar({ isOpen }) {
     { path: '/booking', icon: Compass, label: 'Explorar' },
     { path: '/profile', icon: User, label: 'Perfil' },
     { path: '/appointments', icon: Calendar, label: 'Mis Citas' },
-    { path: '/my-barbers', icon: Scissors, label: 'Mis Barberos' },
+    { path: '/my-barbers', icon: Briefcase, label: 'Mis Profesionales' },
     { path: '/wallet', icon: Wallet, label: 'Wallet' },
     { path: '/favorites', icon: Heart, label: 'Favoritos' },
     { path: '/edit-profile', icon: Settings, label: 'Editar Perfil' },

@@ -22,8 +22,8 @@ function ReviewModal({ isOpen, onClose, onSubmit, targetName, targetType = 'barb
   if (!isOpen) return null
 
   const typeLabel = {
-    barber: 'al barbero',
-    shop: 'la barbería',
+    barber: 'al profesional',
+    shop: 'el negocio',
     client: 'al cliente',
   }[targetType] ?? 'el servicio'
 

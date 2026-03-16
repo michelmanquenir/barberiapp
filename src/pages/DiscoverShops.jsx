@@ -6,7 +6,7 @@ import {
   MapPin,
   Star,
   Users,
-  Scissors,
+  Store,
   Search,
   X,
 } from 'lucide-react'
@@ -133,9 +133,9 @@ function DiscoverShops() {
       <div className="px-4 sm:px-6 lg:px-8 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">Descubre Barberías</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">Descubre Negocios</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-              Encuentra tu barbería ideal y agenda tu cita
+              Encuentra el negocio ideal y agenda tu cita
             </p>
           </div>
           <div className="relative max-w-sm w-full">
@@ -164,7 +164,7 @@ function DiscoverShops() {
         <div className="px-4 sm:px-6 lg:px-8 mb-6">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
             <Heart className="w-4 h-4 text-red-400 fill-red-400" />
-            Tus barberías guardadas
+            Tus negocios guardados
           </h2>
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {favoriteShops.map((fav) => (
@@ -203,12 +203,12 @@ function DiscoverShops() {
         <div className="lg:w-1/2 overflow-y-auto pr-1 space-y-3">
           {filteredShops.length === 0 ? (
             <div className="text-center py-16">
-              <Scissors className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 font-medium">No se encontraron barberías</p>
+              <Store className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">No se encontraron negocios</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 {searchQuery
                   ? 'Intenta con otro término de búsqueda'
-                  : 'Aún no hay barberías registradas'}
+                  : 'Aún no hay negocios registrados'}
               </p>
             </div>
           ) : (
@@ -283,7 +283,7 @@ function DiscoverShops() {
                           </span>
                         )}
                         <span className="text-xs text-gray-500">
-                          {shop.barbers?.length || 0} barbero{(shop.barbers?.length || 0) !== 1 ? 's' : ''}
+                          {shop.barbers?.length || 0} profesional{(shop.barbers?.length || 0) !== 1 ? 'es' : ''}
                         </span>
                       </div>
                       <button

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Scissors,
   Calendar,
   Store,
   ShoppingBag,
   TrendingUp,
   Star,
   User,
+  Users,
   ChevronRight,
   CalendarDays,
   Images,
@@ -64,8 +64,8 @@ function AdminDashboard() {
                   <User className="w-4 h-4 text-white dark:text-gray-900" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-sm">Mi perfil de barbero</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Tu cuenta como empleado en barberías</p>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-sm">Mi perfil de profesional</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Tu cuenta como profesional en negocios</p>
                 </div>
               </div>
 
@@ -107,12 +107,12 @@ function AdminDashboard() {
 
                 <div className="grid grid-cols-3 gap-3">
                   <StatCard label="Citas pendientes" value="—" color="blue" />
-                  <StatCard label="Cortes este mes" value="—" color="purple" />
+                  <StatCard label="Servicios este mes" value="—" color="purple" />
                   <StatCard label="Clientes únicos" value="—" color="orange" />
                 </div>
 
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
-                  Las barberías donde trabajas pueden verte en su panel. Tu agenda y cortes son visibles para los dueños de los negocios donde estás registrado.
+                  Los negocios donde trabajas pueden verte en su panel. Tu agenda y servicios son visibles para los dueños de los negocios donde estás registrado.
                 </p>
               </div>
             </div>
@@ -122,7 +122,7 @@ function AdminDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <SummaryCard icon={<Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />} bg="bg-blue-50 dark:bg-blue-950" label="Citas del día" value={todayCitas} onClick={() => navigate('/admin/appointments')} clickable />
               <SummaryCard icon={<Store className="w-6 h-6 text-green-600 dark:text-green-400" />} bg="bg-green-50 dark:bg-green-950" label="Mis negocios" value={shopCount} />
-              <SummaryCard icon={<Scissors className="w-6 h-6 text-purple-600 dark:text-purple-400" />} bg="bg-purple-50 dark:bg-purple-950" label="Barberos activos" value="—" />
+              <SummaryCard icon={<Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />} bg="bg-purple-50 dark:bg-purple-950" label="Profesionales activos" value="—" />
               <SummaryCard icon={<TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />} bg="bg-orange-50 dark:bg-orange-950" label="Ingresos del mes" value="—" />
             </div>
 
@@ -130,7 +130,7 @@ function AdminDashboard() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-4">Gestión de negocios</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <QuickLink icon={<CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400" />} title="Todas las citas" subtitle="Resumen de todos mis negocios" onClick={() => navigate('/admin/appointments')} highlight />
-                <QuickLink icon={<Store className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Mis Negocios" subtitle="Gestionar barberías" onClick={() => navigate('/admin/shops')} />
+                <QuickLink icon={<Store className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Mis Negocios" subtitle="Gestionar negocios" onClick={() => navigate('/admin/shops')} />
                 <QuickLink icon={<Images className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Mi Portafolio" subtitle="Galerías de mis trabajos" onClick={() => navigate('/admin/gallery')} />
                 <QuickLink icon={<ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Inventario" subtitle="Productos por negocio" onClick={() => navigate('/admin/shops')} />
               </div>

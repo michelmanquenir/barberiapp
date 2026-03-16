@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Scissors, Plus, Store, ChevronRight, CalendarDays, Clock, AlertTriangle } from 'lucide-react'
+import { Plus, Store, ChevronRight, CalendarDays, Clock, AlertTriangle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import AdminNavbar from '../../components/AdminNavbar'
@@ -30,7 +30,7 @@ function MyShops() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Mis Negocios</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">Gestiona tus barberías y salones</p>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">Gestiona tus negocios y locales</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -103,7 +103,7 @@ function MyShops() {
                 Aún no tienes negocios
               </h3>
               <p className="text-gray-400 dark:text-gray-500 text-sm mb-6">
-                Crea tu primera barbería y comienza a agendar citas
+                Crea tu primer negocio y comienza a agendar citas
               </p>
               <button
                 onClick={() => navigate('/admin/shops/new')}
@@ -126,7 +126,7 @@ function MyShops() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center">
-                        <Scissors className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                        <Store className="w-6 h-6 text-gray-600 dark:text-gray-300" />
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-lg">{shop.name}</h3>
@@ -149,8 +149,8 @@ function MyShops() {
                             {shop.active ? 'Activo' : 'Inactivo'}
                           </span>
                           <span className="text-xs text-gray-400 dark:text-gray-500">
-                            {shop.barbers?.length ?? 0} barbero
-                            {(shop.barbers?.length ?? 0) !== 1 ? 's' : ''}
+                            {shop.barbers?.length ?? 0} profesional
+                            {(shop.barbers?.length ?? 0) !== 1 ? 'es' : ''}
                           </span>
                         </div>
                       </div>

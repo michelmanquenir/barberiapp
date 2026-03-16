@@ -105,9 +105,9 @@ function AdminNavbar() {
                   <div className="px-4 pt-3 pb-1 border-t border-gray-100 dark:border-gray-800 mt-1">
                     <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Modo Cliente</p>
                   </div>
-                  <NavItem to="/booking" icon={<Compass className="w-4 h-4" />} label="Explorar barber&iacute;as" onClick={close} />
+                  <NavItem to="/booking" icon={<Compass className="w-4 h-4" />} label="Explorar negocios" onClick={close} />
                   <NavItem to="/appointments" icon={<Calendar className="w-4 h-4" />} label="Mis citas" onClick={close} />
-                  <NavItem to="/my-barbers" icon={<Scissors className="w-4 h-4" />} label="Mis barberos" onClick={close} />
+                  <NavItem to="/my-barbers" icon={<Store className="w-4 h-4" />} label="Mis profesionales" onClick={close} />
                   <NavItem to="/wallet" icon={<Wallet className="w-4 h-4" />} label="Wallet" onClick={close} />
                   <NavItem to="/favorites" icon={<Heart className="w-4 h-4" />} label="Favoritos" onClick={close} />
 

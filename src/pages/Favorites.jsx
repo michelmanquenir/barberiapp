@@ -73,8 +73,8 @@ function Favorites() {
                 : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-400'
             }`}
           >
-            <Scissors className="w-4 h-4" />
-            Barberos
+            <Users className="w-4 h-4" />
+            Profesionales
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
               tab === 'barbers' ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
             }`}>
@@ -90,7 +90,7 @@ function Favorites() {
             }`}
           >
             <Store className="w-4 h-4" />
-            Barberías
+            Negocios
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
               tab === 'shops' ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
             }`}>
@@ -103,9 +103,9 @@ function Favorites() {
         {tab === 'barbers' && (
           barberFavs.length === 0 ? (
             <EmptyState
-              icon={<Scissors className="w-10 h-10 text-gray-300 dark:text-gray-600" />}
-              title="Aún no tienes barberos favoritos"
-              desc="Explora los negocios y marca como favoritos a tus barberos preferidos"
+              icon={<Users className="w-10 h-10 text-gray-300 dark:text-gray-600" />}
+              title="Aún no tienes profesionales favoritos"
+              desc="Explora los negocios y marca como favoritos a tus profesionales preferidos"
             />
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
@@ -171,8 +171,8 @@ function Favorites() {
           shopFavs.length === 0 ? (
             <EmptyState
               icon={<Store className="w-10 h-10 text-gray-300 dark:text-gray-600" />}
-              title="Aún no tienes barberías favoritas"
-              desc="Explora los negocios y guarda tus barberías preferidas"
+              title="Aún no tienes negocios favoritos"
+              desc="Explora los negocios y guarda tus preferidos"
             />
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
@@ -183,7 +183,7 @@ function Favorites() {
                     <div className="flex items-start justify-between gap-3 mb-3">
                       {/* Icono negocio */}
                       <div className="w-12 h-12 rounded-xl bg-gray-900 flex items-center justify-center flex-shrink-0">
-                        <Scissors className="w-6 h-6 text-white" />
+                        <Store className="w-6 h-6 text-white" />
                       </div>
                       {/* Info */}
                       <div className="flex-1 min-w-0">

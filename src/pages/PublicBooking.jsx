@@ -286,7 +286,7 @@ function PublicBooking() {
   const steps = [
     { n: 1, label: 'Servicio', icon: Scissors },
     { n: 2, label: 'Fecha', icon: Calendar },
-    { n: 3, label: 'Hora y barbero', icon: Clock },
+    { n: 3, label: 'Hora y profesional', icon: Clock },
     { n: 4, label: 'Confirmar', icon: Check },
   ]
 
@@ -657,7 +657,7 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], pl
           </h3>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { id: 'barbershop', label: 'En la barbería', emoji: '🏪', desc: 'Visita el local' },
+              { id: 'barbershop', label: 'En el local', emoji: '🏪', desc: 'Visita el local' },
               { id: 'home', label: 'A domicilio', emoji: '🏠', desc: `+$${(shop.pricePerKm || 0).toLocaleString()}/km ida y vuelta · 3 h bloqueo` },
             ].map((l) => (
               <button
@@ -818,9 +818,9 @@ function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1">Hora y barbero</h2>
+      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1">Hora y profesional</h2>
       <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">
-        Elige la hora y ve qué barberos están disponibles
+        Elige la hora y ve qué profesionales están disponibles
       </p>
       <div className="grid md:grid-cols-2 gap-6">
         {/* Columna izquierda: horarios */}
@@ -856,7 +856,7 @@ function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
         <div>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-1.5">
             <Users className="w-4 h-4" />
-            {booking.time ? 'Barberos disponibles' : 'Barberos'}
+            {booking.time ? 'Profesionales disponibles' : 'Profesionales'}
           </h3>
 
           {!booking.time ? (
@@ -871,7 +871,7 @@ function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
           ) : (
             <div className="space-y-2">
               {barbers.length === 0 && (
-                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No hay barberos en este negocio</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No hay profesionales en este negocio</p>
               )}
               {barbers.map((barber) => {
                 const booked = bookedBarberIds.includes(barber.id)
@@ -936,7 +936,7 @@ function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
                       </span>
                     </div>
                     <p className="text-xs text-amber-600 mt-2">
-                      Puedes continuar de todas formas. El barbero podría llegar tarde o necesitar reorganizar.
+                      Puedes continuar de todas formas. El profesional podría llegar tarde o necesitar reorganizar.
                     </p>
                   </div>
                 </div>
@@ -1032,7 +1032,7 @@ function ConfirmStep({ booking, setBooking, shop, selectedService, selectedBarbe
             <span className="font-semibold text-gray-900 dark:text-gray-50">{booking.time}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Barbero</span>
+            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Profesional</span>
             <span className="font-semibold text-gray-900 dark:text-gray-50">{selectedBarber?.name}</span>
           </div>
           {booking.locationType === 'home' && (

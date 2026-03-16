@@ -206,8 +206,8 @@ function CreateShop() {
             </h2>
             <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
               {isEdit
-                ? 'Modifica la información de tu barbería'
-                : 'Configura tu barbería y obtén un enlace público para recibir reservas'}
+                ? 'Modifica la información de tu negocio'
+                : 'Configura tu negocio y obtén un enlace público para recibir reservas'}
             </p>
           </div>
 
@@ -234,7 +234,7 @@ function CreateShop() {
                   type="text"
                   value={form.name}
                   onChange={handleNameChange}
-                  placeholder="Mi Barbería"
+                  placeholder="Mi Negocio"
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent"
                   required
                 />
@@ -365,7 +365,7 @@ function CreateShop() {
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  Permite que los clientes soliciten un barbero en su domicilio. El tiempo de bloqueo será de 3 horas por cita.
+                  Permite que los clientes soliciten un profesional en su domicilio. El tiempo de bloqueo será de 3 horas por cita.
                 </p>
                 {form.homeServiceEnabled && (
                   <div>

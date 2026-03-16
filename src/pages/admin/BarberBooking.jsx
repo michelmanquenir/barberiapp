@@ -450,15 +450,15 @@ function BarberBooking() {
               </div>
               {isToday && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                  Como barbero, puedes agendar en cualquier horario, incluyendo slots pasados.
+                  Como profesional, puedes agendar en cualquier horario, incluyendo slots pasados.
                 </p>
               )}
             </FormCard>
 
-            {/* ── Barbero ── */}
-            <FormCard title="Barbero" icon={<Users className="w-4 h-4 text-gray-500 dark:text-gray-400" />}>
+            {/* ── Profesional ── */}
+            <FormCard title="Profesional" icon={<Users className="w-4 h-4 text-gray-500 dark:text-gray-400" />}>
               {barbers.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500">No hay barberos en este negocio.</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">No hay profesionales en este negocio.</p>
               ) : loadingAvailability ? (
                 <div className="flex items-center gap-2 py-3 text-gray-400 dark:text-gray-500 text-sm">
                   <Loader2 className="w-4 h-4 animate-spin" /> Verificando disponibilidad...
@@ -539,7 +539,7 @@ function BarberBooking() {
                     <p className="text-xs font-medium text-gray-500 mb-1.5">Ubicación</p>
                     <div className="space-y-1.5">
                       {[
-                        { id: 'barbershop', label: '🏪 En la barbería' },
+                        { id: 'barbershop', label: '🏪 En el local' },
                         { id: 'home',       label: `🏠 A domicilio (+$${(shop.pricePerKm || 0).toLocaleString()}/km)` },
                       ].map((l) => (
                         <button

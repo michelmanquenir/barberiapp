@@ -263,7 +263,7 @@ function Appointments() {
                           {clientToBarber ? (
                             <div className="flex items-start gap-2 bg-yellow-50 dark:bg-yellow-950 rounded-lg px-3 py-2">
                               <div className="flex-1">
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Tu reseña del barbero</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Tu reseña del profesional</p>
                                 <StarRating value={clientToBarber.rating} size="sm" />
                                 {clientToBarber.comment && (
                                   <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 italic">"{clientToBarber.comment}"</p>
@@ -276,7 +276,7 @@ function Appointments() {
                               className="flex items-center gap-1.5 text-xs text-yellow-600 hover:text-yellow-700 font-medium transition border border-yellow-200 hover:border-yellow-400 rounded-lg px-3 py-1.5"
                             >
                               <Star className="w-3.5 h-3.5 fill-yellow-400" />
-                              Calificar al barbero
+                              Calificar al profesional
                             </button>
                           )}
 
@@ -284,7 +284,7 @@ function Appointments() {
                           {clientToShop ? (
                             <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-950 rounded-lg px-3 py-2">
                               <div className="flex-1">
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Tu reseña de la barbería</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Tu reseña del negocio</p>
                                 <StarRating value={clientToShop.rating} size="sm" />
                                 {clientToShop.comment && (
                                   <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 italic">"{clientToShop.comment}"</p>
@@ -297,7 +297,7 @@ function Appointments() {
                               className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium transition border border-blue-200 dark:border-blue-800 hover:border-blue-400 rounded-lg px-3 py-1.5"
                             >
                               <Star className="w-3.5 h-3.5 fill-blue-400 text-blue-400" />
-                              Calificar la barbería
+                              Calificar el negocio
                             </button>
                           )}
 
@@ -305,7 +305,7 @@ function Appointments() {
                           {barberToClient && (
                             <div className="flex items-start gap-2 bg-gray-50 dark:bg-gray-950 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
                               <div className="flex-1">
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">El barbero te calificó</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">El profesional te calificó</p>
                                 <StarRating value={barberToClient.rating} size="sm" />
                                 {barberToClient.comment && (
                                   <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 italic">"{barberToClient.comment}"</p>
