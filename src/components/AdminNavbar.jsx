@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
-  Scissors,
   LogOut,
   ChevronDown,
   LayoutDashboard,
@@ -58,8 +57,8 @@ function AdminNavbar() {
 
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <Scissors className="w-6 h-6" />
-          <span className="text-xl font-bold">Mi Panel</span>
+          <Store className="w-6 h-6" />
+          <span className="text-xl font-bold">WeServ</span>
         </div>
 
         {/* Toggle + Avatar */}
@@ -96,7 +95,7 @@ function AdminNavbar() {
                   </div>
 
                   <div className="px-4 pt-2 pb-1">
-                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Mi Panel</p>
+                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">WeServ</p>
                   </div>
                   <NavItem to="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" onClick={close} />
                   <NavItem to="/admin/shops" icon={<Store className="w-4 h-4" />} label="Mis Negocios" onClick={close} />

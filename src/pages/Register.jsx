@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Scissors, Eye, EyeOff, User, Briefcase } from 'lucide-react'
+import { Store, Eye, EyeOff, User, Briefcase } from 'lucide-react'
 import { api } from '../lib/api'
 
 // ─── Helpers de RUT chileno ───────────────────────────────────────────────────
@@ -105,9 +105,9 @@ function Register() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-900 rounded-2xl mb-4">
-            <Scissors className="w-8 h-8 text-white" />
+            <Store className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">BarberShop</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">WeServ</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Crea tu cuenta</p>
         </div>
 

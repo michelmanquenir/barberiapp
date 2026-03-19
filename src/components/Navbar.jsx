@@ -55,7 +55,7 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
             </button>
 
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-50">
-              BarberShop
+              WeServ
             </h1>
           </div>
 
@@ -117,7 +117,7 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
                       >
                         <LayoutDashboard className="h-4 w-4" />
-                        Mi Panel
+                        Panel WeServ
                       </Link>
                     )}
 
