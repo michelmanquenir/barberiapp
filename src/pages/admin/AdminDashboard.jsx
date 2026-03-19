@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Calendar,
@@ -11,6 +11,8 @@ import {
   ChevronRight,
   CalendarDays,
   Images,
+  BarChart2,
+  ChevronDown,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { api } from '../../lib/api'
@@ -21,17 +23,21 @@ function AdminDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
+  const [shops, setShops] = useState([])
   const [shopCount, setShopCount] = useState('—')
   const [barberProfile, setBarberProfile] = useState(null)
   const [todayCitas, setTodayCitas] = useState('—')
+  const [statsDropdownOpen, setStatsDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
 
   useEffect(() => {
     api.getMyShops()
-      .then(async (shops) => {
-        setShopCount(shops.length)
+      .then(async (data) => {
+        setShops(data)
+        setShopCount(data.length)
         const today = new Date().toISOString().split('T')[0]
         const results = await Promise.all(
-          shops.map((shop) => api.getShopAppointments(shop.id).catch(() => []))
+          data.map((shop) => api.getShopAppointments(shop.id).catch(() => []))
         )
         const todayCount = results.flat().filter((a) => a.date === today && a.status !== 'cancelled').length
         setTodayCitas(todayCount)
@@ -42,6 +48,27 @@ function AdminDashboard() {
       .then((profile) => setBarberProfile(profile))
       .catch(() => setBarberProfile(null))
   }, [])
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setStatsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  function handleStatsClick() {
+    if (shops.length === 1) {
+      navigate(`/admin/shops/${shops[0].id}/stats`)
+    } else if (shops.length > 1) {
+      setStatsDropdownOpen((v) => !v)
+    } else {
+      navigate('/admin/shops')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
@@ -133,6 +160,37 @@ function AdminDashboard() {
                 <QuickLink icon={<Store className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Mis Negocios" subtitle="Gestionar negocios" onClick={() => navigate('/admin/shops')} />
                 <QuickLink icon={<Images className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Mi Portafolio" subtitle="Galerías de mis trabajos" onClick={() => navigate('/admin/gallery')} />
                 <QuickLink icon={<ShoppingBag className="w-5 h-5 text-gray-600 dark:text-gray-300" />} title="Inventario" subtitle="Productos por negocio" onClick={() => navigate('/admin/shops')} />
+
+                {/* Acceso directo a Estadísticas */}
+                <div ref={dropdownRef} className="relative">
+                  <QuickLink
+                    icon={<BarChart2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
+                    title="Estadísticas"
+                    subtitle={shops.length > 1 ? 'Seleccionar negocio' : 'Ver reporte del negocio'}
+                    onClick={handleStatsClick}
+                    highlight={false}
+                    trailingIcon={shops.length > 1 ? <ChevronDown className="w-4 h-4 text-gray-400" /> : undefined}
+                  />
+                  {statsDropdownOpen && shops.length > 1 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      {shops.map((shop) => (
+                        <button
+                          key={shop.id}
+                          onClick={() => { setStatsDropdownOpen(false); navigate(`/admin/shops/${shop.id}/stats`) }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition border-b border-gray-100 dark:border-gray-700 last:border-0"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-green-100 dark:bg-green-900/40 flex items-center justify-center shrink-0">
+                            <Store className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{shop.name}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">Ver estadísticas →</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -170,7 +228,7 @@ function SummaryCard({ icon, bg, label, value, onClick, clickable }) {
   )
 }
 
-function QuickLink({ icon, title, subtitle, onClick, highlight }) {
+function QuickLink({ icon, title, subtitle, onClick, highlight, trailingIcon }) {
   return (
     <button
       onClick={onClick}
@@ -185,7 +243,7 @@ function QuickLink({ icon, title, subtitle, onClick, highlight }) {
         <p className={`text-sm font-medium ${highlight ? 'text-blue-900 dark:text-blue-200' : 'text-gray-900 dark:text-gray-50'}`}>{title}</p>
         <p className={`text-xs ${highlight ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>{subtitle}</p>
       </div>
-      <ChevronRight className={`w-4 h-4 ${highlight ? 'text-blue-400' : 'text-gray-300 dark:text-gray-600'}`} />
+      {trailingIcon ?? <ChevronRight className={`w-4 h-4 ${highlight ? 'text-blue-400' : 'text-gray-300 dark:text-gray-600'}`} />}
     </button>
   )
 }
