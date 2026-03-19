@@ -17,6 +17,7 @@ import ShopAppointments from './pages/admin/ShopAppointments'
 import AllShopsAppointments from './pages/admin/AllShopsAppointments'
 import BarberBooking from './pages/admin/BarberBooking'
 import BarberGallery from './pages/admin/BarberGallery'
+import ShopStats from './pages/admin/ShopStats'
 import PublicBooking from './pages/PublicBooking'
 import SuperAdminUsers from './pages/super-admin/SuperAdminUsers'
 import SuperAdminShops from './pages/super-admin/SuperAdminShops'
@@ -165,6 +166,14 @@ function App() {
               element={
                 <ProtectedRoute requireBusinessOwner>
                   <BarberGallery />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/shops/:shopId/stats"
+              element={
+                <ProtectedRoute requireBusinessOwner>
+                  <ShopStats />
                 </ProtectedRoute>
               }
             />

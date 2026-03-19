@@ -154,6 +154,10 @@ export const api = {
   adjustStock: (productId, delta) =>
     request(`/admin/products/${productId}/stock?delta=${delta}`, { method: 'PATCH' }),
 
+  // Estadísticas de negocio
+  getShopStats: (shopId, days = 30) =>
+    request(`/admin/shops/${shopId}/stats?days=${days}`),
+
   // Perfil
   getProfile: (userId) => request(`/profile?userId=${userId}`),
   updateProfile: (userId, data) =>

@@ -643,6 +643,10 @@ function ShopDetail() {
                       className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-300 transition">
                       <CalendarDays className="w-3.5 h-3.5" />Ver citas
                     </button>
+                    <button onClick={() => navigate(`/admin/shops/${shopId}/stats`)}
+                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                      <TrendingUp className="w-3.5 h-3.5" />Estadísticas
+                    </button>
                     <button onClick={() => navigate(`/admin/shops/${shopId}/edit`)}
                       className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">
                       <Pencil className="w-3.5 h-3.5" />Editar
