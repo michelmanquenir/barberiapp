@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { Shield } from 'lucide-react'
 
 function NavAvatar({ avatarUrl, fullName, size = 8 }) {
   const initials = fullName?.trim()
@@ -38,7 +39,7 @@ function NavAvatar({ avatarUrl, fullName, size = 8 }) {
 }
 
 function AdminNavbar() {
-  const { user, logout } = useAuth()
+  const { user, logout, isSuperAdmin } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -109,6 +110,15 @@ function AdminNavbar() {
                   <NavItem to="/my-barbers" icon={<Store className="w-4 h-4" />} label="Mis profesionales" onClick={close} />
                   <NavItem to="/wallet" icon={<Wallet className="w-4 h-4" />} label="Wallet" onClick={close} />
                   <NavItem to="/favorites" icon={<Heart className="w-4 h-4" />} label="Favoritos" onClick={close} />
+
+                  {isSuperAdmin && (
+                    <>
+                      <div className="px-4 pt-3 pb-1 border-t border-gray-100 dark:border-gray-800 mt-1">
+                        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Super Admin</p>
+                      </div>
+                      <NavItem to="/super-admin/dashboard" icon={<Shield className="w-4 h-4" />} label="Panel Super Admin" onClick={close} />
+                    </>
+                  )}
 
                   <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-2">
                     <button

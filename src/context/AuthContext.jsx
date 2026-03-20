@@ -35,8 +35,9 @@ export function AuthProvider({ children }) {
   }
 
   const isAuthenticated = !!auth?.token
-  const isBusinessOwner = auth?.role === 'BUSINESS_OWNER'
   const isSuperAdmin = auth?.role === 'SUPER_ADMIN'
+  // Super admin tiene acceso a todo — también pasa el guard de business owner
+  const isBusinessOwner = auth?.role === 'BUSINESS_OWNER' || isSuperAdmin
   const isPending = auth?.status === 'PENDING'
   const isRejected = auth?.status === 'REJECTED'
   const isActive = auth?.status === 'ACTIVE'
