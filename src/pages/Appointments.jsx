@@ -1,10 +1,33 @@
-import { Calendar, Clock, User, MapPin, CreditCard, Star, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, User, MapPin, CreditCard, Star, AlertCircle, ShoppingBag, Package, Truck, CheckCircle, XCircle } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../lib/api'
 import { toast, confirm } from '../lib/swal'
 import { useAuth } from '../context/AuthContext'
 import StarRating from '../components/StarRating'
 import ReviewModal from '../components/ReviewModal'
+
+// ─── Status de pedidos ─────────────────────────────────────────────────────────
+
+const ORDER_STATUS = {
+  pending:   { text: 'Pendiente',  cls: 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' },
+  confirmed: { text: 'Confirmado', cls: 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-400' },
+  ready:     { text: 'Listo',      cls: 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-400' },
+  delivered: { text: 'Entregado',  cls: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-400' },
+  cancelled: { text: 'Cancelado',  cls: 'bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400' },
+}
+
+function formatPrice(cents) {
+  if (cents == null) return '—'
+  return `$${(cents / 100).toLocaleString('es-ES', { minimumFractionDigits: 0 })}`
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('es-ES', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 
 // ─── Estado de la cita (cliente) ──────────────────────────────────────────────
 
@@ -20,6 +43,7 @@ const STATUS_LABELS = {
 
 function Appointments() {
   const { user } = useAuth()
+  const [activeTab, setActiveTab] = useState('citas') // 'citas' | 'pedidos'
   const [filter, setFilter] = useState('upcoming')
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,12 +54,26 @@ function Appointments() {
   // Modal
   const [modal, setModal] = useState(null) // { aptId, barberId, shopId, barberName, shopName, type }
 
+  // ── Pedidos ──────────────────────────────────────────────────────────────────
+  const [orders, setOrders] = useState([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
+  const [cancellingOrderId, setCancellingOrderId] = useState(null)
+
   useEffect(() => {
     api.getAppointments(user.userId)
       .then(data => setAppointments(data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [user.userId])
+
+  useEffect(() => {
+    if (activeTab !== 'pedidos') return
+    setLoadingOrders(true)
+    api.getMyOrders()
+      .then(data => setOrders(data || []))
+      .catch(console.error)
+      .finally(() => setLoadingOrders(false))
+  }, [activeTab])
 
   // Cargar reseñas para citas completadas cuando se cambia al tab
   useEffect(() => {
@@ -49,6 +87,25 @@ function Appointments() {
         .catch(() => setReviewsMap(prev => ({ ...prev, [apt.id]: [] })))
     })
   }, [filter, appointments]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCancelOrder = async (orderId) => {
+    const ok = await confirm(
+      'Cancelar pedido',
+      '¿Seguro que deseas cancelar este pedido?',
+      { confirmText: 'Sí, cancelar', icon: 'warning' }
+    )
+    if (!ok) return
+    setCancellingOrderId(orderId)
+    try {
+      const updated = await api.cancelOrder(orderId)
+      setOrders(prev => prev.map(o => o.id === orderId ? updated : o))
+      toast.success('Pedido cancelado')
+    } catch {
+      toast.error('No se pudo cancelar el pedido')
+    } finally {
+      setCancellingOrderId(null)
+    }
+  }
 
   const handleCancel = async (id) => {
     const ok = await confirm(
@@ -120,11 +177,126 @@ function Appointments() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">Mi actividad</h1>
+
+        {/* Tabs principales */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('citas')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'citas'
+              ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            Citas
+          </button>
+          <button
+            onClick={() => setActiveTab('pedidos')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'pedidos'
+              ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            Pedidos
+          </button>
+        </div>
+      </div>
+
+      {/* ── Contenido tab Pedidos ── */}
+      {activeTab === 'pedidos' && (
+        <div className="space-y-4">
+          {loadingOrders ? (
+            <div className="card py-12 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando pedidos...</p>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="card text-center py-12">
+              <ShoppingBag className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-300 font-medium">No tienes pedidos aún</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Visita un negocio tipo bazar para hacer tu primer pedido
+              </p>
+            </div>
+          ) : (
+            orders.map(order => {
+              const statusInfo = ORDER_STATUS[order.status] ?? ORDER_STATUS.pending
+              return (
+                <div key={order.id} className="card hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-gray-900 dark:text-gray-50 text-lg">
+                          {order.shopName}
+                        </h3>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>
+                          {statusInfo.text}
+                        </span>
+                        {order.deliveryType === 'delivery' && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                            <Truck className="w-3 h-3" />Delivery
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        {formatDateTime(order.createdAt)}
+                        <span className="mx-1">·</span>
+                        <CreditCard className="w-3.5 h-3.5" />
+                        {order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia'}
+                      </p>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+                      {formatPrice(order.totalPrice)}
+                    </p>
+                  </div>
+
+                  {/* Items */}
+                  {(order.items ?? []).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+                          <span>{item.quantity}× {item.productName}</span>
+                          <span className="font-medium">{formatPrice(item.subtotal)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {order.notes && (
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
+                      Nota: {order.notes}
+                    </p>
+                  )}
+
+                  {order.status === 'pending' && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                      <button
+                        onClick={() => handleCancelOrder(order.id)}
+                        disabled={cancellingOrderId === order.id}
+                        className="btn-secondary text-sm"
+                      >
+                        {cancellingOrderId === order.id ? 'Cancelando...' : 'Cancelar pedido'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
+      {/* ── Contenido tab Citas ── */}
+      {activeTab === 'citas' && (
+        <>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">Mis Citas</h1>
           {pendingCount > 0 && (
-            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+            <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
               <AlertCircle className="w-3.5 h-3.5" />
               {pendingCount} cita{pendingCount !== 1 ? 's' : ''} esperando confirmación del negocio
             </p>
@@ -362,6 +534,8 @@ function Appointments() {
         targetName={modal?.type === 'CLIENT_TO_BARBER' ? modal?.barberName : modal?.shopName}
         targetType={modal?.type === 'CLIENT_TO_BARBER' ? 'barber' : 'shop'}
       />
+        </>
+      )}
     </div>
   )
 }

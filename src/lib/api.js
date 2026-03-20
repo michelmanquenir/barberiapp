@@ -158,6 +158,16 @@ export const api = {
   getShopStats: (shopId, days = 30) =>
     request(`/admin/shops/${shopId}/stats?days=${days}`),
 
+  // ── Pedidos (negocios de producto) ────────────────────────────────────────
+  createOrder: (data) =>
+    request('/orders', { method: 'POST', body: JSON.stringify(data) }),
+  getMyOrders: () => request('/orders/my'),
+  cancelOrder: (orderId) =>
+    request(`/orders/${orderId}/cancel`, { method: 'PUT' }),
+  getShopOrders: (shopId) => request(`/admin/shops/${shopId}/orders`),
+  updateOrderStatus: (orderId, status) =>
+    request(`/admin/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+
   // Perfil
   getProfile: (userId) => request(`/profile?userId=${userId}`),
   updateProfile: (userId, data) =>

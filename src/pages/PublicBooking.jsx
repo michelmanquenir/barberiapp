@@ -121,8 +121,18 @@ function PublicBooking() {
   const [selectedProducts, setSelectedProducts] = useState({})
 
   useEffect(() => {
-    api.getShopBySlug(slug)
-      .then(async (shopData) => {
+    Promise.all([
+      api.getShopBySlug(slug),
+      api.getCategories().catch(() => []),
+    ])
+      .then(async ([shopData, categories]) => {
+        // Detectar negocio de producto (bazar) y redirigir al catálogo
+        const cat = (categories || []).find(c => c.id === shopData.categoryId)
+        if (cat?.slug?.includes('bazar')) {
+          navigate(`/shop/${slug}`, { replace: true })
+          return
+        }
+
         // Cargar servicios, reseñas, planes, productos y suscripción activa del usuario en paralelo
         const extras = [
           api.getShopServices(shopData.id).catch(() => []),
@@ -143,7 +153,7 @@ function PublicBooking() {
       })
       .catch(() => setShopError('No se encontró el negocio'))
       .finally(() => setLoadingShop(false))
-  }, [slug, isAuthenticated])
+  }, [slug, isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const barbers = shop?.barbers ?? []
   const selectedService = services.find((s) => s.id === booking.serviceId)

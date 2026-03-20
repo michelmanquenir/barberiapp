@@ -18,6 +18,8 @@ import AllShopsAppointments from './pages/admin/AllShopsAppointments'
 import BarberBooking from './pages/admin/BarberBooking'
 import BarberGallery from './pages/admin/BarberGallery'
 import ShopStats from './pages/admin/ShopStats'
+import ShopOrders from './pages/admin/ShopOrders'
+import PublicShopCatalog from './pages/PublicShopCatalog'
 import PublicBooking from './pages/PublicBooking'
 import SuperAdminUsers from './pages/super-admin/SuperAdminUsers'
 import SuperAdminShops from './pages/super-admin/SuperAdminShops'
@@ -45,6 +47,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/book/:slug" element={<PublicBooking />} />
+            <Route path="/shop/:slug" element={<PublicShopCatalog />} />
 
             {/* Panel Super Admin */}
             <Route
@@ -174,6 +177,14 @@ function App() {
               element={
                 <ProtectedRoute requireBusinessOwner>
                   <ShopStats />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/shops/:shopId/orders"
+              element={
+                <ProtectedRoute requireBusinessOwner>
+                  <ShopOrders />
                 </ProtectedRoute>
               }
             />

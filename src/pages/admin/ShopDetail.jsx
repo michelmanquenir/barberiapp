@@ -119,6 +119,9 @@ function ShopDetail() {
   const [productError, setProductError] = useState(null)
   const [adjustingStockId, setAdjustingStockId] = useState(null)
 
+  // ── Categorías (para detectar tipo de negocio) ───────────────────────────────
+  const [categories, setCategories] = useState([])
+
   // ── Carga del negocio ───────────────────────────────────────────────────────
   const loadShop = useCallback(async () => {
     const shops = await api.getMyShops()
@@ -184,6 +187,9 @@ function ShopDetail() {
   useEffect(() => { loadServices() }, [loadServices])
   useEffect(() => { loadPlans() }, [loadPlans])
   useEffect(() => { loadProducts() }, [loadProducts])
+  useEffect(() => {
+    api.getCategories().then(setCategories).catch(() => setCategories([]))
+  }, [])
 
   useEffect(() => {
     api.getMyBarberProfile()
@@ -558,6 +564,10 @@ function ShopDetail() {
     }
   }
 
+  // ── Tipo de negocio ─────────────────────────────────────────────────────────
+  const shopCategory = categories.find(c => c.id === shop?.categoryId)
+  const isProductShop = shopCategory?.slug?.includes('bazar') ?? false
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
@@ -635,14 +645,23 @@ function ShopDetail() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={() => navigate(`/admin/shops/${shopId}/book`)}
-                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                      <CalendarPlus className="w-3.5 h-3.5" />Agendar cita
-                    </button>
-                    <button onClick={() => navigate(`/admin/shops/${shopId}/appointments`)}
-                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-300 transition">
-                      <CalendarDays className="w-3.5 h-3.5" />Ver citas
-                    </button>
+                    {isProductShop ? (
+                      <button onClick={() => navigate(`/admin/shops/${shopId}/orders`)}
+                        className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                        <ShoppingBag className="w-3.5 h-3.5" />Ver pedidos
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => navigate(`/admin/shops/${shopId}/book`)}
+                          className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                          <CalendarPlus className="w-3.5 h-3.5" />Agendar cita
+                        </button>
+                        <button onClick={() => navigate(`/admin/shops/${shopId}/appointments`)}
+                          className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-300 transition">
+                          <CalendarDays className="w-3.5 h-3.5" />Ver citas
+                        </button>
+                      </>
+                    )}
                     <button onClick={() => navigate(`/admin/shops/${shopId}/stats`)}
                       className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">
                       <TrendingUp className="w-3.5 h-3.5" />Estadísticas
