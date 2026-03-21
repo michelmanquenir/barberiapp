@@ -109,11 +109,23 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
   const [deliveryType, setDeliveryType] = useState('pickup')
   const [address, setAddress] = useState('')
   const [distanceKm, setDistanceKm] = useState(null)
+  const [deliveryFee, setDeliveryFee] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [notes, setNotes] = useState('')
   const autocompleteRef = useRef(null)
 
   const canDeliver = shop?.homeServiceEnabled
+  const pricePerKm = shop?.pricePerKm || 0
+
+  // Limpiar recargo al cambiar a retiro
+  const handleDeliveryTypeChange = (val) => {
+    setDeliveryType(val)
+    if (val === 'pickup') {
+      setDistanceKm(null)
+      setDeliveryFee(0)
+      setAddress('')
+    }
+  }
 
   // ── Haversine ───────────────────────────────────────────────────────────────
   const haversineKm = (lat1, lon1, lat2, lon2) => {
@@ -137,13 +149,24 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
     if (shop?.latitude && shop?.longitude) {
       const dist = haversineKm(shop.latitude, shop.longitude, lat, lng)
       setDistanceKm(dist)
+      // Recargo = km de ida y vuelta × precio por km
+      const fee = Math.round(dist * 2 * pricePerKm)
+      setDeliveryFee(fee)
     }
-  }, [shop])
+  }, [shop, pricePerKm]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const grandTotal = cartTotal + (deliveryType === 'delivery' ? deliveryFee : 0)
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (deliveryType === 'delivery' && !address.trim()) return
-    onConfirm({ deliveryType, clientAddress: address.trim() || null, paymentMethod, notes: notes.trim() || null })
+    onConfirm({
+      deliveryType,
+      clientAddress: address.trim() || null,
+      paymentMethod,
+      notes: notes.trim() || null,
+      deliveryFee: deliveryType === 'delivery' ? deliveryFee : 0,
+    })
   }
 
   return (
@@ -168,9 +191,29 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
                 </div>
               ))}
             </div>
-            <div className="flex justify-between font-bold text-gray-900 dark:text-white mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-              <span>Total</span>
-              <span>{fmt(cartTotal)}</span>
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+                <span>Subtotal productos</span>
+                <span>{fmt(cartTotal)}</span>
+              </div>
+              {deliveryType === 'delivery' && (
+                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    Recargo delivery
+                    {distanceKm != null && pricePerKm > 0 && (
+                      <span className="text-xs text-gray-400">({distanceKm.toFixed(1)} km × 2 × ${pricePerKm.toLocaleString()}/km)</span>
+                    )}
+                  </span>
+                  <span className={deliveryFee > 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-400'}>
+                    {deliveryFee > 0 ? `+${fmt(deliveryFee)}` : distanceKm == null ? 'Ingresá dirección' : 'Sin recargo'}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1 border-t border-gray-100 dark:border-gray-800">
+                <span>Total</span>
+                <span>{fmt(grandTotal)}</span>
+              </div>
             </div>
           </div>
 
@@ -180,20 +223,25 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
             <div className="grid grid-cols-2 gap-2">
               {[
                 { value: 'pickup', label: 'Retiro en local', icon: <Package className="w-4 h-4" /> },
-                ...(canDeliver ? [{ value: 'delivery', label: 'Delivery', icon: <Home className="w-4 h-4" /> }] : []),
+                ...(canDeliver ? [{
+                  value: 'delivery',
+                  label: 'Delivery',
+                  icon: <Home className="w-4 h-4" />,
+                  sub: pricePerKm > 0 ? `+$${pricePerKm.toLocaleString()}/km` : 'Gratis',
+                }] : []),
               ].map(opt => (
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setDeliveryType(opt.value)}
-                  className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition ${
+                  onClick={() => handleDeliveryTypeChange(opt.value)}
+                  className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-sm font-medium transition ${
                     deliveryType === opt.value
                       ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white'
                       : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
                   }`}
                 >
-                  {opt.icon}
-                  {opt.label}
+                  <span className="flex items-center gap-2">{opt.icon}{opt.label}</span>
+                  {opt.sub && <span className="text-xs text-gray-400 dark:text-gray-500 font-normal ml-6">{opt.sub}</span>}
                 </button>
               ))}
             </div>
@@ -220,13 +268,13 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
                   />
                 </div>
               </Autocomplete>
-              {distanceKm != null && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-                  📍 Distancia estimada al local: <strong>{distanceKm.toFixed(1)} km</strong>
-                </p>
-              )}
               {!address && (
-                <p className="text-xs text-red-400 mt-1">Debes seleccionar una dirección</p>
+                <p className="text-xs text-red-400 mt-1">Debes seleccionar una dirección del autocompletado</p>
+              )}
+              {address && distanceKm != null && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  ✓ {distanceKm.toFixed(1)} km desde el local
+                </p>
               )}
             </div>
           )}
@@ -342,7 +390,7 @@ export default function PublicShopCatalog() {
     : products.filter(p => p.category === activeCategory)
 
   // Submit order
-  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, notes }) => {
+  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, notes, deliveryFee }) => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: `/shop/${slug}` } })
       return
@@ -357,6 +405,7 @@ export default function PublicShopCatalog() {
         paymentMethod,
         clientAddress,
         notes,
+        deliveryFee: deliveryFee ?? 0,
         items: cartItems.map(i => ({ productId: i.id, quantity: i.quantity })),
       })
       setOrderPlaced(true)

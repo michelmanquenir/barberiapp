@@ -379,9 +379,17 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpda
               </div>
             ))}
           </div>
-          <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between text-sm font-semibold">
-            <span className="text-gray-700 dark:text-gray-200">Total</span>
-            <span className="text-gray-900 dark:text-gray-50">{formatPrice(order.totalPrice)}</span>
+          <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1">
+            {order.deliveryFee > 0 && (
+              <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />Recargo delivery</span>
+                <span>+{formatPrice(order.deliveryFee)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm font-semibold">
+              <span className="text-gray-700 dark:text-gray-200">Total</span>
+              <span className="text-gray-900 dark:text-gray-50">{formatPrice(order.totalPrice)}</span>
+            </div>
           </div>
         </div>
       )}

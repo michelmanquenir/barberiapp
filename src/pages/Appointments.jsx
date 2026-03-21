@@ -263,6 +263,12 @@ function Appointments() {
                           <span className="font-medium">{formatPrice(item.subtotal)}</span>
                         </div>
                       ))}
+                      {order.deliveryFee > 0 && (
+                        <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" />Recargo delivery</span>
+                          <span>+{formatPrice(order.deliveryFee)}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
