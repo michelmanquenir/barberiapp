@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Plus, Minus, X, MapPin, Home, Package,
   CreditCard, Banknote, CheckCircle, ChevronDown, ChevronUp,
   Store, ArrowLeft, Loader2,
 } from 'lucide-react'
+import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -107,10 +108,37 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
 function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitting }) {
   const [deliveryType, setDeliveryType] = useState('pickup')
   const [address, setAddress] = useState('')
+  const [distanceKm, setDistanceKm] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [notes, setNotes] = useState('')
+  const autocompleteRef = useRef(null)
 
   const canDeliver = shop?.homeServiceEnabled
+
+  // ── Haversine ───────────────────────────────────────────────────────────────
+  const haversineKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
+  // ── Cuando Google selecciona un lugar ──────────────────────────────────────
+  const onPlaceChanged = useCallback(() => {
+    const place = autocompleteRef.current?.getPlace()
+    if (!place?.geometry) return
+    const formatted = place.formatted_address || place.name || ''
+    const lat = place.geometry.location.lat()
+    const lng = place.geometry.location.lng()
+    setAddress(formatted)
+    if (shop?.latitude && shop?.longitude) {
+      const dist = haversineKm(shop.latitude, shop.longitude, lat, lng)
+      setDistanceKm(dist)
+    }
+  }, [shop])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -175,16 +203,31 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
           {deliveryType === 'delivery' && (
             <div>
               <label className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide block mb-1">
-                Dirección de entrega
+                Dirección de entrega <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                placeholder="Ej: Av. Corrientes 1234, piso 3"
-                required
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
-              />
+              <Autocomplete
+                onLoad={(ref) => (autocompleteRef.current = ref)}
+                onPlaceChanged={onPlaceChanged}
+              >
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
+                  <input
+                    type="text"
+                    defaultValue={address}
+                    placeholder="Escribe tu dirección..."
+                    required
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
+                  />
+                </div>
+              </Autocomplete>
+              {distanceKm != null && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                  📍 Distancia estimada al local: <strong>{distanceKm.toFixed(1)} km</strong>
+                </p>
+              )}
+              {!address && (
+                <p className="text-xs text-red-400 mt-1">Debes seleccionar una dirección</p>
+              )}
             </div>
           )}
 
