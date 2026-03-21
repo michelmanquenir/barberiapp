@@ -261,5 +261,17 @@ export const api = {
       request(`/super-admin/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteCategory: (id) =>
       request(`/super-admin/categories/${id}`, { method: 'DELETE' }),
+
+    // Categorías de producto
+    listProductCategories: () => request('/super-admin/product-categories'),
+    createProductCategory: (data) =>
+      request('/super-admin/product-categories', { method: 'POST', body: JSON.stringify(data) }),
+    updateProductCategory: (id, data) =>
+      request(`/super-admin/product-categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteProductCategory: (id) =>
+      request(`/super-admin/product-categories/${id}`, { method: 'DELETE' }),
   },
+
+  // Categorías de producto (público — para el formulario de productos)
+  getProductCategories: () => request('/product-categories'),
 }

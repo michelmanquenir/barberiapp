@@ -26,6 +26,7 @@ import SuperAdminShops from './pages/super-admin/SuperAdminShops'
 import SuperAdminProducts from './pages/super-admin/SuperAdminProducts'
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard'
 import SuperAdminCategories from './pages/super-admin/SuperAdminCategories'
+import SuperAdminProductCategories from './pages/super-admin/SuperAdminProductCategories'
 
 import DiscoverShops from './pages/DiscoverShops'
 import Profile from './pages/Profile'
@@ -95,6 +96,14 @@ function App() {
               element={
                 <ProtectedRoute requireSuperAdmin>
                   <SuperAdminCategories />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/super-admin/product-categories"
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <SuperAdminProductCategories />
                 </ProtectedRoute>
               }
             />

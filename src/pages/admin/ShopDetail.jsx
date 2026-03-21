@@ -119,8 +119,11 @@ function ShopDetail() {
   const [productError, setProductError] = useState(null)
   const [adjustingStockId, setAdjustingStockId] = useState(null)
 
-  // ── Categorías (para detectar tipo de negocio) ───────────────────────────────
+  // ── Categorías de negocio (para detectar tipo de negocio) ────────────────────
   const [categories, setCategories] = useState([])
+
+  // ── Categorías de producto (para el dropdown del formulario) ─────────────────
+  const [productCategories, setProductCategories] = useState([])
 
   // ── Carga del negocio ───────────────────────────────────────────────────────
   const loadShop = useCallback(async () => {
@@ -189,6 +192,7 @@ function ShopDetail() {
   useEffect(() => { loadProducts() }, [loadProducts])
   useEffect(() => {
     api.getCategories().then(setCategories).catch(() => setCategories([]))
+    api.getProductCategories().then(setProductCategories).catch(() => setProductCategories([]))
   }, [])
 
   useEffect(() => {
@@ -1028,11 +1032,19 @@ function ShopDetail() {
                         <div>
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Categoría <span className="text-gray-400">(opcional)</span></label>
                           <div className="relative">
-                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                            <input type="text" value={productForm.category}
+                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
+                            <select
+                              value={productForm.category}
                               onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                              placeholder="Ej: Pomadas, Aceites..."
-                              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent" />
+                              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent appearance-none"
+                            >
+                              <option value="">— Sin categoría —</option>
+                              {productCategories.map(pc => (
+                                <option key={pc.id} value={pc.name}>
+                                  {pc.icon ? `${pc.icon} ` : ''}{pc.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                         <div>
