@@ -1039,10 +1039,20 @@ function ShopDetail() {
                               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent appearance-none"
                             >
                               <option value="">— Sin categoría —</option>
-                              {productCategories.map(pc => (
-                                <option key={pc.id} value={pc.name}>
-                                  {pc.icon ? `${pc.icon} ` : ''}{pc.name}
-                                </option>
+                              {productCategories.map(parent => (
+                                parent.children && parent.children.length > 0 ? (
+                                  <optgroup key={parent.id} label={`${parent.icon || ''} ${parent.name}`}>
+                                    {parent.children.map(child => (
+                                      <option key={child.id} value={child.name}>
+                                        {child.icon ? `${child.icon} ` : ''}{child.name}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                ) : (
+                                  <option key={parent.id} value={parent.name}>
+                                    {parent.icon ? `${parent.icon} ` : ''}{parent.name}
+                                  </option>
+                                )
                               ))}
                             </select>
                           </div>
