@@ -16,9 +16,9 @@ const ORDER_STATUS = {
   cancelled: { text: 'Cancelado',  cls: 'bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400' },
 }
 
-function formatPrice(cents) {
-  if (cents == null) return '—'
-  return `$${(cents / 100).toLocaleString('es-ES', { minimumFractionDigits: 0 })}`
+function formatPrice(n) {
+  if (n == null) return '—'
+  return `$${Number(n).toLocaleString('es-CL')}`
 }
 
 function formatDateTime(iso) {

@@ -69,9 +69,9 @@ function formatDateTime(iso) {
   })
 }
 
-function formatPrice(cents) {
-  if (cents == null) return '—'
-  return `$${(cents / 100).toLocaleString('es-ES', { minimumFractionDigits: 0 })}`
+function formatPrice(n) {
+  if (n == null) return '—'
+  return `$${Number(n).toLocaleString('es-CL')}`
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
