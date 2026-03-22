@@ -15,10 +15,29 @@ import { toast } from '../../lib/swal'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + Number(n ?? 0).toLocaleString('es-CL')
 
+// ── Beep de confirmación (Web Audio API, sin archivos externos) ───────────────
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.value = 1400
+    gain.gain.setValueAtTime(0.35, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.12)
+    ctx.close()
+  } catch (_) {}
+}
+
 // ── BarcodeScanner ────────────────────────────────────────────────────────────
 function BarcodeScanner({ onDetected, onClose }) {
-  const videoRef   = useRef(null)
-  const readerRef  = useRef(null)
+  const videoRef      = useRef(null)
+  const readerRef     = useRef(null)
+  const lastCodeRef   = useRef(null)   // evitar lecturas duplicadas rápidas
   const [error, setError] = useState(null)
   const [ready, setReady] = useState(false)
 
@@ -27,32 +46,34 @@ function BarcodeScanner({ onDetected, onClose }) {
     readerRef.current = reader
     let stopped = false
 
-    reader.listVideoInputDevices()
-      .then(devices => {
+    // ✅ Usar constraints con facingMode en lugar de listVideoInputDevices()
+    // Esto funciona correctamente en iOS Safari donde los device labels
+    // están vacíos hasta después de obtener permisos.
+    reader.decodeFromConstraints(
+      { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+      videoRef.current,
+      (result, err) => {
         if (stopped) return
-        // Preferir cámara trasera en móvil
-        const rear = devices.find(d =>
-          /back|rear|environment/i.test(d.label)
-        ) || devices[devices.length - 1]
-
-        const deviceId = rear?.deviceId || undefined
-        setReady(true)
-
-        return reader.decodeFromVideoDevice(deviceId, videoRef.current, (result, err) => {
-          if (stopped) return
-          if (result) {
-            const text = result.getText()
-            onDetected(text)
-          }
-          if (err && !(err instanceof NotFoundException)) {
-            // Errores de decode son normales mientras busca — ignorar
-          }
-        })
-      })
-      .catch(err => {
-        if (!stopped) setError('No se pudo acceder a la cámara. Verifica los permisos.')
-        console.error(err)
-      })
+        if (!ready) setReady(true)
+        if (result) {
+          const text = result.getText()
+          // Debounce: ignorar el mismo código repetido en < 1.5 seg
+          if (text === lastCodeRef.current) return
+          lastCodeRef.current = text
+          setTimeout(() => { lastCodeRef.current = null }, 1500)
+          playBeep()
+          onDetected(text)
+        }
+        if (err && !(err instanceof NotFoundException)) {
+          // Errores de decode son normales mientras busca — ignorar
+        }
+      }
+    ).then(() => {
+      if (!stopped) setReady(true)
+    }).catch(err => {
+      if (!stopped) setError('No se pudo acceder a la cámara. Verifica los permisos en tu navegador.')
+      console.error(err)
+    })
 
     return () => {
       stopped = true
@@ -224,7 +245,7 @@ export default function PointOfSale() {
   const cartCount  = cartItems.reduce((sum, i) => sum + i.qty, 0)
 
   // ── Agregar producto al carrito ───────────────────────────────────────────
-  const addProduct = useCallback((product) => {
+  const addProduct = useCallback((product, withBeep = false) => {
     setScanError(null)
     if (product.stock <= 0) {
       setScanError(`"${product.name}" no tiene stock disponible.`)
@@ -237,8 +258,10 @@ export default function PointOfSale() {
           setScanError(`Stock máximo alcanzado para "${product.name}".`)
           return prev
         }
+        if (withBeep) playBeep()
         return { ...prev, [product.id]: { ...existing, qty: existing.qty + 1 } }
       }
+      if (withBeep) playBeep()
       return { ...prev, [product.id]: { ...product, qty: 1 } }
     })
   }, [])
@@ -255,7 +278,7 @@ export default function PointOfSale() {
         setScanError(`No se encontró ningún producto con el código "${code}".`)
         return
       }
-      addProduct(product)
+      addProduct(product, true)   // true = reproducir beep al agregar
       setScannerOpen(false) // cerrar scanner después de agregar
     } catch {
       setScanError(`No se encontró ningún producto con el código "${code}".`)
@@ -266,7 +289,7 @@ export default function PointOfSale() {
 
   // ── Handler scanner ───────────────────────────────────────────────────────
   const handleBarcodeDetected = useCallback((barcode) => {
-    if (scanning) return // debounce
+    if (scanning) return // evitar procesamiento simultáneo
     lookupBarcode(barcode)
   }, [scanning, lookupBarcode])
 
