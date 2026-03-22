@@ -42,7 +42,7 @@ import { toast, confirm, confirmDanger } from '../../lib/swal'
 
 const EMPTY_SERVICE_FORM = { name: '', description: '', price: '', durationMinutes: '' }
 const EMPTY_PLAN_FORM    = { name: '', description: '', price: '', cutsPerPeriod: '', active: true }
-const EMPTY_PRODUCT_FORM = { name: '', description: '', category: '', purchasePrice: '', salePrice: '', stock: '0', imageUrl: '', active: true }
+const EMPTY_PRODUCT_FORM = { name: '', description: '', category: '', purchasePrice: '', salePrice: '', stock: '0', imageUrl: '', active: true, barcode: '', sku: '' }
 
 const DAYS = [
   { key: 'MONDAY',    label: 'Lunes'     },
@@ -499,6 +499,8 @@ function ShopDetail() {
       stock: String(p.stock ?? 0),
       imageUrl: p.imageUrl ?? '',
       active: p.active,
+      barcode: p.barcode ?? '',
+      sku: p.sku ?? '',
     })
     setProductError(null)
     setProductImagePreview(p.imageUrl ?? null)
@@ -526,6 +528,8 @@ function ShopDetail() {
       description: productForm.description.trim() || null,
       category: productForm.category.trim() || null,
       imageUrl: productForm.imageUrl.trim() || null,
+      barcode: productForm.barcode.trim() || null,
+      sku: productForm.sku.trim() || null,
       purchasePrice: productForm.purchasePrice ? parseInt(productForm.purchasePrice, 10) : null,
       salePrice: parseInt(productForm.salePrice, 10),
       stock: parseInt(productForm.stock, 10) || 0,
@@ -650,10 +654,16 @@ function ShopDetail() {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {isProductShop ? (
-                      <button onClick={() => navigate(`/admin/shops/${shopId}/orders`)}
-                        className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                        <ShoppingBag className="w-3.5 h-3.5" />Ver pedidos
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => navigate(`/admin/shops/${shopId}/pos`)}
+                          className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
+                          <TrendingUp className="w-3.5 h-3.5" />Caja / POS
+                        </button>
+                        <button onClick={() => navigate(`/admin/shops/${shopId}/orders`)}
+                          className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                          <ShoppingBag className="w-3.5 h-3.5" />Ver pedidos
+                        </button>
+                      </div>
                     ) : (
                       <>
                         <button onClick={() => navigate(`/admin/shops/${shopId}/book`)}
@@ -1091,6 +1101,27 @@ function ShopDetail() {
                           onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
                           placeholder="Describe brevemente el producto..." rows={2}
                           className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent resize-none" />
+                      </div>
+                      {/* Código de barras + SKU */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            Código de barras <span className="text-gray-400">(opcional)</span>
+                          </label>
+                          <input type="text" value={productForm.barcode}
+                            onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                            placeholder="Ej: 7802900000000"
+                            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent font-mono" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            SKU <span className="text-gray-400">(opcional)</span>
+                          </label>
+                          <input type="text" value={productForm.sku}
+                            onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+                            placeholder="Código interno"
+                            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent" />
+                        </div>
                       </div>
                       {/* Imagen del producto */}
                       <div>

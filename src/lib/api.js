@@ -158,6 +158,10 @@ export const api = {
   getShopStats: (shopId, days = 30) =>
     request(`/admin/shops/${shopId}/stats?days=${days}`),
 
+  // POS — buscar producto por código de barras
+  getProductByBarcode: (shopId, barcode) =>
+    request(`/admin/shops/${shopId}/products/barcode/${encodeURIComponent(barcode)}`),
+
   // ── Pedidos (negocios de producto) ────────────────────────────────────────
   createOrder: (data) =>
     request('/orders', { method: 'POST', body: JSON.stringify(data) }),

@@ -19,6 +19,7 @@ import BarberBooking from './pages/admin/BarberBooking'
 import BarberGallery from './pages/admin/BarberGallery'
 import ShopStats from './pages/admin/ShopStats'
 import ShopOrders from './pages/admin/ShopOrders'
+import PointOfSale from './pages/admin/PointOfSale'
 import PublicShopCatalog from './pages/PublicShopCatalog'
 import PublicBooking from './pages/PublicBooking'
 import SuperAdminUsers from './pages/super-admin/SuperAdminUsers'
@@ -194,6 +195,14 @@ function App() {
               element={
                 <ProtectedRoute requireBusinessOwner>
                   <ShopOrders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/shops/:shopId/pos"
+              element={
+                <ProtectedRoute requireBusinessOwner>
+                  <PointOfSale />
                 </ProtectedRoute>
               }
             />
