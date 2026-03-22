@@ -18,6 +18,8 @@ const DAY_LABEL = {
 }
 const DAY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY']
 
+const pad = (n) => String(n).padStart(2, '0')
+
 // Calcula la próxima fecha en que cae ese día de la semana
 function nextDateForDay(dayOfWeek) {
   const JS_DAY = { SUNDAY:0, MONDAY:1, TUESDAY:2, WEDNESDAY:3, THURSDAY:4, FRIDAY:5, SATURDAY:6 }
@@ -31,13 +33,14 @@ function nextDateForDay(dayOfWeek) {
   return d
 }
 
-// Combina fecha + hora "HH:mm" → ISO string sin Z (LocalDateTime compatible)
+// Combina fecha + hora "HH:mm" → string LOCAL sin zona ("2026-03-25T09:00:00")
+// Usa fecha/hora local del dispositivo para evitar conversión UTC
 function toScheduledAt(dayOfWeek, timeStr) {
   const d = nextDateForDay(dayOfWeek)
   const [h, m] = (timeStr || '09:00').split(':').map(Number)
   d.setHours(h, m, 0, 0)
-  // ISO sin milisegundos ni zona: "2026-03-25T09:00:00"
-  return d.toISOString().replace(/\.\d{3}Z$/, '').replace('Z', '')
+  // Formateo manual → nunca se convierte a UTC
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(h)}:${pad(m)}:00`
 }
 
 // Agrupa slots de horario por día
@@ -47,11 +50,34 @@ function groupByDay(schedules) {
     if (!map[s.dayOfWeek]) map[s.dayOfWeek] = []
     map[s.dayOfWeek].push(s)
   }
-  // Ordenar slots dentro de cada día por startTime
   for (const day of Object.keys(map)) {
     map[day].sort((a, b) => a.startTime.localeCompare(b.startTime))
   }
   return map
+}
+
+// Genera lista de horas cada 1 hora dentro de los rangos disponibles de un día
+// Ej: slots=[{startTime:"09:00:00", endTime:"14:00:00"}, {startTime:"18:30:00", endTime:"21:00:00"}]
+// → ["09:00","10:00","11:00","12:00","13:00","18:30","19:30","20:30"]  (o cada hora entera dentro del rango)
+function generateHourlySlots(daySlots) {
+  const times = new Set()
+  for (const slot of daySlots) {
+    const startStr = (slot.startTime || '').substring(0, 5) // "HH:mm"
+    const endStr   = (slot.endTime   || '').substring(0, 5)
+    const [sh, sm] = startStr.split(':').map(Number)
+    const [eh, em] = endStr.split(':').map(Number)
+    const startMins = sh * 60 + (isNaN(sm) ? 0 : sm)
+    const endMins   = eh * 60 + (isNaN(em) ? 0 : em)
+    // Primera entrada puede ser a los minutos exactos (ej 18:30), luego de ahí en horas enteras
+    let cur = startMins
+    while (cur < endMins) {
+      times.add(`${pad(Math.floor(cur/60))}:${pad(cur%60)}`)
+      // avanzar a la siguiente hora entera
+      const nextHour = (Math.floor(cur / 60) + 1) * 60
+      cur = nextHour
+    }
+  }
+  return [...times].sort()
 }
 
 // ── ProductCard ───────────────────────────────────────────────────────────────
@@ -131,7 +157,7 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
   const [barberSchedules, setBarberSchedules]   = useState([])   // slots del barbero elegido
   const [loadingSchedules, setLoadingSchedules] = useState(false)
   const [selectedDay, setSelectedDay]           = useState('')    // "MONDAY"
-  const [selectedSlot, setSelectedSlot]         = useState(null)  // { id, startTime, endTime }
+  const [selectedHour, setSelectedHour]         = useState('')    // "09:00"
 
   const canDeliver = shop?.homeServiceEnabled
   const pricePerKm = shop?.pricePerKm || 0
@@ -142,20 +168,25 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
     (a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b)
   )
 
+  // Horas disponibles para el día seleccionado (grilla cada 1h)
+  const availableHours = selectedDay && schedulesByDay[selectedDay]
+    ? generateHourlySlots(schedulesByDay[selectedDay])
+    : []
+
   // Al cambiar tipo de entrega → resetear delivery
   const handleDeliveryTypeChange = (val) => {
     setDeliveryType(val)
     if (val === 'pickup') {
       setDistanceKm(null); setDeliveryFee(0); setAddress('')
       setSelectedBarberId(''); setBarberSchedules([])
-      setSelectedDay(''); setSelectedSlot(null)
+      setSelectedDay(''); setSelectedHour('')
     }
   }
 
   // Al cambiar barbero → cargar sus horarios
   useEffect(() => {
     if (!selectedBarberId || deliveryType !== 'delivery') {
-      setBarberSchedules([]); setSelectedDay(''); setSelectedSlot(null); return
+      setBarberSchedules([]); setSelectedDay(''); setSelectedHour(''); return
     }
     setLoadingSchedules(true)
     api.getBarberSchedules({ barberId: selectedBarberId, shopId: shop.id })
@@ -165,18 +196,21 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
         const groups = groupByDay(data || [])
         const days = Object.keys(groups).sort((a,b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b))
         if (days.length > 0) {
-          setSelectedDay(days[0])
-          setSelectedSlot(groups[days[0]][0] || null)
+          const firstDay = days[0]
+          setSelectedDay(firstDay)
+          const hours = generateHourlySlots(groups[firstDay] || [])
+          setSelectedHour(hours[0] || '')
         }
       })
       .catch(() => setBarberSchedules([]))
       .finally(() => setLoadingSchedules(false))
   }, [selectedBarberId, deliveryType, shop.id])
 
-  // Al cambiar día → pre-seleccionar primer slot
+  // Al cambiar día → pre-seleccionar primera hora
   const handleDayChange = (day) => {
     setSelectedDay(day)
-    setSelectedSlot(schedulesByDay[day]?.[0] || null)
+    const hours = generateHourlySlots(schedulesByDay[day] || [])
+    setSelectedHour(hours[0] || '')
   }
 
   // ── Haversine ───────────────────────────────────────────────────────────────
@@ -211,14 +245,14 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
     address.trim() &&
     selectedBarberId &&
     selectedDay &&
-    selectedSlot
+    selectedHour
   )
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!isDeliveryValid) return
-    const scheduledAt = (selectedDay && selectedSlot)
-      ? toScheduledAt(selectedDay, selectedSlot.startTime)
+    const scheduledAt = (selectedDay && selectedHour)
+      ? toScheduledAt(selectedDay, selectedHour)
       : null
     onConfirm({
       deliveryType,
@@ -406,42 +440,36 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
                         </div>
                       </div>
 
-                      {/* Selector de slot (si hay múltiples en el mismo día) */}
-                      {selectedDay && schedulesByDay[selectedDay] && (
+                      {/* Grilla horaria: cada 1 hora dentro de los rangos disponibles */}
+                      {selectedDay && availableHours.length > 0 && (
                         <div>
                           <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" /> Turno
+                            <Clock className="w-3.5 h-3.5" /> Hora de entrega
                           </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {schedulesByDay[selectedDay].map(slot => {
-                              const isSelected = selectedSlot?.id === slot.id
-                              const start = slot.startTime?.substring(0,5) || ''
-                              const end   = slot.endTime?.substring(0,5) || ''
-                              return (
-                                <button
-                                  key={slot.id}
-                                  type="button"
-                                  onClick={() => setSelectedSlot(slot)}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
-                                    isSelected
-                                      ? 'border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
-                                  }`}
-                                >
-                                  {start} – {end}
-                                </button>
-                              )
-                            })}
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {availableHours.map(hour => (
+                              <button
+                                key={hour}
+                                type="button"
+                                onClick={() => setSelectedHour(hour)}
+                                className={`py-2 rounded-lg text-xs font-semibold border transition text-center ${
+                                  selectedHour === hour
+                                    ? 'border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                                }`}
+                              >
+                                {hour}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Resumen del horario elegido */}
-                      {selectedDay && selectedSlot && (
+                      {/* Resumen de la entrega elegida */}
+                      {selectedDay && selectedHour && (
                         <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 rounded-lg px-3 py-2">
                           <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                          Próximo {DAY_LABEL[selectedDay]}{' '}
-                          {selectedSlot.startTime?.substring(0,5)} – {selectedSlot.endTime?.substring(0,5)}
+                          Próximo {DAY_LABEL[selectedDay]} a las {selectedHour} hrs
                         </div>
                       )}
                     </div>
