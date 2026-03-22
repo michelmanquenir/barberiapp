@@ -15,21 +15,14 @@ import { toast } from '../../lib/swal'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + Number(n ?? 0).toLocaleString('es-CL')
 
-// ── Beep de confirmación (Web Audio API, sin archivos externos) ───────────────
+// ── Beep de confirmación (archivo de audio local) ────────────────────────────
+const _beepAudio = new Audio('/sounds/beep.wav')
+_beepAudio.preload = 'auto'
+
 function playBeep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    const osc  = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.value = 1400
-    gain.gain.setValueAtTime(0.35, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
-    osc.start(ctx.currentTime)
-    osc.stop(ctx.currentTime + 0.12)
-    ctx.close()
+    _beepAudio.currentTime = 0
+    _beepAudio.play().catch(() => {})
   } catch (_) {}
 }
 
