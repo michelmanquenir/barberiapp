@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Plus, Minus, X, MapPin, Home, Package,
-  CreditCard, Banknote, CheckCircle, ChevronDown, ChevronUp,
-  Store, ArrowLeft, Loader2,
+  CreditCard, Banknote, CheckCircle, Store, ArrowLeft, Loader2,
+  User, Clock, Calendar,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -12,14 +12,46 @@ import { useAuth } from '../context/AuthContext'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + Number(n ?? 0).toLocaleString('es-AR')
 
-const DELIVERY_LABELS = {
-  pickup: { label: 'Retiro en local', icon: <Package className="w-4 h-4" /> },
-  delivery: { label: 'Delivery', icon: <Home className="w-4 h-4" /> },
+const DAY_LABEL = {
+  MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
+  THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo',
+}
+const DAY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY']
+
+// Calcula la próxima fecha en que cae ese día de la semana
+function nextDateForDay(dayOfWeek) {
+  const JS_DAY = { SUNDAY:0, MONDAY:1, TUESDAY:2, WEDNESDAY:3, THURSDAY:4, FRIDAY:5, SATURDAY:6 }
+  const target = JS_DAY[dayOfWeek]
+  const now = new Date()
+  const today = now.getDay()
+  let daysAhead = target - today
+  if (daysAhead <= 0) daysAhead += 7
+  const d = new Date(now)
+  d.setDate(d.getDate() + daysAhead)
+  return d
 }
 
-const PAYMENT_LABELS = {
-  cash: { label: 'Efectivo', icon: <Banknote className="w-4 h-4" /> },
-  transfer: { label: 'Transferencia', icon: <CreditCard className="w-4 h-4" /> },
+// Combina fecha + hora "HH:mm" → ISO string sin Z (LocalDateTime compatible)
+function toScheduledAt(dayOfWeek, timeStr) {
+  const d = nextDateForDay(dayOfWeek)
+  const [h, m] = (timeStr || '09:00').split(':').map(Number)
+  d.setHours(h, m, 0, 0)
+  // ISO sin milisegundos ni zona: "2026-03-25T09:00:00"
+  return d.toISOString().replace(/\.\d{3}Z$/, '').replace('Z', '')
+}
+
+// Agrupa slots de horario por día
+function groupByDay(schedules) {
+  const map = {}
+  for (const s of schedules) {
+    if (!map[s.dayOfWeek]) map[s.dayOfWeek] = []
+    map[s.dayOfWeek].push(s)
+  }
+  // Ordenar slots dentro de cada día por startTime
+  for (const day of Object.keys(map)) {
+    map[day].sort((a, b) => a.startTime.localeCompare(b.startTime))
+  }
+  return map
 }
 
 // ── ProductCard ───────────────────────────────────────────────────────────────
@@ -30,11 +62,7 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm flex flex-col">
       {product.imageUrl ? (
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          className="w-full h-40 object-cover"
-        />
+        <img src={product.imageUrl} alt={product.name} className="w-full h-40 object-cover" />
       ) : (
         <div className="w-full h-40 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
           <Package className="w-10 h-10 text-gray-300 dark:text-gray-500" />
@@ -55,45 +83,29 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
         <div className="flex items-center justify-between mt-3">
           <span className="text-lg font-bold text-gray-900 dark:text-white">{fmt(product.salePrice)}</span>
           {outOfStock ? (
-            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-full font-medium">
-              Agotado
-            </span>
+            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-full font-medium">Agotado</span>
           ) : lowStock ? (
-            <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-full font-medium">
-              Últimas {product.stock} unidades
-            </span>
+            <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-full font-medium">Últimas {product.stock}</span>
           ) : (
-            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-1 rounded-full font-medium">
-              En stock
-            </span>
+            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-1 rounded-full font-medium">En stock</span>
           )}
         </div>
 
-        {/* Qty controls */}
         <div className="mt-3">
           {qty === 0 ? (
-            <button
-              onClick={onAdd}
-              disabled={outOfStock}
-              className="w-full py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-4 h-4" />
-              Agregar
+            <button onClick={onAdd} disabled={outOfStock}
+              className="w-full py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed">
+              <Plus className="w-4 h-4" /> Agregar
             </button>
           ) : (
             <div className="flex items-center justify-between gap-2">
-              <button
-                onClick={onRemove}
-                className="w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-              >
+              <button onClick={onRemove}
+                className="w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                 <Minus className="w-4 h-4" />
               </button>
               <span className="text-sm font-bold text-gray-900 dark:text-white">{qty}</span>
-              <button
-                onClick={onAdd}
-                disabled={qty >= product.stock}
-                className="w-9 h-9 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
-              >
+              <button onClick={onAdd} disabled={qty >= product.stock}
+                className="w-9 h-9 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed">
                 <Plus className="w-4 h-4" />
               </button>
             </div>
@@ -105,26 +117,66 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
 }
 
 // ── CheckoutModal ─────────────────────────────────────────────────────────────
-function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitting }) {
-  const [deliveryType, setDeliveryType] = useState('pickup')
-  const [address, setAddress] = useState('')
-  const [distanceKm, setDistanceKm] = useState(null)
-  const [deliveryFee, setDeliveryFee] = useState(0)
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [notes, setNotes] = useState('')
+function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm, submitting }) {
+  const [deliveryType, setDeliveryType]         = useState('pickup')
+  const [address, setAddress]                   = useState('')
+  const [distanceKm, setDistanceKm]             = useState(null)
+  const [deliveryFee, setDeliveryFee]           = useState(0)
+  const [paymentMethod, setPaymentMethod]       = useState('cash')
+  const [notes, setNotes]                       = useState('')
   const autocompleteRef = useRef(null)
+
+  // ── Profesional + horario ────────────────────────────────────────────────
+  const [selectedBarberId, setSelectedBarberId] = useState('')
+  const [barberSchedules, setBarberSchedules]   = useState([])   // slots del barbero elegido
+  const [loadingSchedules, setLoadingSchedules] = useState(false)
+  const [selectedDay, setSelectedDay]           = useState('')    // "MONDAY"
+  const [selectedSlot, setSelectedSlot]         = useState(null)  // { id, startTime, endTime }
 
   const canDeliver = shop?.homeServiceEnabled
   const pricePerKm = shop?.pricePerKm || 0
 
-  // Limpiar recargo al cambiar a retiro
+  // Grupos de días disponibles en los horarios del barbero
+  const schedulesByDay = groupByDay(barberSchedules)
+  const availableDays = Object.keys(schedulesByDay).sort(
+    (a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b)
+  )
+
+  // Al cambiar tipo de entrega → resetear delivery
   const handleDeliveryTypeChange = (val) => {
     setDeliveryType(val)
     if (val === 'pickup') {
-      setDistanceKm(null)
-      setDeliveryFee(0)
-      setAddress('')
+      setDistanceKm(null); setDeliveryFee(0); setAddress('')
+      setSelectedBarberId(''); setBarberSchedules([])
+      setSelectedDay(''); setSelectedSlot(null)
     }
+  }
+
+  // Al cambiar barbero → cargar sus horarios
+  useEffect(() => {
+    if (!selectedBarberId || deliveryType !== 'delivery') {
+      setBarberSchedules([]); setSelectedDay(''); setSelectedSlot(null); return
+    }
+    setLoadingSchedules(true)
+    api.getBarberSchedules({ barberId: selectedBarberId, shopId: shop.id })
+      .then(data => {
+        setBarberSchedules(data || [])
+        // Pre-seleccionar el primer día disponible
+        const groups = groupByDay(data || [])
+        const days = Object.keys(groups).sort((a,b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b))
+        if (days.length > 0) {
+          setSelectedDay(days[0])
+          setSelectedSlot(groups[days[0]][0] || null)
+        }
+      })
+      .catch(() => setBarberSchedules([]))
+      .finally(() => setLoadingSchedules(false))
+  }, [selectedBarberId, deliveryType, shop.id])
+
+  // Al cambiar día → pre-seleccionar primer slot
+  const handleDayChange = (day) => {
+    setSelectedDay(day)
+    setSelectedSlot(schedulesByDay[day]?.[0] || null)
   }
 
   // ── Haversine ───────────────────────────────────────────────────────────────
@@ -138,7 +190,6 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   }
 
-  // ── Cuando Google selecciona un lugar ──────────────────────────────────────
   const onPlaceChanged = useCallback(() => {
     const place = autocompleteRef.current?.getPlace()
     if (!place?.geometry) return
@@ -149,30 +200,41 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
     if (shop?.latitude && shop?.longitude) {
       const dist = haversineKm(shop.latitude, shop.longitude, lat, lng)
       setDistanceKm(dist)
-      // Recargo = km de ida y vuelta × precio por km
-      const fee = Math.round(dist * 2 * pricePerKm)
-      setDeliveryFee(fee)
+      setDeliveryFee(Math.round(dist * 2 * pricePerKm))
     }
-  }, [shop, pricePerKm]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [shop, pricePerKm]) // eslint-disable-line
 
   const grandTotal = cartTotal + (deliveryType === 'delivery' ? deliveryFee : 0)
 
+  // ── Validación ───────────────────────────────────────────────────────────
+  const isDeliveryValid = deliveryType !== 'delivery' || (
+    address.trim() &&
+    selectedBarberId &&
+    selectedDay &&
+    selectedSlot
+  )
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (deliveryType === 'delivery' && !address.trim()) return
+    if (!isDeliveryValid) return
+    const scheduledAt = (selectedDay && selectedSlot)
+      ? toScheduledAt(selectedDay, selectedSlot.startTime)
+      : null
     onConfirm({
       deliveryType,
       clientAddress: address.trim() || null,
       paymentMethod,
       notes: notes.trim() || null,
       deliveryFee: deliveryType === 'delivery' ? deliveryFee : 0,
+      assignedBarberId: selectedBarberId ? Number(selectedBarberId) : null,
+      scheduledAt,
     })
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-900 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <h3 className="font-semibold text-gray-900 dark:text-white">Confirmar pedido</h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">
             <X className="w-5 h-5 text-gray-500" />
@@ -202,11 +264,13 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
                     <MapPin className="w-3.5 h-3.5" />
                     Recargo delivery
                     {distanceKm != null && pricePerKm > 0 && (
-                      <span className="text-xs text-gray-400">({distanceKm.toFixed(1)} km × 2 × ${pricePerKm.toLocaleString()}/km)</span>
+                      <span className="text-xs text-gray-400">
+                        ({distanceKm.toFixed(1)} km × 2 × ${pricePerKm.toLocaleString()}/km)
+                      </span>
                     )}
                   </span>
                   <span className={deliveryFee > 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-400'}>
-                    {deliveryFee > 0 ? `+${fmt(deliveryFee)}` : distanceKm == null ? 'Ingresá dirección' : 'Sin recargo'}
+                    {deliveryFee > 0 ? `+${fmt(deliveryFee)}` : distanceKm == null ? 'Ingresa dirección' : 'Sin recargo'}
                   </span>
                 </div>
               )}
@@ -230,16 +294,12 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
                   sub: pricePerKm > 0 ? `+$${pricePerKm.toLocaleString()}/km` : 'Gratis',
                 }] : []),
               ].map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => handleDeliveryTypeChange(opt.value)}
+                <button key={opt.value} type="button" onClick={() => handleDeliveryTypeChange(opt.value)}
                   className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-sm font-medium transition ${
                     deliveryType === opt.value
                       ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white'
                       : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
-                  }`}
-                >
+                  }`}>
                   <span className="flex items-center gap-2">{opt.icon}{opt.label}</span>
                   {opt.sub && <span className="text-xs text-gray-400 dark:text-gray-500 font-normal ml-6">{opt.sub}</span>}
                 </button>
@@ -247,55 +307,166 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
             </div>
           </div>
 
-          {/* Dirección si es delivery */}
+          {/* ── Opciones de delivery ─────────────────────────────────────── */}
           {deliveryType === 'delivery' && (
-            <div>
-              <label className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide block mb-1">
-                Dirección de entrega <span className="text-red-400">*</span>
-              </label>
-              <Autocomplete
-                onLoad={(ref) => (autocompleteRef.current = ref)}
-                onPlaceChanged={onPlaceChanged}
-              >
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
-                  <input
-                    type="text"
-                    defaultValue={address}
-                    placeholder="Escribe tu dirección..."
-                    required
-                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
-                  />
+            <>
+              {/* Dirección */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide block mb-1">
+                  Dirección de entrega <span className="text-red-400">*</span>
+                </label>
+                <Autocomplete onLoad={(ref) => (autocompleteRef.current = ref)} onPlaceChanged={onPlaceChanged}>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
+                    <input type="text" defaultValue={address} placeholder="Escribe tu dirección..."
+                      className="w-full border border-gray-200 dark:border-gray-600 rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white" />
+                  </div>
+                </Autocomplete>
+                {!address && (
+                  <p className="text-xs text-red-400 mt-1">Selecciona una dirección del autocompletado</p>
+                )}
+                {address && distanceKm != null && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ {distanceKm.toFixed(1)} km desde el local</p>
+                )}
+              </div>
+
+              {/* Profesional de delivery */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide block mb-1">
+                  Repartidor <span className="text-red-400">*</span>
+                </label>
+                {barbers.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                    Este negocio aún no tiene repartidores registrados.
+                  </p>
+                ) : (
+                  <div className="grid gap-2">
+                    {barbers.map(b => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedBarberId(String(b.id))}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 text-sm font-medium transition text-left ${
+                          selectedBarberId === String(b.id)
+                            ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white'
+                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                        }`}
+                      >
+                        {b.imageUrl ? (
+                          <img src={b.imageUrl} alt={b.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-gray-400" />
+                          </div>
+                        )}
+                        <span className="truncate">{b.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Horario del repartidor */}
+              {selectedBarberId && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide block mb-1">
+                    Horario de entrega <span className="text-red-400">*</span>
+                  </label>
+
+                  {loadingSchedules ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Cargando horarios...
+                    </div>
+                  ) : barberSchedules.length === 0 ? (
+                    <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 rounded-xl p-3">
+                      Este repartidor aún no tiene horarios configurados.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Selector de día */}
+                      <div>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" /> Día
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableDays.map(day => (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => handleDayChange(day)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                                selectedDay === day
+                                  ? 'border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                                  : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                              }`}
+                            >
+                              {DAY_LABEL[day]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Selector de slot (si hay múltiples en el mismo día) */}
+                      {selectedDay && schedulesByDay[selectedDay] && (
+                        <div>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" /> Turno
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {schedulesByDay[selectedDay].map(slot => {
+                              const isSelected = selectedSlot?.id === slot.id
+                              const start = slot.startTime?.substring(0,5) || ''
+                              const end   = slot.endTime?.substring(0,5) || ''
+                              return (
+                                <button
+                                  key={slot.id}
+                                  type="button"
+                                  onClick={() => setSelectedSlot(slot)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                                    isSelected
+                                      ? 'border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                                  }`}
+                                >
+                                  {start} – {end}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Resumen del horario elegido */}
+                      {selectedDay && selectedSlot && (
+                        <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 rounded-lg px-3 py-2">
+                          <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                          Próximo {DAY_LABEL[selectedDay]}{' '}
+                          {selectedSlot.startTime?.substring(0,5)} – {selectedSlot.endTime?.substring(0,5)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </Autocomplete>
-              {!address && (
-                <p className="text-xs text-red-400 mt-1">Debes seleccionar una dirección del autocompletado</p>
               )}
-              {address && distanceKm != null && (
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  ✓ {distanceKm.toFixed(1)} km desde el local
-                </p>
-              )}
-            </div>
+            </>
           )}
 
           {/* Método de pago */}
           <div>
             <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Método de pago</p>
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(PAYMENT_LABELS).map(([value, { label, icon }]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setPaymentMethod(value)}
+              {[
+                { value: 'cash', label: 'Efectivo', icon: <Banknote className="w-4 h-4" /> },
+                { value: 'transfer', label: 'Transferencia', icon: <CreditCard className="w-4 h-4" /> },
+              ].map(({ value, label, icon }) => (
+                <button key={value} type="button" onClick={() => setPaymentMethod(value)}
                   className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition ${
                     paymentMethod === value
                       ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white'
                       : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
                   }`}
                 >
-                  {icon}
-                  {label}
+                  {icon}{label}
                 </button>
               ))}
             </div>
@@ -306,22 +477,17 @@ function CheckoutModal({ cartItems, cartTotal, shop, onClose, onConfirm, submitt
             <label className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide block mb-1">
               Notas (opcional)
             </label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
+            <textarea value={notes} onChange={e => setNotes(e.target.value)}
               placeholder="Instrucciones especiales, aclaraciones..."
               rows={2}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white resize-none"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-700 dark:hover:bg-gray-100 transition flex items-center justify-center gap-2 disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting || !isDeliveryValid}
+            className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-700 dark:hover:bg-gray-100 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {submitting ? 'Realizando pedido...' : `Confirmar pedido · ${fmt(cartTotal)}`}
+            {submitting ? 'Realizando pedido...' : `Confirmar pedido · ${fmt(grandTotal)}`}
           </button>
         </form>
       </div>
@@ -335,33 +501,35 @@ export default function PublicShopCatalog() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
 
-  const [shop, setShop] = useState(null)
+  const [shop, setShop]         = useState(null)
   const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [barbers, setBarbers]   = useState([])  // profesionales del negocio
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
 
-  // Carrito: { [productId]: quantity }
-  const [cart, setCart] = useState({})
+  const [cart, setCart]               = useState({})
   const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting]   = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
 
-  // Filtro de categoría
   const [activeCategory, setActiveCategory] = useState('Todos')
 
   useEffect(() => {
     setLoading(true)
     api.getShopBySlug(slug)
       .then(async (shopData) => {
-        const prods = await api.getShopProducts(shopData.id).catch(() => [])
+        const [prods, shopBarbers] = await Promise.all([
+          api.getShopProducts(shopData.id).catch(() => []),
+          api.getShopBarbers(shopData.slug).catch(() => []),
+        ])
         setShop(shopData)
         setProducts(prods.filter(p => p.active !== false))
+        setBarbers(shopBarbers || [])
       })
       .catch(() => setError('Negocio no encontrado'))
       .finally(() => setLoading(false))
   }, [slug])
 
-  // Cart helpers
   const addToCart = useCallback((productId) => {
     setCart(prev => ({ ...prev, [productId]: (prev[productId] ?? 0) + 1 }))
   }, [])
@@ -375,7 +543,6 @@ export default function PublicShopCatalog() {
     })
   }, [])
 
-  // Derived cart data
   const cartItems = products
     .filter(p => (cart[p.id] ?? 0) > 0)
     .map(p => ({ ...p, quantity: cart[p.id], subtotal: p.salePrice * cart[p.id] }))
@@ -383,14 +550,12 @@ export default function PublicShopCatalog() {
   const cartTotal = cartItems.reduce((sum, i) => sum + i.subtotal, 0)
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
 
-  // Category filter
   const categories = ['Todos', ...new Set(products.map(p => p.category).filter(Boolean))]
   const visibleProducts = activeCategory === 'Todos'
     ? products
     : products.filter(p => p.category === activeCategory)
 
-  // Submit order
-  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, notes, deliveryFee }) => {
+  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, notes, deliveryFee, assignedBarberId, scheduledAt }) => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: `/shop/${slug}` } })
       return
@@ -406,6 +571,8 @@ export default function PublicShopCatalog() {
         clientAddress,
         notes,
         deliveryFee: deliveryFee ?? 0,
+        assignedBarberId: assignedBarberId ?? null,
+        scheduledAt: scheduledAt ?? null,
         items: cartItems.map(i => ({ productId: i.id, quantity: i.quantity })),
       })
       setOrderPlaced(true)
@@ -418,7 +585,6 @@ export default function PublicShopCatalog() {
     }
   }
 
-  // ── Loading / Error ───────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -441,7 +607,6 @@ export default function PublicShopCatalog() {
     )
   }
 
-  // ── Pedido exitoso ────────────────────────────────────────────────────────
   if (orderPlaced) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -452,16 +617,12 @@ export default function PublicShopCatalog() {
             {shop.name} recibirá tu pedido y se comunicará para coordinar la entrega.
           </p>
           <div className="flex flex-col gap-3">
-            <button
-              onClick={() => navigate('/appointments')}
-              className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-semibold text-sm"
-            >
+            <button onClick={() => navigate('/appointments')}
+              className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-semibold text-sm">
               Ver mis pedidos
             </button>
-            <button
-              onClick={() => setOrderPlaced(false)}
-              className="w-full py-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-semibold text-sm"
-            >
+            <button onClick={() => setOrderPlaced(false)}
+              className="w-full py-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-semibold text-sm">
               Seguir comprando
             </button>
           </div>
@@ -470,16 +631,13 @@ export default function PublicShopCatalog() {
     )
   }
 
-  // ── Main view ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/booking')}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-          >
+          <button onClick={() => navigate('/booking')}
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
             <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
           <div className="flex-1 min-w-0">
@@ -503,15 +661,12 @@ export default function PublicShopCatalog() {
         {categories.length > 2 && (
           <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
             {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
+              <button key={cat} onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
                   activeCategory === cat
                     ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
                     : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                }`}
-              >
+                }`}>
                 {cat}
               </button>
             ))}
@@ -527,9 +682,7 @@ export default function PublicShopCatalog() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {visibleProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
+              <ProductCard key={product.id} product={product}
                 qty={cart[product.id] ?? 0}
                 onAdd={() => addToCart(product.id)}
                 onRemove={() => removeFromCart(product.id)}
@@ -539,7 +692,7 @@ export default function PublicShopCatalog() {
         )}
       </div>
 
-      {/* Floating cart button */}
+      {/* Floating cart */}
       {cartCount > 0 && (
         <div className="fixed bottom-6 left-0 right-0 flex justify-center px-4 z-30">
           <button
@@ -569,6 +722,7 @@ export default function PublicShopCatalog() {
           cartItems={cartItems}
           cartTotal={cartTotal}
           shop={shop}
+          barbers={barbers}
           onClose={() => setCheckoutOpen(false)}
           onConfirm={handleConfirmOrder}
           submitting={submitting}

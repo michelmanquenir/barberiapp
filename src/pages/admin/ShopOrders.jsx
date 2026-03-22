@@ -337,6 +337,18 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpda
                 {order.clientAddress}
               </span>
             )}
+            {order.assignedBarberName && (
+              <span className="flex items-center gap-1">
+                <User className="w-3.5 h-3.5" />
+                Repartidor: <strong>{order.assignedBarberName}</strong>
+              </span>
+            )}
+            {order.scheduledAt && (
+              <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                <Clock className="w-3.5 h-3.5" />
+                Entrega agendada: {new Date(order.scheduledAt).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'short' })} {new Date(order.scheduledAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </div>
 
           {order.notes && (

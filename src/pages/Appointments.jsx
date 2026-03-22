@@ -272,6 +272,25 @@ function Appointments() {
                     </div>
                   )}
 
+                  {/* Repartidor + horario agendado */}
+                  {(order.assignedBarberName || order.scheduledAt) && (
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                      {order.assignedBarberName && (
+                        <span className="flex items-center gap-1">
+                          <User className="w-3.5 h-3.5" />
+                          Repartidor: <strong className="text-gray-700 dark:text-gray-200">{order.assignedBarberName}</strong>
+                        </span>
+                      )}
+                      {order.scheduledAt && (
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                          <Clock className="w-3.5 h-3.5" />
+                          {new Date(order.scheduledAt).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'short' })}{' '}
+                          {new Date(order.scheduledAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {order.notes && (
                     <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
                       Nota: {order.notes}
