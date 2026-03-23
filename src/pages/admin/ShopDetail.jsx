@@ -118,6 +118,12 @@ function ShopDetail() {
   const [savingProduct, setSavingProduct] = useState(false)
   const [productError, setProductError] = useState(null)
   const [adjustingStockId, setAdjustingStockId] = useState(null)
+  // búsqueda / filtros / paginación
+  const [productSearch, setProductSearch] = useState('')
+  const [productStatusFilter, setProductStatusFilter] = useState('all')   // 'all' | 'active' | 'inactive'
+  const [productCategoryFilter, setProductCategoryFilter] = useState('')   // '' = todas
+  const PRODUCTS_PER_PAGE = 20
+  const [productPage, setProductPage] = useState(1)
 
   // ── Categorías de negocio (para detectar tipo de negocio) ────────────────────
   const [categories, setCategories] = useState([])
@@ -1203,7 +1209,43 @@ function ShopDetail() {
                   </form>
                 )}
 
-                {/* Lista de productos */}
+                {/* ── Buscador + filtros ── */}
+                {!showProductForm && products.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {/* buscador */}
+                    <div className="relative flex-1 min-w-[180px]">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Buscar producto..."
+                        value={productSearch}
+                        onChange={e => { setProductSearch(e.target.value); setProductPage(1) }}
+                        className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600"
+                      />
+                    </div>
+                    {/* filtro categoría */}
+                    <select
+                      value={productCategoryFilter}
+                      onChange={e => { setProductCategoryFilter(e.target.value); setProductPage(1) }}
+                      className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600">
+                      <option value="">Todas las categorías</option>
+                      {[...new Set(products.map(p => p.category).filter(Boolean))].sort().map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    {/* filtro estado */}
+                    <select
+                      value={productStatusFilter}
+                      onChange={e => { setProductStatusFilter(e.target.value); setProductPage(1) }}
+                      className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600">
+                      <option value="all">Todos</option>
+                      <option value="active">Activos</option>
+                      <option value="inactive">Inactivos</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* ── Tabla de productos ── */}
                 {loadingProducts ? (
                   <div className="flex justify-center py-8">
                     <div className="w-6 h-6 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-gray-100 rounded-full animate-spin" />
@@ -1214,90 +1256,177 @@ function ShopDetail() {
                     No hay productos en el inventario.
                     <br /><span className="text-xs">Agrega productos para gestionar tu stock y precios.</span>
                   </div>
-                ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {products.map((product) => (
-                      <div key={product.id} className={`py-3.5 ${!product.active ? 'opacity-50' : ''}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            {/* Miniatura */}
-                            {product.imageUrl
-                              ? <img src={product.imageUrl} alt={product.name} className="w-10 h-10 rounded-lg object-cover border border-gray-200 dark:border-gray-700 flex-shrink-0" />
-                              : <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"><Package className="w-4 h-4 text-gray-400 dark:text-gray-500" /></div>}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-50">{product.name}</p>
-                              {product.category && (
-                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">{product.category}</span>
-                              )}
-                              {!product.active && (
-                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span>
-                              )}
-                            </div>
-                            {product.description && (
-                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-1">{product.description}</p>
+                ) : (() => {
+                  // filtrado
+                  const q = productSearch.toLowerCase().trim()
+                  const filtered = products.filter(p => {
+                    if (productStatusFilter === 'active'   && !p.active) return false
+                    if (productStatusFilter === 'inactive' &&  p.active) return false
+                    if (productCategoryFilter && p.category !== productCategoryFilter) return false
+                    if (q && !p.name.toLowerCase().includes(q) && !(p.barcode || '').toLowerCase().includes(q) && !(p.sku || '').toLowerCase().includes(q)) return false
+                    return true
+                  })
+                  const totalPages = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PER_PAGE))
+                  const safePage  = Math.min(productPage, totalPages)
+                  const paginated = filtered.slice((safePage - 1) * PRODUCTS_PER_PAGE, safePage * PRODUCTS_PER_PAGE)
+
+                  return (
+                    <>
+                      {filtered.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+                          <Search className="w-7 h-7 mx-auto mb-2 opacity-30" />
+                          Sin resultados para esa búsqueda.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
+                          <table className="min-w-full text-sm">
+                            <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                              <tr>
+                                <th className="px-3 py-2.5 text-left w-10"></th>
+                                <th className="px-3 py-2.5 text-left">Producto</th>
+                                <th className="px-3 py-2.5 text-left hidden sm:table-cell">Categoría</th>
+                                <th className="px-3 py-2.5 text-center">Stock</th>
+                                <th className="px-3 py-2.5 text-right hidden md:table-cell">Compra</th>
+                                <th className="px-3 py-2.5 text-right">Venta</th>
+                                <th className="px-3 py-2.5 text-right hidden md:table-cell">Margen</th>
+                                <th className="px-3 py-2.5 text-center hidden sm:table-cell">Estado</th>
+                                <th className="px-3 py-2.5 text-right">Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                              {paginated.map(product => (
+                                <tr key={product.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition ${!product.active ? 'opacity-50' : ''}`}>
+                                  {/* Miniatura */}
+                                  <td className="px-3 py-2.5">
+                                    {product.imageUrl
+                                      ? <img src={product.imageUrl} alt={product.name} className="w-9 h-9 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
+                                      : <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Package className="w-4 h-4 text-gray-400" /></div>}
+                                  </td>
+                                  {/* Nombre */}
+                                  <td className="px-3 py-2.5 max-w-[180px]">
+                                    <p className="font-semibold text-gray-900 dark:text-gray-50 truncate">{product.name}</p>
+                                    {product.description && <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{product.description}</p>}
+                                    {(product.barcode || product.sku) && (
+                                      <p className="text-xs text-gray-300 dark:text-gray-600 truncate mt-0.5">
+                                        {product.barcode && <span>#{product.barcode}</span>}
+                                        {product.barcode && product.sku && ' · '}
+                                        {product.sku && <span>SKU {product.sku}</span>}
+                                      </p>
+                                    )}
+                                  </td>
+                                  {/* Categoría */}
+                                  <td className="px-3 py-2.5 hidden sm:table-cell">
+                                    {product.category
+                                      ? <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">{product.category}</span>
+                                      : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                                  </td>
+                                  {/* Stock */}
+                                  <td className="px-3 py-2.5 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {(product.stock ?? 0) < 5 && product.active && (
+                                        <AlertTriangle className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                                      )}
+                                      <button
+                                        onClick={() => handleAdjustStock(product.id, -1)}
+                                        disabled={adjustingStockId === product.id || (product.stock ?? 0) <= 0}
+                                        className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-30">
+                                        <Minus className="w-2.5 h-2.5" />
+                                      </button>
+                                      <span className={`text-sm font-bold w-7 text-center ${(product.stock ?? 0) < 5 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-gray-50'}`}>
+                                        {adjustingStockId === product.id
+                                          ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" />
+                                          : (product.stock ?? 0)}
+                                      </span>
+                                      <button
+                                        onClick={() => handleAdjustStock(product.id, 1)}
+                                        disabled={adjustingStockId === product.id}
+                                        className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-30">
+                                        <Plus className="w-2.5 h-2.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                  {/* Precio compra */}
+                                  <td className="px-3 py-2.5 text-right hidden md:table-cell text-gray-500 dark:text-gray-400">
+                                    {product.purchasePrice != null ? `$${product.purchasePrice.toLocaleString()}` : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                                  </td>
+                                  {/* Precio venta */}
+                                  <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-gray-50">
+                                    ${product.salePrice?.toLocaleString()}
+                                  </td>
+                                  {/* Margen */}
+                                  <td className="px-3 py-2.5 text-right hidden md:table-cell">
+                                    {product.profit != null
+                                      ? <span className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                          {product.profitMarginPct}%
+                                        </span>
+                                      : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                                  </td>
+                                  {/* Estado */}
+                                  <td className="px-3 py-2.5 text-center hidden sm:table-cell">
+                                    {product.active
+                                      ? <span className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">Activo</span>
+                                      : <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span>}
+                                  </td>
+                                  {/* Acciones */}
+                                  <td className="px-3 py-2.5 text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <button onClick={() => openEditProduct(product)}
+                                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+                                        <Pencil className="w-3.5 h-3.5" /><span className="hidden sm:inline">Editar</span>
+                                      </button>
+                                      <button onClick={() => handleDeleteProduct(product.id)}
+                                        className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950">
+                                        <Trash2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">{product.active ? 'Desactivar' : 'Activar'}</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* ── Paginador ── */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {filtered.length} productos · página {safePage} de {totalPages}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setProductPage(p => Math.max(1, p - 1))}
+                              disabled={safePage === 1}
+                              className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 transition">
+                              ‹ Anterior
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p =>
+                              p === 1 || p === totalPages || Math.abs(p - safePage) <= 1
+                            ).reduce((acc, p, idx, arr) => {
+                              if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...')
+                              acc.push(p)
+                              return acc
+                            }, []).map((item, idx) =>
+                              item === '...'
+                                ? <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-gray-400">…</span>
+                                : <button key={item}
+                                    onClick={() => setProductPage(item)}
+                                    className={`w-7 h-7 text-xs rounded-lg border transition ${safePage === item ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+                                    {item}
+                                  </button>
                             )}
-                            {/* Precios y ganancia */}
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              <span className="text-xs bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2 py-0.5 rounded-full font-medium">
-                                Venta: ${product.salePrice?.toLocaleString()}
-                              </span>
-                              {product.purchasePrice != null && (
-                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                                  Compra: ${product.purchasePrice?.toLocaleString()}
-                                </span>
-                              )}
-                              {product.profit != null && (
-                                <span className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                  <TrendingUp className="w-3 h-3" />
-                                  ${product.profit?.toLocaleString()} ({product.profitMarginPct}%)
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          </div>
-                          {/* Stock + acciones */}
-                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                            {/* Stock con ajuste +/- */}
-                            <div className="flex items-center gap-1">
-                              {(product.stock ?? 0) < 5 && product.active && (
-                                <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
-                              )}
-                              <button
-                                onClick={() => handleAdjustStock(product.id, -1)}
-                                disabled={adjustingStockId === product.id || (product.stock ?? 0) <= 0}
-                                className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-30">
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className={`text-sm font-bold w-8 text-center ${(product.stock ?? 0) < 5 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-gray-50'}`}>
-                                {adjustingStockId === product.id
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" />
-                                  : (product.stock ?? 0)}
-                              </span>
-                              <button
-                                onClick={() => handleAdjustStock(product.id, 1)}
-                                disabled={adjustingStockId === product.id}
-                                className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-30">
-                                <Plus className="w-3 h-3" />
-                              </button>
-                            </div>
-                            {/* Botones editar/desactivar */}
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => openEditProduct(product)}
-                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
-                                <Pencil className="w-3.5 h-3.5" />Editar
-                              </button>
-                              <button onClick={() => handleDeleteProduct(product.id)}
-                                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950">
-                                <Trash2 className="w-3.5 h-3.5" />{product.active ? 'Desactivar' : 'Activar'}
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => setProductPage(p => Math.min(totalPages, p + 1))}
+                              disabled={safePage === totalPages}
+                              className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 transition">
+                              Siguiente ›
+                            </button>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      )}
+                    </>
+                  )
+                })()}
               </div>
 
               {/* ── Barberos ── */}
