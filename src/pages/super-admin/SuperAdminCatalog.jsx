@@ -155,11 +155,12 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
                 {productCategories.flatMap(parent =>
                   parent.children && parent.children.length > 0
                     ? parent.children.map(child => (
-                        <option key={child.id} value={child.name}>
-                          {parent.icon ? `${parent.icon} ` : ''}{parent.name} › {child.name}
-                        </option>
+                        <option
+                          key={child.id}
+                          value={`${parent.icon ? parent.icon + ' ' : ''}${child.name}`}
+                        />
                       ))
-                    : [<option key={parent.id} value={parent.name}>{parent.name}</option>]
+                    : [<option key={parent.id} value={`${parent.icon ? parent.icon + ' ' : ''}${parent.name}`} />]
                 )}
               </datalist>
             </div>
