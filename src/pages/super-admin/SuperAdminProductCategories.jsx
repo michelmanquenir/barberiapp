@@ -261,28 +261,39 @@ function ParentBlock({ parent, actionId, onToggle, onEdit, onDelete, onAddChild 
   )
 }
 
+// Construye el árbol padre→hijos desde la lista plana del super admin
+// (incluye activas e inactivas, ordenado por sortOrder)
+function buildTree(flat) {
+  const sorted = [...flat].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  return sorted
+    .filter(c => !c.parentId)
+    .map(parent => ({
+      ...parent,
+      children: sorted
+        .filter(c => c.parentId === parent.id)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    }))
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 function SuperAdminProductCategories() {
-  // `tree` comes from the public /api/product-categories endpoint (tree structure)
-  // `flat` comes from /api/super-admin/product-categories (flat, includes inactive)
-  const [tree, setTree]         = useState([])   // for display
-  const [flat, setFlat]         = useState([])   // for parent selector in modal
+  // Una sola fuente de verdad: lista plana del super-admin (incluye inactivas)
+  const [flat, setFlat]         = useState([])
   const [loading, setLoading]   = useState(true)
   // modal: null | 'create' | { ...category } for editing | { parentId } for new child
   const [modal, setModal]       = useState(null)
   const [actionId, setActionId] = useState(null)
 
-  // Parent list for the selector (only root/active parents)
+  // Árbol derivado del flat (incluye activas e inactivas)
+  const tree = buildTree(flat)
+
+  // Parent list para el selector del modal (solo raíces activas)
   const parents = flat.filter(c => !c.parentId && c.active)
 
   const load = async () => {
     setLoading(true)
     try {
-      const [treeData, flatData] = await Promise.all([
-        api.getProductCategories(),
-        api.superAdmin.listProductCategories(),
-      ])
-      setTree(treeData || [])
+      const flatData = await api.superAdmin.listProductCategories()
       setFlat(flatData || [])
     } catch {
       toast.error('No se pudieron cargar las categorías')
