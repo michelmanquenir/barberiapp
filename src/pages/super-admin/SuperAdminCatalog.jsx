@@ -3,12 +3,13 @@ import {
   BookOpen, Plus, Pencil, Search, X,
   ToggleLeft, ToggleRight, ShoppingBag,
   Barcode, Tag, ChevronLeft, ChevronRight,
-  Image as ImageIcon, Loader2,
+  Image as ImageIcon, Loader2, ScanLine,
 } from 'lucide-react'
 import SuperAdminLayout from './SuperAdminLayout'
 import { api } from '../../lib/api'
 import { toast, confirm } from '../../lib/swal'
 import { uploadProductImage } from '../../lib/productImageUpload'
+import BarcodeScanner from '../../components/BarcodeScanner'
 
 const PAGE_SIZE = 20
 
@@ -30,6 +31,7 @@ function CatalogModal({ initial, onSave, onClose }) {
   const [form, setForm] = useState(initial ?? EMPTY)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
   const fileRef = useRef(null)
   const isEditing = !!initial
 
@@ -162,19 +164,37 @@ function CatalogModal({ initial, onSave, onClose }) {
           </div>
 
           {/* Código de barras */}
+          {scannerOpen && (
+            <BarcodeScanner
+              onDetected={(code) => { set('barcode', code); setScannerOpen(false) }}
+              onClose={() => setScannerOpen(false)}
+            />
+          )}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
               Código de barras
               {!isEditing && <span className="text-gray-400 ml-1">(debe ser único)</span>}
             </label>
-            <input
-              type="text"
-              value={form.barcode}
-              onChange={e => set('barcode', e.target.value)}
-              placeholder="7501234567890"
-              disabled={isEditing}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.barcode}
+                onChange={e => set('barcode', e.target.value)}
+                placeholder="7501234567890"
+                disabled={isEditing}
+                className="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+              />
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setScannerOpen(true)}
+                  title="Escanear código de barras"
+                  className="flex-shrink-0 px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
+                >
+                  <ScanLine className="w-4 h-4" />
+                </button>
+              )}
+            </div>
             {isEditing && (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">El código de barras no se puede modificar una vez creado</p>
             )}
