@@ -169,6 +169,8 @@ export const api = {
     request(`/admin/global-products/barcode/${encodeURIComponent(barcode)}`),
   createGlobalProduct: (data) =>
     request('/admin/global-products', { method: 'POST', body: JSON.stringify(data) }),
+  updateGlobalProduct: (id, data) =>
+    request(`/admin/global-products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // ── Pedidos (negocios de producto) ────────────────────────────────────────
   createOrder: (data) =>
@@ -273,6 +275,10 @@ export const api = {
       request(`/super-admin/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteCategory: (id) =>
       request(`/super-admin/categories/${id}`, { method: 'DELETE' }),
+
+    // Catálogo global (super admin)
+    listGlobalProducts: (q = '', page = 0, size = 20) =>
+      request(`/super-admin/global-products?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
 
     // Categorías de producto
     listProductCategories: () => request('/super-admin/product-categories'),

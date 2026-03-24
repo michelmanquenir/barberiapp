@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShieldCheck, Users, Store, ShoppingBag,
   LayoutDashboard, LogOut, Sun, Moon,
-  ChevronDown, Menu, X, Tag, ArrowLeft, Layers,
+  ChevronDown, Menu, X, Tag, ArrowLeft, Layers, BookOpen,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/super-admin/users',        icon: Users,           label: 'Usuarios',    key: 'users'       },
   { to: '/super-admin/shops',        icon: Store,           label: 'Negocios',    key: 'shops'       },
   { to: '/super-admin/products',     icon: ShoppingBag,     label: 'Productos',   key: 'products'    },
+  { to: '/super-admin/catalog',            icon: BookOpen, label: 'Catálogo Global', key: 'catalog'           },
   { to: '/super-admin/categories',         icon: Tag,    label: 'Cat. negocio',   key: 'categories'        },
   { to: '/super-admin/product-categories', icon: Layers, label: 'Cat. producto',  key: 'productCategories' },
 ]
