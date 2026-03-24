@@ -27,7 +27,7 @@ function StatusPill({ active }) {
 }
 
 // ─── Modal crear / editar ─────────────────────────────────────────────────────
-function CatalogModal({ initial, onSave, onClose }) {
+function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
   const [form, setForm] = useState(initial ?? EMPTY)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -145,11 +145,23 @@ function CatalogModal({ initial, onSave, onClose }) {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Categoría</label>
               <input
                 type="text"
+                list="catalog-modal-categories"
                 value={form.category}
                 onChange={e => set('category', e.target.value)}
                 placeholder="Bebidas"
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
               />
+              <datalist id="catalog-modal-categories">
+                {productCategories.flatMap(parent =>
+                  parent.children && parent.children.length > 0
+                    ? parent.children.map(child => (
+                        <option key={child.id} value={child.name}>
+                          {parent.icon ? `${parent.icon} ` : ''}{parent.name} › {child.name}
+                        </option>
+                      ))
+                    : [<option key={parent.id} value={parent.name}>{parent.name}</option>]
+                )}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">SKU</label>
@@ -242,13 +254,18 @@ function CatalogModal({ initial, onSave, onClose }) {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 function SuperAdminCatalog() {
-  const [data, setData]       = useState({ content: [], totalElements: 0, totalPages: 0, page: 0 })
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch]   = useState('')
-  const [page, setPage]       = useState(0)
-  const [modal, setModal]     = useState(null)   // null | 'create' | { ...product }
-  const [actionId, setActionId] = useState(null)
+  const [data, setData]             = useState({ content: [], totalElements: 0, totalPages: 0, page: 0 })
+  const [loading, setLoading]       = useState(true)
+  const [search, setSearch]         = useState('')
+  const [page, setPage]             = useState(0)
+  const [modal, setModal]           = useState(null)   // null | 'create' | { ...product }
+  const [actionId, setActionId]     = useState(null)
+  const [productCategories, setProductCategories] = useState([])
   const searchTimer = useRef(null)
+
+  useEffect(() => {
+    api.getProductCategories().then(setProductCategories).catch(() => setProductCategories([]))
+  }, [])
 
   const load = async (q = search, p = page) => {
     setLoading(true)
@@ -348,6 +365,7 @@ function SuperAdminCatalog() {
           initial={modal === 'create' ? null : modal}
           onSave={modal === 'create' ? handleCreate : handleEdit}
           onClose={() => setModal(null)}
+          productCategories={productCategories}
         />
       )}
 
