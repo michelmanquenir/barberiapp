@@ -32,6 +32,8 @@ import {
   AlertTriangle,
   Minus,
   Package,
+  BookOpen,
+  Unlink,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -124,6 +126,11 @@ function ShopDetail() {
   const [productCategoryFilter, setProductCategoryFilter] = useState('')   // '' = todas
   const PRODUCTS_PER_PAGE = 20
   const [productPage, setProductPage] = useState(1)
+  // catálogo global
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [catalogResults, setCatalogResults] = useState([])
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [selectedGlobalProduct, setSelectedGlobalProduct] = useState(null) // objeto del catálogo vinculado
 
   // ── Categorías de negocio (para detectar tipo de negocio) ────────────────────
   const [categories, setCategories] = useState([])
@@ -462,6 +469,21 @@ function ShopDetail() {
     setShowSubscribers(s => !s)
   }
 
+  // ── Búsqueda en catálogo global (debounce) ───────────────────────────────────
+  useEffect(() => {
+    if (!showProductForm || selectedGlobalProduct) return
+    if (catalogQuery.trim().length < 2) { setCatalogResults([]); return }
+    setCatalogLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const results = await api.searchGlobalProducts(catalogQuery.trim(), 10)
+        setCatalogResults(results || [])
+      } catch { setCatalogResults([]) }
+      finally { setCatalogLoading(false) }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [catalogQuery, showProductForm, selectedGlobalProduct])
+
   // ── Imagen de producto ───────────────────────────────────────────────────────
   const productImageInputRef = useRef(null)
   const [productImagePreview, setProductImagePreview] = useState(null)
@@ -491,25 +513,44 @@ function ShopDetail() {
     setProductForm(EMPTY_PRODUCT_FORM)
     setProductError(null)
     setProductImagePreview(null)
+    setSelectedGlobalProduct(null)
+    setCatalogQuery('')
+    setCatalogResults([])
     setShowProductForm(true)
   }
 
   const openEditProduct = (p) => {
     setEditingProductId(p.id)
+    // Si está vinculado al catálogo global, reconstruir el objeto selectedGlobalProduct
+    if (p.globalProductId) {
+      setSelectedGlobalProduct({
+        id: p.globalProductId,
+        name: p.name,
+        description: p.description,
+        category: p.category,
+        imageUrl: p.imageUrl,
+        barcode: p.barcode,
+        sku: p.sku,
+      })
+    } else {
+      setSelectedGlobalProduct(null)
+    }
     setProductForm({
-      name: p.name,
-      description: p.description ?? '',
-      category: p.category ?? '',
+      name: p.globalProductId ? '' : (p.name ?? ''),
+      description: p.globalProductId ? '' : (p.description ?? ''),
+      category: p.globalProductId ? '' : (p.category ?? ''),
       purchasePrice: p.purchasePrice != null ? String(p.purchasePrice) : '',
       salePrice: String(p.salePrice),
       stock: String(p.stock ?? 0),
-      imageUrl: p.imageUrl ?? '',
+      imageUrl: p.globalProductId ? '' : (p.imageUrl ?? ''),
       active: p.active,
-      barcode: p.barcode ?? '',
-      sku: p.sku ?? '',
+      barcode: p.globalProductId ? '' : (p.barcode ?? ''),
+      sku: p.globalProductId ? '' : (p.sku ?? ''),
     })
     setProductError(null)
-    setProductImagePreview(p.imageUrl ?? null)
+    setProductImagePreview(p.globalProductId ? null : (p.imageUrl ?? null))
+    setCatalogQuery('')
+    setCatalogResults([])
     setShowProductForm(true)
   }
 
@@ -519,28 +560,45 @@ function ShopDetail() {
     setProductForm(EMPTY_PRODUCT_FORM)
     setProductError(null)
     setProductImagePreview(null)
+    setSelectedGlobalProduct(null)
+    setCatalogQuery('')
+    setCatalogResults([])
   }
 
   const handleSaveProduct = async (e) => {
     e.preventDefault()
-    if (!productForm.name.trim() || !productForm.salePrice) {
-      setProductError('El nombre y precio de venta son obligatorios')
+    if (!selectedGlobalProduct && !productForm.name.trim()) {
+      setProductError('El nombre es obligatorio (o selecciona un producto del catálogo)')
+      return
+    }
+    if (!productForm.salePrice) {
+      setProductError('El precio de venta es obligatorio')
       return
     }
     setSavingProduct(true)
     setProductError(null)
-    const payload = {
-      name: productForm.name.trim(),
-      description: productForm.description.trim() || null,
-      category: productForm.category.trim() || null,
-      imageUrl: productForm.imageUrl.trim() || null,
-      barcode: productForm.barcode.trim() || null,
-      sku: productForm.sku.trim() || null,
-      purchasePrice: productForm.purchasePrice ? parseInt(productForm.purchasePrice, 10) : null,
-      salePrice: parseInt(productForm.salePrice, 10),
-      stock: parseInt(productForm.stock, 10) || 0,
-      active: productForm.active,
-    }
+    const payload = selectedGlobalProduct
+      ? {
+          // Producto vinculado al catálogo: solo precio, stock y estado
+          globalProductId: selectedGlobalProduct.id,
+          purchasePrice: productForm.purchasePrice ? parseInt(productForm.purchasePrice, 10) : null,
+          salePrice: parseInt(productForm.salePrice, 10),
+          stock: parseInt(productForm.stock, 10) || 0,
+          active: productForm.active,
+        }
+      : {
+          // Producto local: todos los campos
+          name: productForm.name.trim(),
+          description: productForm.description.trim() || null,
+          category: productForm.category.trim() || null,
+          imageUrl: productForm.imageUrl.trim() || null,
+          barcode: productForm.barcode.trim() || null,
+          sku: productForm.sku.trim() || null,
+          purchasePrice: productForm.purchasePrice ? parseInt(productForm.purchasePrice, 10) : null,
+          salePrice: parseInt(productForm.salePrice, 10),
+          stock: parseInt(productForm.stock, 10) || 0,
+          active: productForm.active,
+        }
     try {
       if (editingProductId) {
         await api.updateProduct(editingProductId, payload)
@@ -1028,14 +1086,89 @@ function ShopDetail() {
                 {/* Formulario nuevo/editar producto */}
                 {showProductForm && (
                   <form onSubmit={handleSaveProduct} className="mb-5 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                         {editingProductId ? 'Editar producto' : 'Nuevo producto'}
                       </p>
+                      {selectedGlobalProduct && (
+                        <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full">
+                          <BookOpen className="w-3 h-3" />Catálogo global
+                        </span>
+                      )}
                     </div>
                     <div className="p-4 space-y-3">
+
+                      {/* ── Búsqueda en catálogo global ── */}
+                      {!selectedGlobalProduct ? (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1 flex items-center gap-1">
+                            <BookOpen className="w-3 h-3" />
+                            Buscar en catálogo global <span className="text-gray-400">(opcional)</span>
+                          </label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                            <input
+                              type="text"
+                              value={catalogQuery}
+                              onChange={e => setCatalogQuery(e.target.value)}
+                              placeholder="Ej: Monster, Pomada, código de barras..."
+                              className="w-full pl-9 pr-3 py-2 text-sm border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-blue-600"
+                            />
+                            {catalogLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-gray-400" />}
+                          </div>
+                          {/* Resultados del catálogo */}
+                          {catalogResults.length > 0 && (
+                            <div className="mt-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
+                              {catalogResults.map(gp => (
+                                <button key={gp.id} type="button"
+                                  onClick={() => { setSelectedGlobalProduct(gp); setCatalogQuery(''); setCatalogResults([]) }}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition text-left border-b border-gray-100 dark:border-gray-800 last:border-0 bg-white dark:bg-gray-900">
+                                  {gp.imageUrl
+                                    ? <img src={gp.imageUrl} alt={gp.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700" />
+                                    : <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"><Package className="w-4 h-4 text-gray-400" /></div>}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">{gp.name}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                                      {gp.category && <span className="mr-2">{gp.category}</span>}
+                                      {gp.barcode && <span className="font-mono">{gp.barcode}</span>}
+                                    </p>
+                                  </div>
+                                  <span className="text-xs text-blue-600 dark:text-blue-400 flex-shrink-0">Usar →</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {catalogQuery.trim().length >= 2 && !catalogLoading && catalogResults.length === 0 && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 px-1">
+                              Sin coincidencias en el catálogo — completa los campos de abajo para crear un producto nuevo.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        /* ── Producto vinculado al catálogo ── */
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl">
+                          {selectedGlobalProduct.imageUrl
+                            ? <img src={selectedGlobalProduct.imageUrl} alt={selectedGlobalProduct.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-blue-200 dark:border-blue-800" />
+                            : <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0"><Package className="w-5 h-5 text-blue-500" /></div>}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 dark:text-gray-50 truncate">{selectedGlobalProduct.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {selectedGlobalProduct.category && <span className="mr-2">{selectedGlobalProduct.category}</span>}
+                              {selectedGlobalProduct.barcode && <span className="font-mono">{selectedGlobalProduct.barcode}</span>}
+                            </p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Nombre e imagen del catálogo global</p>
+                          </div>
+                          <button type="button" onClick={() => setSelectedGlobalProduct(null)}
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 flex-shrink-0">
+                            <Unlink className="w-3.5 h-3.5" />Desvincular
+                          </button>
+                        </div>
+                      )}
+
+                      {/* ── Campos del formulario ── */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="sm:col-span-2">
+                        {/* Nombre: solo cuando NO está vinculado al catálogo */}
+                        {!selectedGlobalProduct && <div className="sm:col-span-2">
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre *</label>
                           <div className="relative">
                             <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
@@ -1044,8 +1177,9 @@ function ShopDetail() {
                               placeholder="Ej: Pomada fijadora, Aceite de barba..."
                               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent" />
                           </div>
-                        </div>
-                        <div>
+                        </div>}
+                        {/* Categoría: solo cuando NO está vinculado al catálogo */}
+                        {!selectedGlobalProduct && <div>
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Categoría <span className="text-gray-400">(opcional)</span></label>
                           <div className="relative">
                             <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
@@ -1072,7 +1206,7 @@ function ShopDetail() {
                               ))}
                             </select>
                           </div>
-                        </div>
+                        </div>}
                         <div>
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Stock inicial</label>
                           <input type="number" min="0" value={productForm.stock}
@@ -1101,15 +1235,16 @@ function ShopDetail() {
                           </div>
                         </div>
                       </div>
-                      <div>
+                      {/* Descripción: solo local */}
+                      {!selectedGlobalProduct && <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descripción <span className="text-gray-400">(opcional)</span></label>
                         <textarea value={productForm.description}
                           onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
                           placeholder="Describe brevemente el producto..." rows={2}
                           className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent resize-none" />
-                      </div>
-                      {/* Código de barras + SKU */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      </div>}
+                      {/* Código de barras + SKU: solo local */}
+                      {!selectedGlobalProduct && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
                             Código de barras <span className="text-gray-400">(opcional)</span>
@@ -1128,9 +1263,9 @@ function ShopDetail() {
                             placeholder="Código interno"
                             className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent" />
                         </div>
-                      </div>
-                      {/* Imagen del producto */}
-                      <div>
+                      </div>}
+                      {/* Imagen del producto: solo local */}
+                      {!selectedGlobalProduct && <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
                           Imagen <span className="text-gray-400">(opcional)</span>
                         </label>
@@ -1172,7 +1307,7 @@ function ShopDetail() {
                               : <><ShoppingBag className="w-3.5 h-3.5" />{productImagePreview ? 'Cambiar imagen' : 'Seleccionar imagen'}</>}
                           </button>
                         </div>
-                      </div>
+                      </div>}
 
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => setProductForm(f => ({ ...f, active: !f.active }))}

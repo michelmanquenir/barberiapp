@@ -162,6 +162,14 @@ export const api = {
   getProductByBarcode: (shopId, barcode) =>
     request(`/admin/shops/${shopId}/products/barcode/${encodeURIComponent(barcode)}`),
 
+  // Catálogo global de productos
+  searchGlobalProducts: (q = '', limit = 20) =>
+    request(`/admin/global-products?q=${encodeURIComponent(q)}&limit=${limit}`),
+  findGlobalProductByBarcode: (barcode) =>
+    request(`/admin/global-products/barcode/${encodeURIComponent(barcode)}`),
+  createGlobalProduct: (data) =>
+    request('/admin/global-products', { method: 'POST', body: JSON.stringify(data) }),
+
   // ── Pedidos (negocios de producto) ────────────────────────────────────────
   createOrder: (data) =>
     request('/orders', { method: 'POST', body: JSON.stringify(data) }),
