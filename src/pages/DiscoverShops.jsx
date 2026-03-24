@@ -195,12 +195,9 @@ function DiscoverShops() {
       )}
 
       {/* Split view: list + map */}
-      <div
-        className="flex flex-col lg:flex-row gap-4 px-4 sm:px-6 lg:px-8"
-        style={{ height: 'calc(100vh - 320px)', minHeight: '400px' }}
-      >
+      <div className="flex flex-col lg:flex-row gap-4 px-4 sm:px-6 lg:px-8 lg:h-[calc(100vh-320px)] lg:min-h-[400px]">
         {/* Left: shop cards */}
-        <div className="lg:w-1/2 overflow-y-auto pr-1 space-y-3">
+        <div className="lg:w-1/2 lg:overflow-y-auto space-y-3 pb-4 lg:pb-0 lg:pr-1">
           {filteredShops.length === 0 ? (
             <div className="text-center py-16">
               <Store className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -228,7 +225,7 @@ function DiscoverShops() {
         </div>
 
         {/* Right: Google Map */}
-        <div className="lg:w-1/2 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[300px]">
+        <div className="lg:w-1/2 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[300px] lg:min-h-0">
           <GoogleMap
             mapContainerStyle={MAP_STYLES}
             center={mapCenter}
@@ -317,7 +314,7 @@ function ShopCard({ shop, isFavorite, isHighlighted, onToggleFavorite, onClick, 
     >
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0" onClick={onClick}>
-          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50">{shop.name}</h3>
+          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
           {shop.address && (
             <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
               <MapPin className="w-3.5 h-3.5 flex-shrink-0" />

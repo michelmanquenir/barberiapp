@@ -44,11 +44,11 @@ function StatCard({ icon, label, value, sub, color = 'blue' }) {
     gray: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
   }
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100 dark:border-gray-700">
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{value}</p>
+        <div className="min-w-0 flex-1 mr-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide truncate">{label}</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1 truncate">{value}</p>
           {sub && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{sub}</p>}
         </div>
         <div className={`p-2.5 rounded-lg ${colors[color]}`}>{icon}</div>
@@ -129,7 +129,7 @@ export default function ShopStats() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-16">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link
               to={`/admin/shops/${shopId}`}
@@ -162,7 +162,7 @@ export default function ShopStats() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {loading && (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />

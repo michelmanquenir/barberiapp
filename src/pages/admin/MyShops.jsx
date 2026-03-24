@@ -25,14 +25,14 @@ function MyShops() {
       <AdminNavbar />
 
       <main className="pt-16">
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Mis Negocios</h2>
               <p className="text-gray-500 dark:text-gray-400 mt-1">Gestiona tus negocios y locales</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => navigate('/admin/appointments')}
                 className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-sm font-medium"
@@ -124,12 +124,12 @@ function MyShops() {
                   onClick={() => navigate(`/admin/shops/${shop.id}`)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center flex-shrink-0">
                         <Store className="w-6 h-6 text-gray-600 dark:text-gray-300" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-lg">{shop.name}</h3>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-lg truncate">{shop.name}</h3>
                         {shop.description && (
                           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
                             {shop.description}

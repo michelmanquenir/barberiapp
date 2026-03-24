@@ -588,7 +588,7 @@ function ShopDetail() {
       <AdminNavbar />
 
       <main className="pt-16">
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
           <button
             onClick={() => navigate('/admin/shops')}
             className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-6 transition"
@@ -638,10 +638,10 @@ function ShopDetail() {
 
               {/* ── Info del negocio ── */}
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{shop.name}</h2>
-                    {shop.description && <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{shop.description}</p>}
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50 truncate">{shop.name}</h2>
+                    {shop.description && <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 line-clamp-2">{shop.description}</p>}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${shop.active ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
                         {shop.active ? 'Activo' : 'Inactivo'}
@@ -658,7 +658,7 @@ function ShopDetail() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                     {isProductShop ? (
                       <div className="flex items-center gap-2">
                         <button onClick={() => navigate(`/admin/shops/${shopId}/pos`)}
@@ -1034,8 +1034,8 @@ function ShopDetail() {
                       </p>
                     </div>
                     <div className="p-4 space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="sm:col-span-2">
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre *</label>
                           <div className="relative">
                             <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
@@ -1109,7 +1109,7 @@ function ShopDetail() {
                           className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent resize-none" />
                       </div>
                       {/* Código de barras + SKU */}
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
                             Código de barras <span className="text-gray-400">(opcional)</span>
@@ -1282,22 +1282,22 @@ function ShopDetail() {
                           <table className="min-w-full text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                               <tr>
-                                <th className="px-3 py-2.5 text-left w-10"></th>
-                                <th className="px-3 py-2.5 text-left">Producto</th>
-                                <th className="px-3 py-2.5 text-left hidden sm:table-cell">Categoría</th>
-                                <th className="px-3 py-2.5 text-center">Stock</th>
-                                <th className="px-3 py-2.5 text-right hidden md:table-cell">Compra</th>
-                                <th className="px-3 py-2.5 text-right">Venta</th>
-                                <th className="px-3 py-2.5 text-right hidden md:table-cell">Margen</th>
-                                <th className="px-3 py-2.5 text-center hidden sm:table-cell">Estado</th>
-                                <th className="px-3 py-2.5 text-right">Acciones</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-left w-10"></th>
+                                <th className="px-2 sm:px-3 py-2.5 text-left">Producto</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-left hidden sm:table-cell">Categoría</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-center">Stock</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-right hidden md:table-cell">Compra</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-right">Venta</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-right hidden md:table-cell">Margen</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-center hidden sm:table-cell">Estado</th>
+                                <th className="px-2 sm:px-3 py-2.5 text-right">Acciones</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
                               {paginated.map(product => (
                                 <tr key={product.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition ${!product.active ? 'opacity-50' : ''}`}>
                                   {/* Miniatura */}
-                                  <td className="px-3 py-2.5">
+                                  <td className="px-2 sm:px-3 py-2.5">
                                     {product.imageUrl
                                       ? <img src={product.imageUrl} alt={product.name} className="w-9 h-9 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
                                       : <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Package className="w-4 h-4 text-gray-400" /></div>}
@@ -1573,7 +1573,7 @@ function ShopDetail() {
 
 function SchedulePanel({ schedules, loading, schedForm, setSchedForm, saving, deletingId, onAdd, onDelete }) {
   return (
-    <div className="mb-4 ml-[52px] bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden">
+    <div className="mb-4 ml-0 sm:ml-[52px] bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-amber-200 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/30">
         <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
