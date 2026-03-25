@@ -103,6 +103,15 @@ function Login() {
             >
               {loading ? 'Ingresando...' : 'Iniciar sesión'}
             </button>
+
+            <div className="text-center">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
           </form>
 
           <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">

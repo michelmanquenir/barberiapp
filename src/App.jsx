@@ -9,6 +9,7 @@ import { GOOGLE_LIBRARIES, GOOGLE_MAPS_API_KEY } from './lib/googleMaps'
 
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import MyShops from './pages/admin/MyShops'
 import CreateShop from './pages/admin/CreateShop'
@@ -49,6 +50,7 @@ function App() {
             {/* Rutas públicas */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/book/:slug" element={<PublicBooking />} />
             <Route path="/shop/:slug" element={<PublicShopCatalog />} />
 
