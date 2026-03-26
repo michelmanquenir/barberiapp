@@ -20,8 +20,10 @@ import BarberBooking from './pages/admin/BarberBooking'
 import BarberGallery from './pages/admin/BarberGallery'
 import ShopStats from './pages/admin/ShopStats'
 import ShopOrders from './pages/admin/ShopOrders'
+import ShopTransport from './pages/admin/ShopTransport'
 import PointOfSale from './pages/admin/PointOfSale'
 import PublicShopCatalog from './pages/PublicShopCatalog'
+import PublicTransport from './pages/PublicTransport'
 import PublicBooking from './pages/PublicBooking'
 import SuperAdminUsers from './pages/super-admin/SuperAdminUsers'
 import SuperAdminShops from './pages/super-admin/SuperAdminShops'
@@ -53,6 +55,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/book/:slug" element={<PublicBooking />} />
             <Route path="/shop/:slug" element={<PublicShopCatalog />} />
+            <Route path="/transport/:slug" element={<PublicTransport />} />
 
             {/* Panel Super Admin */}
             <Route
@@ -206,6 +209,14 @@ function App() {
               element={
                 <ProtectedRoute requireBusinessOwner>
                   <ShopOrders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/shops/:shopId/transport"
+              element={
+                <ProtectedRoute requireBusinessOwner>
+                  <ShopTransport />
                 </ProtectedRoute>
               }
             />

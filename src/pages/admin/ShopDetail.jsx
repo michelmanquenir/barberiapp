@@ -643,6 +643,7 @@ function ShopDetail() {
   // ── Tipo de negocio ─────────────────────────────────────────────────────────
   const shopCategory = categories.find(c => c.id === shop?.categoryId)
   const isProductShop = shopCategory?.slug?.includes('bazar') ?? false
+  const isTransportShop = shopCategory?.slug?.includes('transport') ?? false
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -743,6 +744,12 @@ function ShopDetail() {
                           <CalendarDays className="w-3.5 h-3.5" />Ver citas
                         </button>
                       </>
+                    )}
+                    {isTransportShop && (
+                      <button onClick={() => navigate(`/admin/shops/${shopId}/transport`)}
+                        className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                        🚌 Transporte
+                      </button>
                     )}
                     <button onClick={() => navigate(`/admin/shops/${shopId}/stats`)}
                       className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">

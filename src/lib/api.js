@@ -186,6 +186,58 @@ export const api = {
   updateOrderStatus: (orderId, status) =>
     request(`/admin/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 
+  // ── Transporte ─────────────────────────────────────────────────────────────
+
+  // Admin — Eventos
+  getTransportEvents: (shopId) => request(`/admin/shops/${shopId}/transport/events`),
+  createTransportEvent: (shopId, data) =>
+    request(`/admin/shops/${shopId}/transport/events`, { method: 'POST', body: JSON.stringify(data) }),
+  updateTransportEvent: (shopId, eventId, data) =>
+    request(`/admin/transport/events/${eventId}?shopId=${shopId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTransportEvent: (shopId, eventId) =>
+    request(`/admin/transport/events/${eventId}?shopId=${shopId}`, { method: 'DELETE' }),
+
+  // Admin — Conductores
+  getTransportDrivers: (shopId) => request(`/admin/shops/${shopId}/transport/drivers`),
+  createTransportDriver: (shopId, data) =>
+    request(`/admin/shops/${shopId}/transport/drivers`, { method: 'POST', body: JSON.stringify(data) }),
+  updateTransportDriver: (shopId, driverId, data) =>
+    request(`/admin/transport/drivers/${driverId}?shopId=${shopId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTransportDriver: (shopId, driverId) =>
+    request(`/admin/transport/drivers/${driverId}?shopId=${shopId}`, { method: 'DELETE' }),
+
+  // Admin — Vehículos
+  getTransportVehicles: (shopId) => request(`/admin/shops/${shopId}/transport/vehicles`),
+  createTransportVehicle: (shopId, data) =>
+    request(`/admin/shops/${shopId}/transport/vehicles`, { method: 'POST', body: JSON.stringify(data) }),
+  updateTransportVehicle: (shopId, vehicleId, data) =>
+    request(`/admin/transport/vehicles/${vehicleId}?shopId=${shopId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTransportVehicle: (shopId, vehicleId) =>
+    request(`/admin/transport/vehicles/${vehicleId}?shopId=${shopId}`, { method: 'DELETE' }),
+
+  // Admin — Asignaciones (vehículo+conductor a evento)
+  getEventAssignments: (eventId) => request(`/admin/transport/events/${eventId}/assignments`),
+  createEventAssignment: (eventId, data) =>
+    request(`/admin/transport/events/${eventId}/assignments`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteEventAssignment: (assignmentId) =>
+    request(`/admin/transport/assignments/${assignmentId}`, { method: 'DELETE' }),
+
+  // Admin — Pasajeros de un evento
+  getEventPassengers: (eventId) => request(`/admin/transport/events/${eventId}/passengers`),
+  updatePassengerStatus: (bookingId, status) =>
+    request(`/admin/transport/bookings/${bookingId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+
+  // Público — Eventos y asignaciones
+  getPublicTransportEvents: (slug) => request(`/transport/shops/${slug}/events`),
+  getPublicEventAssignments: (eventId) => request(`/transport/events/${eventId}/assignments`),
+
+  // Cliente — Reservas
+  bookPassengerSeat: (data) =>
+    request('/transport/bookings', { method: 'POST', body: JSON.stringify(data) }),
+  getMyTransportBookings: () => request('/transport/bookings/my'),
+  cancelTransportBooking: (bookingId) =>
+    request(`/transport/bookings/${bookingId}/cancel`, { method: 'PUT' }),
+
   // Perfil
   getProfile: (userId) => request(`/profile?userId=${userId}`),
   updateProfile: (userId, data) =>
