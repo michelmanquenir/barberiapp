@@ -25,6 +25,17 @@ function formatDate(iso) {
   return `${day} · ${time}`
 }
 
+// ── Haversine (igual que barbería a domicilio) ────────────────────────────────
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 // ── Spinner ───────────────────────────────────────────────────────────────────
 function Spinner({ text = 'Cargando...' }) {
   return (
@@ -36,10 +47,9 @@ function Spinner({ text = 'Cargando...' }) {
 }
 
 // ── Fare Calculator ───────────────────────────────────────────────────────────
-function calculateFare(distanceMeters, pricePerKm) {
-  if (!distanceMeters || !pricePerKm) return null
-  const km = distanceMeters / 1000
-  return Math.ceil(km * pricePerKm)
+function calculateFare(distanceKm, pricePerKm) {
+  if (!distanceKm || !pricePerKm) return null
+  return Math.ceil(distanceKm * pricePerKm)
 }
 
 function formatCLP(amount) {
@@ -53,70 +63,56 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const autocompleteRef = useRef(null)
 
   const [destinationAddress, setDestinationAddress] = useState('')
-  const [destinationPlace, setDestinationPlace]     = useState(null) // Google Place object
-  const [notes, setNotes]     = useState('')
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState(null)
-
-  // Distance Matrix result
+  const [destLatLng, setDestLatLng]   = useState(null)  // { lat, lng } del destino
+  const [originLatLng, setOriginLatLng] = useState(null) // { lat, lng } de la comuna origen
+  const [notes, setNotes]   = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState(null)
   const [calcState, setCalcState] = useState('idle') // idle | loading | done | error
-  const [distanceM, setDistanceM] = useState(null)
-  const [durationText, setDurationText] = useState(null)
 
   const pricePerKm = event?.pricePerKm ?? null
-  const fare       = calculateFare(distanceM, pricePerKm)
   const available  = assignment.availableSeats ?? 0
-  const originAddr = assignment.vehicle?.commune
-    ? `${assignment.vehicle.commune}, Chile`
-    : null
+  const commune    = assignment.vehicle?.commune
 
-  // When a place is selected from autocomplete
+  // Geocodificar la comuna del vehículo al abrir el modal (una sola vez)
+  useEffect(() => {
+    if (!commune || !window.google?.maps) return
+    setCalcState('loading')
+    const geocoder = new window.google.maps.Geocoder()
+    geocoder.geocode({ address: `${commune}, Chile` }, (results, status) => {
+      if (status === 'OK' && results[0]?.geometry) {
+        setOriginLatLng({
+          lat: results[0].geometry.location.lat(),
+          lng: results[0].geometry.location.lng(),
+        })
+      } else {
+        setCalcState('error')
+      }
+    })
+  }, [commune])
+
+  // Calcular distancia con haversine cuando ambos puntos estén listos
+  useEffect(() => {
+    if (originLatLng && destLatLng) {
+      const km = haversineKm(originLatLng.lat, originLatLng.lng, destLatLng.lat, destLatLng.lng)
+      setDistanceKm(km)
+      setCalcState('done')
+    }
+  }, [originLatLng, destLatLng])
+
+  const [distanceKm, setDistanceKm] = useState(null)
+  const fare = calculateFare(distanceKm, pricePerKm)
+
+  // Al seleccionar una sugerencia de Google
   const handlePlaceChanged = () => {
     const place = autocompleteRef.current?.getPlace()
-    if (!place?.formatted_address) return
-    setDestinationPlace(place)
-    setDestinationAddress(place.formatted_address)
-    setDistanceM(null)
-    setDurationText(null)
-    setCalcState('idle')
+    if (!place?.geometry) return
+    const lat = place.geometry.location.lat()
+    const lng = place.geometry.location.lng()
+    setDestinationAddress(place.formatted_address || place.name || '')
+    setDestLatLng({ lat, lng })
+    setCalcState(originLatLng ? 'loading' : 'idle')
   }
-
-  // Calculate distance origin → destination
-  const calculateDistance = useCallback(() => {
-    if (!originAddr || !destinationPlace?.formatted_address) return
-    if (!window.google?.maps) return
-    setCalcState('loading')
-    const svc = new window.google.maps.DistanceMatrixService()
-    svc.getDistanceMatrix(
-      {
-        origins: [originAddr],
-        destinations: [destinationPlace.formatted_address],
-        travelMode: window.google.maps.TravelMode.DRIVING,
-        region: 'CL',
-      },
-      (response, status) => {
-        if (status === 'OK') {
-          const element = response.rows[0]?.elements[0]
-          if (element?.status === 'OK') {
-            setDistanceM(element.distance.value)
-            setDurationText(element.duration.text)
-            setCalcState('done')
-          } else {
-            setCalcState('error')
-          }
-        } else {
-          setCalcState('error')
-        }
-      }
-    )
-  }, [originAddr, destinationPlace])
-
-  // Auto-calculate when place changes
-  useEffect(() => {
-    if (destinationPlace && originAddr && pricePerKm) {
-      calculateDistance()
-    }
-  }, [destinationPlace, calculateDistance, originAddr, pricePerKm])
 
   const handleConfirm = async (e) => {
     e.preventDefault()
@@ -136,7 +132,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
         clientCommune: destinationPlace?.vicinity || destinationAddress.trim(),
         notes: [
           destinationAddress.trim() ? `Destino: ${destinationAddress.trim()}` : '',
-          distanceM ? `Distancia: ${(distanceM / 1000).toFixed(1)} km` : '',
+          distanceKm ? `Distancia: ${distanceKm.toFixed(1)} km` : '',
           fare ? `Tarifa estimada: ${formatCLP(fare)}` : '',
           notes.trim(),
         ].filter(Boolean).join(' | ') || null,
@@ -204,7 +200,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
             </div>
 
             {/* ── Resumen de tarifa ── */}
-            {originAddr && destinationPlace && (
+            {destLatLng && (
               <div className={`rounded-xl border p-4 transition-all ${
                 calcState === 'done'    ? 'bg-blue-50 border-blue-200' :
                 calcState === 'loading' ? 'bg-gray-50 border-gray-200' :
@@ -216,11 +212,11 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">🚌 Origen</span>
-                    <span className="font-medium text-gray-800 text-right max-w-[60%]">{assignment.vehicle?.commune ?? '—'}</span>
+                    <span className="font-medium text-gray-800 text-right max-w-[60%]">{commune ?? '—'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">📍 Destino</span>
-                    <span className="font-medium text-gray-800 text-right max-w-[60%] truncate">{destinationPlace.formatted_address}</span>
+                    <span className="font-medium text-gray-800 text-right max-w-[60%] truncate">{destinationAddress}</span>
                   </div>
 
                   {calcState === 'loading' && (
@@ -230,19 +226,13 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                     </div>
                   )}
 
-                  {calcState === 'done' && distanceM && (
+                  {calcState === 'done' && distanceKm != null && (
                     <>
                       <div className="border-t border-blue-200 my-2" />
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">📏 Distancia</span>
-                        <span className="font-medium text-gray-800">{(distanceM / 1000).toFixed(1)} km</span>
+                        <span className="font-medium text-gray-800">{distanceKm.toFixed(1)} km</span>
                       </div>
-                      {durationText && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">⏱ Tiempo estimado</span>
-                          <span className="font-medium text-gray-800">{durationText}</span>
-                        </div>
-                      )}
                       {pricePerKm && fare ? (
                         <>
                           <div className="flex justify-between text-sm">
@@ -254,7 +244,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                             <span className="text-blue-700">Total estimado</span>
                             <span className="text-blue-700">{formatCLP(fare)}</span>
                           </div>
-                          <p className="text-xs text-gray-400 mt-1">* Tarifa referencial, puede variar según ruta exacta.</p>
+                          <p className="text-xs text-gray-400 mt-1">* Distancia en línea recta, tarifa referencial.</p>
                         </>
                       ) : (
                         <div className="text-sm text-amber-600 font-medium mt-1">
