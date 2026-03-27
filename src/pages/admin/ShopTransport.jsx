@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus, MapPin } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus, MapPin, ImagePlus, X } from 'lucide-react'
 import { Autocomplete, GoogleMap, Marker } from '@react-google-maps/api'
 import { api } from '../../lib/api'
 import AdminNavbar from '../../components/AdminNavbar'
+import { uploadTransportBanner } from '../../lib/transportBannerUpload'
 
 const DEFAULT_MAP_CENTER = { lat: -33.4489, lng: -70.6693 } // Santiago
 const MAP_STYLES = { height: '100%', width: '100%' }
@@ -131,6 +132,11 @@ function EventsTab({ shopId, vehicles, drivers }) {
   const [markerPos, setMarkerPos] = useState(null)
   const mapRef = useRef(null)
 
+  // Banner imagen
+  const bannerInputRef = useRef(null)
+  const [bannerPreview, setBannerPreview] = useState(null)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+
   // Assignments per expanded event
   const [assignments, setAssignments] = useState({})
   const [loadingAssign, setLoadingAssign] = useState(false)
@@ -156,6 +162,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
     setEditId(null)
     setMarkerPos(null)
     setMapCenter(DEFAULT_MAP_CENTER)
+    setBannerPreview(null)
     setModal('form')
   }
   const openEdit = (ev) => {
@@ -170,6 +177,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
       longitude: ev.longitude ?? null,
     })
     setEditId(ev.id)
+    setBannerPreview(ev.bannerImageUrl || null)
     if (ev.latitude && ev.longitude) {
       const pos = { lat: ev.latitude, lng: ev.longitude }
       setMarkerPos(pos)
@@ -179,6 +187,27 @@ function EventsTab({ shopId, vehicles, drivers }) {
       setMapCenter(DEFAULT_MAP_CENTER)
     }
     setModal('form')
+  }
+
+  const handleBannerChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBannerPreview(URL.createObjectURL(file))
+    setUploadingBanner(true)
+    try {
+      const url = await uploadTransportBanner(file, shopId)
+      setForm(f => ({ ...f, bannerImageUrl: url }))
+    } catch (err) {
+      alert(err.message ?? 'No se pudo subir la imagen')
+      setBannerPreview(form.bannerImageUrl || null)
+    } finally {
+      setUploadingBanner(false)
+    }
+  }
+
+  const removeBanner = () => {
+    setBannerPreview(null)
+    setForm(f => ({ ...f, bannerImageUrl: '' }))
   }
 
   const onMapClick = useCallback((e) => {
@@ -447,8 +476,51 @@ function EventsTab({ shopId, vehicles, drivers }) {
             <Field label="Fecha y hora">
               <input type="datetime-local" value={form.eventDate} onChange={e => setForm(f => ({ ...f, eventDate: e.target.value }))} className={inputCls} />
             </Field>
-            <Field label="URL del banner (imagen)">
-              <input type="text" value={form.bannerImageUrl} onChange={e => setForm(f => ({ ...f, bannerImageUrl: e.target.value }))} className={inputCls} placeholder="https://..." />
+            <Field label="Banner del evento">
+              {/* Input oculto */}
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleBannerChange}
+              />
+              {/* Preview */}
+              {bannerPreview ? (
+                <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 mb-2" style={{ aspectRatio: '16/7' }}>
+                  <img src={bannerPreview} alt="banner" className="w-full h-full object-cover" />
+                  {uploadingBanner && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                  )}
+                  {!uploadingBanner && (
+                    <button
+                      type="button"
+                      onClick={removeBanner}
+                      className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition shadow">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div
+                  onClick={() => bannerInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-2 h-32 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition mb-2">
+                  <ImagePlus className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                  <span className="text-xs text-gray-400 dark:text-gray-500">Haz clic para subir una imagen de banner</span>
+                </div>
+              )}
+              {/* Botón cambiar */}
+              <button
+                type="button"
+                disabled={uploadingBanner}
+                onClick={() => bannerInputRef.current?.click()}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50">
+                {uploadingBanner
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Subiendo...</>
+                  : <><ImagePlus className="w-3.5 h-3.5" />{bannerPreview ? 'Cambiar imagen' : 'Seleccionar imagen'}</>}
+              </button>
             </Field>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="ev-active" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} className="w-4 h-4 rounded" />
