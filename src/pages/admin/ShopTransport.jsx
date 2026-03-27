@@ -889,7 +889,14 @@ function ShopTransport() {
 
   // Shared state — vehicles & drivers are needed by EventsTab
   const [vehicles, setVehicles] = useState([])
-  const [drivers, setDrivers] = useState([])
+  const [drivers,  setDrivers]  = useState([])
+
+  // Cargar vehículos y conductores al montar para que EventsTab los tenga disponibles
+  useEffect(() => {
+    if (!shopId) return
+    api.getTransportVehicles(shopId).then(d => setVehicles(d || [])).catch(() => {})
+    api.getTransportDrivers(shopId).then(d => setDrivers(d || [])).catch(() => {})
+  }, [shopId])
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950 transition-colors">
