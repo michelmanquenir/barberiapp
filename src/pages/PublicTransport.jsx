@@ -70,13 +70,22 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const [error, setError]   = useState(null)
   const [calcState, setCalcState] = useState('idle') // idle | loading | done | error
 
-  const pricePerKm  = event?.pricePerKm ?? null
-  const available   = assignment.availableSeats ?? 0
+  const pricePerKm   = event?.pricePerKm ?? null
+  const available    = assignment.availableSeats ?? 0
   const eventAddress = event?.address   // dirección completa del evento (origen del viaje)
+
+  // distanceKm debe declararse antes de los useEffects que lo usan
+  const [distanceKm, setDistanceKm] = useState(null)
+  const fare = calculateFare(distanceKm, pricePerKm)
 
   // Geocodificar la dirección del evento al abrir el modal (una sola vez)
   useEffect(() => {
-    if (!eventAddress || !window.google?.maps) return
+    if (!window.google?.maps) return
+    if (!eventAddress) {
+      // Sin dirección de origen no podemos calcular — mostrar aviso
+      setCalcState('noAddress')
+      return
+    }
     setCalcState('loading')
     const geocoder = new window.google.maps.Geocoder()
     geocoder.geocode({ address: eventAddress }, (results, status) => {
@@ -99,9 +108,6 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
       setCalcState('done')
     }
   }, [originLatLng, destLatLng])
-
-  const [distanceKm, setDistanceKm] = useState(null)
-  const fare = calculateFare(distanceKm, pricePerKm)
 
   // Al seleccionar una sugerencia de Google
   const handlePlaceChanged = () => {
@@ -203,18 +209,20 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
             {/* ── Resumen de tarifa ── */}
             {destLatLng && (
               <div className={`rounded-xl border p-4 transition-all ${
-                calcState === 'done'    ? 'bg-blue-50 border-blue-200' :
-                calcState === 'loading' ? 'bg-gray-50 border-gray-200' :
-                calcState === 'error'   ? 'bg-red-50 border-red-200' :
+                calcState === 'done'      ? 'bg-blue-50 border-blue-200' :
+                calcState === 'loading'   ? 'bg-gray-50 border-gray-200' :
+                calcState === 'error' || calcState === 'noAddress' ? 'bg-amber-50 border-amber-200' :
                 'bg-gray-50 border-gray-200'
               }`}>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Resumen de tarifa</p>
 
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">🚌 Origen</span>
-                    <span className="font-medium text-gray-800 text-right max-w-[60%]">{eventAddress ?? '—'}</span>
-                  </div>
+                  {eventAddress && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">🚌 Origen</span>
+                      <span className="font-medium text-gray-800 text-right max-w-[60%]">{eventAddress}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">📍 Destino</span>
                     <span className="font-medium text-gray-800 text-right max-w-[60%] truncate">{destinationAddress}</span>
@@ -234,7 +242,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                         <span className="text-gray-600">📏 Distancia</span>
                         <span className="font-medium text-gray-800">{distanceKm.toFixed(1)} km</span>
                       </div>
-                      {pricePerKm && fare ? (
+                      {pricePerKm != null && fare != null ? (
                         <>
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">💲 Tarifa/km</span>
@@ -255,8 +263,12 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                     </>
                   )}
 
-                  {calcState === 'error' && (
-                    <p className="text-sm text-red-500">No se pudo calcular la distancia. Puedes continuar de todas formas.</p>
+                  {(calcState === 'error' || calcState === 'noAddress') && (
+                    <div className="text-sm text-amber-700 font-medium mt-1">
+                      💬 {calcState === 'noAddress'
+                        ? 'El evento no tiene dirección de origen — precio a convenir con el conductor.'
+                        : 'No se pudo calcular la distancia — precio a convenir con el conductor.'}
+                    </div>
                   )}
                 </div>
               </div>
