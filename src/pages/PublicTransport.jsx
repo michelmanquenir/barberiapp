@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -34,14 +35,88 @@ function Spinner({ text = 'Cargando...' }) {
   )
 }
 
+// ── Fare Calculator ───────────────────────────────────────────────────────────
+function calculateFare(distanceMeters, pricePerKm) {
+  if (!distanceMeters || !pricePerKm) return null
+  const km = distanceMeters / 1000
+  return Math.ceil(km * pricePerKm)
+}
+
+function formatCLP(amount) {
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(amount)
+}
+
 // ── Booking Modal ─────────────────────────────────────────────────────────────
-function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
+function BookingModal({ event, assignment, onClose, onSuccess }) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [originCommune, setOriginCommune] = useState(commune || '')
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const autocompleteRef = useRef(null)
+
+  const [destinationAddress, setDestinationAddress] = useState('')
+  const [destinationPlace, setDestinationPlace]     = useState(null) // Google Place object
+  const [notes, setNotes]     = useState('')
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState(null)
+
+  // Distance Matrix result
+  const [calcState, setCalcState] = useState('idle') // idle | loading | done | error
+  const [distanceM, setDistanceM] = useState(null)
+  const [durationText, setDurationText] = useState(null)
+
+  const pricePerKm = event?.pricePerKm ?? null
+  const fare       = calculateFare(distanceM, pricePerKm)
+  const available  = assignment.availableSeats ?? 0
+  const originAddr = assignment.vehicle?.commune
+    ? `${assignment.vehicle.commune}, Chile`
+    : null
+
+  // When a place is selected from autocomplete
+  const handlePlaceChanged = () => {
+    const place = autocompleteRef.current?.getPlace()
+    if (!place?.formatted_address) return
+    setDestinationPlace(place)
+    setDestinationAddress(place.formatted_address)
+    setDistanceM(null)
+    setDurationText(null)
+    setCalcState('idle')
+  }
+
+  // Calculate distance origin → destination
+  const calculateDistance = useCallback(() => {
+    if (!originAddr || !destinationPlace?.formatted_address) return
+    if (!window.google?.maps) return
+    setCalcState('loading')
+    const svc = new window.google.maps.DistanceMatrixService()
+    svc.getDistanceMatrix(
+      {
+        origins: [originAddr],
+        destinations: [destinationPlace.formatted_address],
+        travelMode: window.google.maps.TravelMode.DRIVING,
+        region: 'CL',
+      },
+      (response, status) => {
+        if (status === 'OK') {
+          const element = response.rows[0]?.elements[0]
+          if (element?.status === 'OK') {
+            setDistanceM(element.distance.value)
+            setDurationText(element.duration.text)
+            setCalcState('done')
+          } else {
+            setCalcState('error')
+          }
+        } else {
+          setCalcState('error')
+        }
+      }
+    )
+  }, [originAddr, destinationPlace])
+
+  // Auto-calculate when place changes
+  useEffect(() => {
+    if (destinationPlace && originAddr && pricePerKm) {
+      calculateDistance()
+    }
+  }, [destinationPlace, calculateDistance, originAddr, pricePerKm])
 
   const handleConfirm = async (e) => {
     e.preventDefault()
@@ -49,13 +124,22 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
       navigate('/login?returnUrl=' + encodeURIComponent(window.location.pathname))
       return
     }
+    if (!destinationAddress.trim()) {
+      setError('Por favor ingresa tu dirección de destino')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const result = await api.bookPassengerSeat({
         assignmentId: assignment.id,
-        clientCommune: originCommune.trim() || null,
-        notes: notes.trim() || null,
+        clientCommune: destinationPlace?.vicinity || destinationAddress.trim(),
+        notes: [
+          destinationAddress.trim() ? `Destino: ${destinationAddress.trim()}` : '',
+          distanceM ? `Distancia: ${(distanceM / 1000).toFixed(1)} km` : '',
+          fare ? `Tarifa estimada: ${formatCLP(fare)}` : '',
+          notes.trim(),
+        ].filter(Boolean).join(' | ') || null,
       })
       onSuccess(result)
     } catch (err) {
@@ -65,50 +149,129 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
     }
   }
 
-  const available = assignment.availableSeats ?? 0
-
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="fixed inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md">
+      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[95dvh] overflow-y-auto">
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-gray-200" />
         </div>
         <div className="px-5 pt-4 pb-6 sm:pt-5">
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Confirmar reserva</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">Reservar asiento</h3>
           <p className="text-sm text-gray-500 mb-4">{event.title} · {formatDate(event.eventDate)}</p>
 
           {/* Vehicle info */}
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-4">
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-5">
             {assignment.vehicle?.imageUrl
               ? <img src={assignment.vehicle.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
               : <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center text-2xl flex-shrink-0">🚌</div>
             }
-            <div>
+            <div className="min-w-0">
               <p className="font-semibold text-gray-800 text-sm">{assignment.vehicle?.brand} {assignment.vehicle?.model} {assignment.vehicle?.year && `(${assignment.vehicle.year})`}</p>
               <p className="text-xs text-gray-500">Conductor: <span className="font-medium">{assignment.driver?.name ?? 'Por confirmar'}</span></p>
               {assignment.vehicle?.commune && (
-                <p className="text-xs text-indigo-600">Sale desde: {assignment.vehicle.commune}</p>
+                <p className="text-xs text-indigo-600 font-medium">📍 Sale desde: {assignment.vehicle.commune}</p>
               )}
               <p className="text-xs text-green-600 font-medium">{available} asientos disponibles</p>
             </div>
           </div>
 
           <form onSubmit={handleConfirm} className="space-y-4">
+
+            {/* ── Dirección de destino ── */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tu comuna de origen</label>
-              <input
-                type="text"
-                list="communes-booking"
-                value={originCommune}
-                onChange={e => setOriginCommune(e.target.value)}
-                placeholder="Ej: Puente Alto"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <datalist id="communes-booking">
-                {CHILEAN_COMMUNES.map(c => <option key={c} value={c} />)}
-              </datalist>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                📍 Tu dirección de destino
+              </label>
+              <Autocomplete
+                onLoad={ac => { autocompleteRef.current = ac }}
+                onPlaceChanged={handlePlaceChanged}
+                options={{ componentRestrictions: { country: 'cl' } }}
+              >
+                <input
+                  type="text"
+                  value={destinationAddress}
+                  onChange={e => {
+                    setDestinationAddress(e.target.value)
+                    if (!e.target.value) { setDestinationPlace(null); setDistanceM(null); setCalcState('idle') }
+                  }}
+                  placeholder="Ej: Av. Vicuña Mackenna 1234, Santiago"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </Autocomplete>
+              <p className="text-xs text-gray-400 mt-1">Selecciona una sugerencia para calcular la tarifa automáticamente.</p>
             </div>
+
+            {/* ── Resumen de tarifa ── */}
+            {originAddr && destinationPlace && (
+              <div className={`rounded-xl border p-4 transition-all ${
+                calcState === 'done'    ? 'bg-blue-50 border-blue-200' :
+                calcState === 'loading' ? 'bg-gray-50 border-gray-200' :
+                calcState === 'error'   ? 'bg-red-50 border-red-200' :
+                'bg-gray-50 border-gray-200'
+              }`}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Resumen de tarifa</p>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">🚌 Origen</span>
+                    <span className="font-medium text-gray-800 text-right max-w-[60%]">{assignment.vehicle?.commune ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">📍 Destino</span>
+                    <span className="font-medium text-gray-800 text-right max-w-[60%] truncate">{destinationPlace.formatted_address}</span>
+                  </div>
+
+                  {calcState === 'loading' && (
+                    <div className="flex items-center gap-2 text-sm text-gray-500 pt-1">
+                      <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                      Calculando distancia...
+                    </div>
+                  )}
+
+                  {calcState === 'done' && distanceM && (
+                    <>
+                      <div className="border-t border-blue-200 my-2" />
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">📏 Distancia</span>
+                        <span className="font-medium text-gray-800">{(distanceM / 1000).toFixed(1)} km</span>
+                      </div>
+                      {durationText && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">⏱ Tiempo estimado</span>
+                          <span className="font-medium text-gray-800">{durationText}</span>
+                        </div>
+                      )}
+                      {pricePerKm && fare ? (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">💲 Tarifa/km</span>
+                            <span className="font-medium text-gray-800">{formatCLP(pricePerKm)}/km</span>
+                          </div>
+                          <div className="border-t border-blue-200 my-2" />
+                          <div className="flex justify-between text-base font-bold">
+                            <span className="text-blue-700">Total estimado</span>
+                            <span className="text-blue-700">{formatCLP(fare)}</span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">* Tarifa referencial, puede variar según ruta exacta.</p>
+                        </>
+                      ) : (
+                        <div className="text-sm text-amber-600 font-medium mt-1">
+                          💬 Precio a convenir con el conductor
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {calcState === 'error' && (
+                    <p className="text-sm text-red-500">No se pudo calcular la distancia. Puedes continuar de todas formas.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Notas ── */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Notas <span className="text-gray-400 font-normal">(opcional)</span>
@@ -121,16 +284,22 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
+
             {error && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
             )}
+
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                 Cancelar
               </button>
-              <button type="submit" disabled={saving} className="flex-1 py-3 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 py-3 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
                 {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Confirmar reserva
+                {fare ? `Reservar · ${formatCLP(fare)}` : 'Confirmar reserva'}
               </button>
             </div>
           </form>
@@ -623,7 +792,6 @@ function PublicTransport() {
         <BookingModal
           event={selectedEvent}
           assignment={bookingTarget}
-          commune={communeQuery}
           onClose={() => setBookingTarget(null)}
           onSuccess={handleBookingSuccess}
         />

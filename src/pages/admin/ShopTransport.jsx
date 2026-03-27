@@ -114,7 +114,7 @@ function AddressAutocomplete({ value, onChange, onPlaceSelect, placeholder = 'Es
 // ══════════════════════════════════════════════════════════════════════════════
 
 const EMPTY_EVENT = {
-  eventCode: '', title: '', address: '', eventDate: '', bannerImageUrl: '', active: true,
+  eventCode: '', title: '', address: '', eventDate: '', bannerImageUrl: '', pricePerKm: '', active: true,
   latitude: null, longitude: null,
 }
 
@@ -184,6 +184,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
       address: ev.address ?? '',
       eventDate: ev.eventDate ? ev.eventDate.substring(0, 16) : '',
       bannerImageUrl: ev.bannerImageUrl ?? '',
+      pricePerKm: ev.pricePerKm != null ? String(ev.pricePerKm) : '',
       active: ev.active ?? true,
       latitude: ev.latitude ?? null,
       longitude: ev.longitude ?? null,
@@ -251,6 +252,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
       const payload = {
         ...form,
         eventDate: form.eventDate ? new Date(form.eventDate).toISOString() : null,
+        pricePerKm: form.pricePerKm !== '' ? Number(form.pricePerKm) : null,
       }
       if (editId) {
         const updated = await api.updateTransportEvent(shopId, editId, payload)
@@ -554,6 +556,21 @@ function EventsTab({ shopId, vehicles, drivers }) {
             </Field>
             <Field label="Fecha y hora">
               <input type="datetime-local" value={form.eventDate} onChange={e => setForm(f => ({ ...f, eventDate: e.target.value }))} className={inputCls} />
+            </Field>
+            <Field label="Tarifa por kilómetro ($)">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.pricePerKm}
+                  onChange={e => setForm(f => ({ ...f, pricePerKm: e.target.value }))}
+                  className={`${inputCls} pl-7`}
+                  placeholder="Ej: 350"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Se usará para calcular la tarifa al pasajero según su dirección de destino. Deja vacío si el precio es a convenir.</p>
             </Field>
             <Field label="Banner del evento">
               {/* Input oculto */}
