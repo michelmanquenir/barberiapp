@@ -70,16 +70,16 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const [error, setError]   = useState(null)
   const [calcState, setCalcState] = useState('idle') // idle | loading | done | error
 
-  const pricePerKm = event?.pricePerKm ?? null
-  const available  = assignment.availableSeats ?? 0
-  const commune    = assignment.vehicle?.commune
+  const pricePerKm  = event?.pricePerKm ?? null
+  const available   = assignment.availableSeats ?? 0
+  const eventAddress = event?.address   // dirección completa del evento (origen del viaje)
 
-  // Geocodificar la comuna del vehículo al abrir el modal (una sola vez)
+  // Geocodificar la dirección del evento al abrir el modal (una sola vez)
   useEffect(() => {
-    if (!commune || !window.google?.maps) return
+    if (!eventAddress || !window.google?.maps) return
     setCalcState('loading')
     const geocoder = new window.google.maps.Geocoder()
-    geocoder.geocode({ address: `${commune}, Chile` }, (results, status) => {
+    geocoder.geocode({ address: eventAddress }, (results, status) => {
       if (status === 'OK' && results[0]?.geometry) {
         setOriginLatLng({
           lat: results[0].geometry.location.lat(),
@@ -89,7 +89,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
         setCalcState('error')
       }
     })
-  }, [commune])
+  }, [eventAddress])
 
   // Calcular distancia con haversine cuando ambos puntos estén listos
   useEffect(() => {
@@ -129,8 +129,9 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
     try {
       const result = await api.bookPassengerSeat({
         assignmentId: assignment.id,
-        clientCommune: destinationPlace?.vicinity || destinationAddress.trim(),
+        clientCommune: destinationAddress.trim(),
         notes: [
+          eventAddress ? `Origen: ${eventAddress}` : '',
           destinationAddress.trim() ? `Destino: ${destinationAddress.trim()}` : '',
           distanceKm ? `Distancia: ${distanceKm.toFixed(1)} km` : '',
           fare ? `Tarifa estimada: ${formatCLP(fare)}` : '',
@@ -212,7 +213,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">🚌 Origen</span>
-                    <span className="font-medium text-gray-800 text-right max-w-[60%]">{commune ?? '—'}</span>
+                    <span className="font-medium text-gray-800 text-right max-w-[60%]">{eventAddress ?? '—'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">📍 Destino</span>
