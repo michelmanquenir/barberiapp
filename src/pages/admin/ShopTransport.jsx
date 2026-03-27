@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -56,6 +56,91 @@ function Badge({ active }) {
   return active
     ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">Activo</span>
     : <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">Inactivo</span>
+}
+
+// ── Autocompletado de dirección (OpenStreetMap Nominatim) ─────────────────────
+function AddressAutocomplete({ value, onChange, placeholder = 'Buscar dirección...' }) {
+  const [query, setQuery] = useState(value || '')
+  const [suggestions, setSuggestions] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const timerRef = useRef(null)
+  const containerRef = useRef(null)
+
+  // Sync external value → internal query
+  useEffect(() => { setQuery(value || '') }, [value])
+
+  // Click outside → close
+  useEffect(() => {
+    function handleClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const search = useCallback(async (q) => {
+    if (!q || q.length < 4) { setSuggestions([]); return }
+    setLoading(true)
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=cl&limit=6&q=${encodeURIComponent(q)}`
+      const res = await fetch(url, { headers: { 'Accept-Language': 'es' } })
+      const data = await res.json()
+      setSuggestions(data.map(r => r.display_name))
+      setOpen(true)
+    } catch {
+      setSuggestions([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const handleChange = (e) => {
+    const val = e.target.value
+    setQuery(val)
+    onChange(val)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => search(val), 350)
+  }
+
+  const handleSelect = (addr) => {
+    setQuery(addr)
+    onChange(addr)
+    setSuggestions([])
+    setOpen(false)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={handleChange}
+        onFocus={() => suggestions.length > 0 && setOpen(true)}
+        className={inputCls}
+        placeholder={placeholder}
+        autoComplete="off"
+      />
+      {loading && (
+        <span className="absolute right-3 top-1/2 -translate-y-1/2">
+          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+        </span>
+      )}
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-[200] left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-56 overflow-y-auto text-sm">
+          {suggestions.map((s, i) => (
+            <li
+              key={i}
+              onMouseDown={() => handleSelect(s)}
+              className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border-b last:border-0 border-gray-100 dark:border-gray-700"
+            >
+              📍 {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -319,7 +404,11 @@ function EventsTab({ shopId, vehicles, drivers }) {
               <input type="text" required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputCls} placeholder="Nombre del evento" />
             </Field>
             <Field label="Dirección del evento">
-              <input type="text" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className={inputCls} placeholder="Dirección o lugar" />
+              <AddressAutocomplete
+                value={form.address}
+                onChange={val => setForm(f => ({ ...f, address: val }))}
+                placeholder="Buscar dirección en Chile..."
+              />
             </Field>
             <Field label="Fecha y hora">
               <input type="datetime-local" value={form.eventDate} onChange={e => setForm(f => ({ ...f, eventDate: e.target.value }))} className={inputCls} />
