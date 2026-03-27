@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -18,10 +18,10 @@ const CHILEAN_COMMUNES = [
 
 function formatDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('es-CL', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+  const d = new Date(iso)
+  const day = d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })
+  const time = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+  return `${day} · ${time}`
 }
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
@@ -71,11 +71,10 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="fixed inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md">
-        {/* Handle for mobile */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-gray-200" />
         </div>
-        <div className="px-5 pt-4 pb-5 sm:pt-5">
+        <div className="px-5 pt-4 pb-6 sm:pt-5">
           <h3 className="text-lg font-bold text-gray-900 mb-1">Confirmar reserva</h3>
           <p className="text-sm text-gray-500 mb-4">{event.title} · {formatDate(event.eventDate)}</p>
 
@@ -87,8 +86,11 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
             }
             <div>
               <p className="font-semibold text-gray-800 text-sm">{assignment.vehicle?.brand} {assignment.vehicle?.model} {assignment.vehicle?.year && `(${assignment.vehicle.year})`}</p>
-              <p className="text-xs text-gray-500">Conductor: {assignment.driver?.name ?? 'Por confirmar'}</p>
-              <p className="text-xs text-blue-600 font-medium">{available} asientos disponibles</p>
+              <p className="text-xs text-gray-500">Conductor: <span className="font-medium">{assignment.driver?.name ?? 'Por confirmar'}</span></p>
+              {assignment.vehicle?.commune && (
+                <p className="text-xs text-indigo-600">Sale desde: {assignment.vehicle.commune}</p>
+              )}
+              <p className="text-xs text-green-600 font-medium">{available} asientos disponibles</p>
             </div>
           </div>
 
@@ -100,7 +102,7 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
                 list="communes-booking"
                 value={originCommune}
                 onChange={e => setOriginCommune(e.target.value)}
-                placeholder="Selecciona o escribe tu comuna"
+                placeholder="Ej: Puente Alto"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <datalist id="communes-booking">
@@ -108,7 +110,9 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
               </datalist>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notas adicionales <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notas <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
@@ -117,11 +121,9 @@ function BookingModal({ event, assignment, commune, onClose, onSuccess }) {
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
-
             {error && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
             )}
-
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
                 Cancelar
@@ -159,59 +161,105 @@ function SuccessScreen({ booking, onClose }) {
 }
 
 // ── Vehicle Card ──────────────────────────────────────────────────────────────
-function VehicleCard({ assignment, onBook }) {
-  const capacity = assignment.vehicle?.passengerCapacity ?? 0
-  const booked   = assignment.bookedSeats ?? 0
+function VehicleCard({ assignment, selectedCommune, onBook }) {
+  const capacity  = assignment.vehicle?.passengerCapacity ?? 0
+  const booked    = assignment.bookedSeats ?? 0
   const available = assignment.availableSeats ?? Math.max(0, capacity - booked)
-  const isFull = available <= 0
+  const isFull    = available <= 0
+  const isMatch   = selectedCommune &&
+    (assignment.vehicle?.commune || '').toLowerCase() === selectedCommune.toLowerCase()
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border transition-shadow hover:shadow-md ${isFull ? 'opacity-60' : ''}`}>
+    <div className={`bg-white rounded-2xl border transition-all hover:shadow-md overflow-hidden
+      ${isFull ? 'opacity-60' : ''}
+      ${isMatch ? 'border-indigo-400 ring-2 ring-indigo-100 shadow-sm' : 'border-gray-200 shadow-sm'}
+    `}>
       {/* Vehicle image */}
       {assignment.vehicle?.imageUrl ? (
-        <img src={assignment.vehicle.imageUrl} alt={`${assignment.vehicle.brand} ${assignment.vehicle.model}`} className="w-full h-36 object-cover rounded-t-2xl" />
+        <div className="relative">
+          <img src={assignment.vehicle.imageUrl} alt={`${assignment.vehicle.brand} ${assignment.vehicle.model}`} className="w-full h-36 object-cover" />
+          {isMatch && (
+            <span className="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white font-semibold shadow">
+              📍 Cerca de ti
+            </span>
+          )}
+        </div>
       ) : (
-        <div className="w-full h-36 bg-gradient-to-br from-slate-100 to-slate-200 rounded-t-2xl flex items-center justify-center text-5xl">🚌</div>
+        <div className="w-full h-32 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-5xl relative">
+          🚌
+          {isMatch && (
+            <span className="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white font-semibold">
+              📍 Cerca de ti
+            </span>
+          )}
+        </div>
       )}
 
       <div className="p-4">
+        {/* Vehicle name + commune badge */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div>
-            <p className="font-bold text-gray-900">{assignment.vehicle?.brand} {assignment.vehicle?.model}</p>
-            {assignment.vehicle?.year && <p className="text-xs text-gray-400">{assignment.vehicle.year}</p>}
+            <p className="font-bold text-gray-900 text-sm leading-tight">
+              {assignment.vehicle?.brand} {assignment.vehicle?.model}
+              {assignment.vehicle?.year && <span className="font-normal text-gray-400 text-xs ml-1">({assignment.vehicle.year})</span>}
+            </p>
+            {assignment.vehicle?.licensePlate && (
+              <p className="text-xs text-gray-400 font-mono mt-0.5">{assignment.vehicle.licensePlate}</p>
+            )}
           </div>
           {assignment.vehicle?.commune && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 flex-shrink-0">
+            <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${
+              isMatch
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
+                : 'bg-gray-50 text-gray-500 border-gray-200'
+            }`}>
               {assignment.vehicle.commune}
             </span>
           )}
         </div>
 
-        {assignment.driver?.name && (
-          <p className="text-xs text-gray-500 mb-3">Conductor: <span className="font-medium text-gray-700">{assignment.driver.name}</span></p>
+        {/* Driver */}
+        {assignment.driver && (
+          <div className="flex items-center gap-2 mb-3 py-2 px-2.5 bg-gray-50 rounded-lg">
+            <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs flex-shrink-0">
+              {assignment.driver.name?.[0]?.toUpperCase() ?? '?'}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-gray-700 truncate">{assignment.driver.name}</p>
+              {assignment.driver.phone && (
+                <p className="text-xs text-gray-400">{assignment.driver.phone}</p>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Seats progress */}
         <div className="mb-3">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Asientos disponibles</span>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-gray-500">Asientos disponibles</span>
             <span className={`font-semibold ${isFull ? 'text-red-500' : 'text-green-600'}`}>
               {available}/{capacity}
             </span>
           </div>
           <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${isFull ? 'bg-red-400' : 'bg-green-400'}`}
+              className={`h-full rounded-full transition-all ${isFull ? 'bg-red-400' : available <= 2 ? 'bg-amber-400' : 'bg-green-400'}`}
               style={{ width: `${Math.min(100, (booked / (capacity || 1)) * 100)}%` }}
             />
           </div>
+          {available <= 2 && !isFull && (
+            <p className="text-xs text-amber-600 mt-1 font-medium">⚡ ¡Solo quedan {available} asientos!</p>
+          )}
         </div>
 
         {isFull ? (
           <span className="block w-full text-center py-2 rounded-xl bg-gray-100 text-gray-500 text-sm font-medium">Sin cupos</span>
         ) : (
-          <button onClick={() => onBook(assignment)} className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">
-            Reservar
+          <button
+            onClick={() => onBook(assignment)}
+            className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition"
+          >
+            Reservar asiento
           </button>
         )}
       </div>
@@ -224,30 +272,42 @@ function EventCard({ event, selected, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left bg-white rounded-2xl shadow-sm border transition-all hover:shadow-md overflow-hidden ${
-        selected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
-      }`}
+      className={`w-full text-left rounded-2xl border transition-all overflow-hidden
+        ${selected
+          ? 'border-blue-500 ring-2 ring-blue-200 shadow-md bg-white'
+          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white shadow-sm'
+        }`}
     >
-      {event.bannerImageUrl && (
-        <img src={event.bannerImageUrl} alt={event.title} className="w-full h-40 object-cover" />
+      {event.bannerImageUrl ? (
+        <div className="relative">
+          <img src={event.bannerImageUrl} alt={event.title} className="w-full h-40 object-cover" />
+          {selected && (
+            <div className="absolute inset-0 bg-blue-600/10 flex items-center justify-center">
+              <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow">✓ Seleccionado</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className={`w-full h-24 flex items-center justify-center text-4xl ${selected ? 'bg-blue-50' : 'bg-gradient-to-br from-slate-100 to-slate-200'}`}>
+          🚌
+        </div>
       )}
       <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="font-bold text-gray-900 text-base">{event.title}</h3>
-            {event.eventCode && (
-              <span className="text-xs font-mono text-gray-400">{event.eventCode}</span>
-            )}
-          </div>
-          {selected && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium flex-shrink-0">Seleccionado</span>}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3 className="font-bold text-gray-900 text-base leading-tight">{event.title}</h3>
+          {event.eventCode && (
+            <span className="text-xs font-mono text-gray-400 flex-shrink-0">{event.eventCode}</span>
+          )}
         </div>
         {event.address && (
-          <p className="text-sm text-gray-500 mt-2 flex items-start gap-1.5">
-            <span className="flex-shrink-0 mt-0.5">📍</span>{event.address}
+          <p className="text-sm text-gray-500 flex items-start gap-1.5 mb-1">
+            <span className="flex-shrink-0">📍</span>
+            <span className="line-clamp-1">{event.address}</span>
           </p>
         )}
-        <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
-          <span>📅</span>{formatDate(event.eventDate)}
+        <p className="text-sm text-blue-600 font-medium flex items-center gap-1.5">
+          <span>📅</span>
+          <span>{formatDate(event.eventDate)}</span>
         </p>
       </div>
     </button>
@@ -262,18 +322,20 @@ function PublicTransport() {
   const { slug } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const vehiclesSectionRef = useRef(null)
 
-  const [shop, setShop] = useState(null)
-  const [events, setEvents] = useState([])
+  const [shop, setShop]                   = useState(null)
+  const [events, setEvents]               = useState([])
   const [loadingEvents, setLoadingEvents] = useState(true)
-  const [errorEvents, setErrorEvents] = useState(null)
+  const [errorEvents, setErrorEvents]     = useState(null)
 
-  const [selectedEvent, setSelectedEvent] = useState(null)
-  const [assignments, setAssignments] = useState([])
+  const [selectedEvent, setSelectedEvent]         = useState(null)
+  const [assignments, setAssignments]             = useState([])
   const [loadingAssignments, setLoadingAssignments] = useState(false)
 
-  const [selectedCommune, setSelectedCommune] = useState('')
-  const [bookingTarget, setBookingTarget] = useState(null)  // assignment to book
+  const [communeQuery, setCommuneQuery]   = useState('')
+  const [driverQuery, setDriverQuery]     = useState('')
+  const [bookingTarget, setBookingTarget] = useState(null)
   const [successBooking, setSuccessBooking] = useState(null)
 
   // Load shop + events
@@ -297,7 +359,7 @@ function PublicTransport() {
     load()
   }, [slug])
 
-  // Load assignments when event selected
+  // Select event → load its assignments + scroll
   const handleSelectEvent = useCallback(async (event) => {
     if (selectedEvent?.id === event.id) {
       setSelectedEvent(null)
@@ -306,6 +368,8 @@ function PublicTransport() {
     }
     setSelectedEvent(event)
     setAssignments([])
+    setCommuneQuery('')
+    setDriverQuery('')
     setLoadingAssignments(true)
     try {
       const data = await api.getPublicEventAssignments(event.id)
@@ -315,19 +379,35 @@ function PublicTransport() {
     } finally {
       setLoadingAssignments(false)
     }
+    // Auto-scroll to vehicles section
+    setTimeout(() => {
+      vehiclesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
   }, [selectedEvent])
 
-  // Sort assignments: exact commune match first
-  const sortedAssignments = [...assignments].sort((a, b) => {
-    const aCommune = (a.vehicle?.commune || '').toLowerCase()
-    const bCommune = (b.vehicle?.commune || '').toLowerCase()
-    const sel = selectedCommune.toLowerCase()
-    const aMatch = sel && aCommune === sel
-    const bMatch = sel && bCommune === sel
-    if (aMatch && !bMatch) return -1
-    if (!aMatch && bMatch) return 1
-    return aCommune.localeCompare(bCommune)
-  })
+  // Filter + sort assignments
+  const filteredAssignments = assignments
+    .filter(a => {
+      const driverOk = !driverQuery ||
+        (a.driver?.name || '').toLowerCase().includes(driverQuery.toLowerCase())
+      return driverOk
+    })
+    .sort((a, b) => {
+      const aCommune = (a.vehicle?.commune || '').toLowerCase()
+      const bCommune = (b.vehicle?.commune || '').toLowerCase()
+      const query = communeQuery.toLowerCase()
+      if (query) {
+        const aExact = aCommune === query
+        const bExact = bCommune === query
+        const aPartial = aCommune.includes(query)
+        const bPartial = bCommune.includes(query)
+        if (aExact && !bExact) return -1
+        if (!aExact && bExact) return 1
+        if (aPartial && !bPartial) return -1
+        if (!aPartial && bPartial) return 1
+      }
+      return aCommune.localeCompare(bCommune)
+    })
 
   const handleBook = (assignment) => {
     if (!user) {
@@ -340,40 +420,40 @@ function PublicTransport() {
   const handleBookingSuccess = (booking) => {
     setBookingTarget(null)
     setSuccessBooking(booking)
-    // Refresh assignments to update seat count
     if (selectedEvent) {
-      api.getPublicEventAssignments(selectedEvent.id).then(data => {
-        setAssignments(data || [])
-      }).catch(() => {})
+      api.getPublicEventAssignments(selectedEvent.id)
+        .then(data => setAssignments(data || []))
+        .catch(() => {})
     }
   }
+
+  // Communes present in current event vehicles (for datalist)
+  const eventCommunes = [...new Set(assignments.map(a => a.vehicle?.commune).filter(Boolean))]
 
   return (
     <div className="min-h-screen bg-gray-50">
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500">
+        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500 flex-shrink-0">
               ←
             </button>
-            <div>
-              <h1 className="font-bold text-gray-900 text-lg leading-tight">
-                {shop?.name ?? slug}
-              </h1>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Transporte</span>
+            <div className="min-w-0">
+              <h1 className="font-bold text-gray-900 text-lg leading-tight truncate">{shop?.name ?? slug}</h1>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚌 Transporte</span>
             </div>
           </div>
           {user && (
-            <button onClick={() => navigate('/appointments')} className="text-sm text-blue-600 font-medium hover:underline">
+            <button onClick={() => navigate('/appointments')} className="text-sm text-blue-600 font-medium hover:underline flex-shrink-0">
               Mis reservas
             </button>
           )}
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
 
         {loadingEvents && <Spinner text="Cargando eventos..." />}
 
@@ -384,18 +464,21 @@ function PublicTransport() {
         )}
 
         {!loadingEvents && !errorEvents && events.length === 0 && (
-          <div className="text-center py-16">
-            <div className="text-5xl mb-3">🚌</div>
-            <h2 className="text-lg font-semibold text-gray-700 mb-1">Sin eventos disponibles</h2>
+          <div className="text-center py-20">
+            <div className="text-6xl mb-4">🚌</div>
+            <h2 className="text-xl font-semibold text-gray-700 mb-2">Sin eventos disponibles</h2>
             <p className="text-sm text-gray-400">No hay eventos de transporte publicados por este negocio.</p>
           </div>
         )}
 
         {!loadingEvents && events.length > 0 && (
           <>
-            {/* Events list */}
-            <section className="mb-6">
-              <h2 className="text-base font-semibold text-gray-700 mb-3">Próximos eventos</h2>
+            {/* ── PASO 1: Eventos ─────────────────────────────────────────── */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
+                <h2 className="text-base font-semibold text-gray-800">Selecciona un evento</h2>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {events.map(ev => (
                   <EventCard
@@ -408,42 +491,129 @@ function PublicTransport() {
               </div>
             </section>
 
-            {/* Vehicles section */}
-            {selectedEvent && (
-              <section>
-                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                  <h2 className="text-base font-semibold text-gray-700">Vehículos disponibles · <span className="text-blue-600">{selectedEvent.title}</span></h2>
+            {/* ── PASO 2: Vehículos ────────────────────────────────────────── */}
+            <section ref={vehiclesSectionRef}>
+              {!selectedEvent ? (
+                <div className="flex items-center gap-3 p-5 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400">
+                  <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-400 text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                  <p className="text-sm">Selecciona un evento para ver los vehículos disponibles</p>
                 </div>
-
-                {/* Commune filter */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-600 mb-1.5">Filtrar por comuna de salida</label>
-                  <select
-                    value={selectedCommune}
-                    onChange={e => setSelectedCommune(e.target.value)}
-                    className="w-full sm:w-auto px-3 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Todas las comunas</option>
-                    {CHILEAN_COMMUNES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-
-                {loadingAssignments ? (
-                  <Spinner text="Cargando vehículos..." />
-                ) : sortedAssignments.length === 0 ? (
-                  <div className="text-center py-10 bg-white rounded-2xl border border-gray-200">
-                    <div className="text-4xl mb-2">🚌</div>
-                    <p className="text-gray-500 text-sm">No hay vehículos asignados a este evento</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                    <h2 className="text-base font-semibold text-gray-800">
+                      Elige tu vehículo
+                      <span className="text-blue-600 ml-1">· {selectedEvent.title}</span>
+                    </h2>
                   </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {sortedAssignments.map(a => (
-                      <VehicleCard key={a.id} assignment={a} onBook={handleBook} />
-                    ))}
+
+                  {/* Filters */}
+                  <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4 space-y-3">
+                    {/* Commune search */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                        📍 Buscar por comuna de salida
+                      </label>
+                      <input
+                        type="text"
+                        list="communes-filter"
+                        value={communeQuery}
+                        onChange={e => setCommuneQuery(e.target.value)}
+                        placeholder="Ej: Puente Alto, Santiago..."
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                      />
+                      <datalist id="communes-filter">
+                        {/* First show communes actually in this event */}
+                        {eventCommunes.map(c => <option key={c} value={c} />)}
+                        {/* Then all Chile communes */}
+                        {CHILEAN_COMMUNES.filter(c => !eventCommunes.includes(c)).map(c => <option key={c} value={c} />)}
+                      </datalist>
+                      {eventCommunes.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {eventCommunes.map(c => (
+                            <button
+                              key={c}
+                              onClick={() => setCommuneQuery(communeQuery === c ? '' : c)}
+                              className={`text-xs px-2.5 py-1 rounded-full border transition ${
+                                communeQuery === c
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'
+                              }`}
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Driver search */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                        🧑‍✈️ Buscar por conductor
+                      </label>
+                      <input
+                        type="text"
+                        value={driverQuery}
+                        onChange={e => setDriverQuery(e.target.value)}
+                        placeholder="Nombre del conductor..."
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                      />
+                    </div>
+
+                    {(communeQuery || driverQuery) && (
+                      <button
+                        onClick={() => { setCommuneQuery(''); setDriverQuery('') }}
+                        className="text-xs text-red-500 hover:text-red-700 transition"
+                      >
+                        ✕ Limpiar filtros
+                      </button>
+                    )}
                   </div>
-                )}
-              </section>
-            )}
+
+                  {/* Results */}
+                  {loadingAssignments ? (
+                    <Spinner text="Cargando vehículos..." />
+                  ) : filteredAssignments.length === 0 ? (
+                    <div className="text-center py-10 bg-white rounded-2xl border border-gray-200">
+                      <div className="text-4xl mb-2">🔍</div>
+                      <p className="text-gray-500 text-sm font-medium">
+                        {assignments.length === 0
+                          ? 'No hay vehículos asignados a este evento'
+                          : 'No hay vehículos que coincidan con tu búsqueda'}
+                      </p>
+                      {assignments.length > 0 && (
+                        <button
+                          onClick={() => { setCommuneQuery(''); setDriverQuery('') }}
+                          className="mt-2 text-sm text-blue-600 hover:underline"
+                        >
+                          Ver todos los vehículos
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {communeQuery && (
+                        <p className="text-xs text-gray-400 mb-3">
+                          Mostrando {filteredAssignments.length} vehículo{filteredAssignments.length !== 1 ? 's' : ''} ordenados por proximidad a <strong className="text-gray-600">{communeQuery}</strong>
+                        </p>
+                      )}
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {filteredAssignments.map(a => (
+                          <VehicleCard
+                            key={a.id}
+                            assignment={a}
+                            selectedCommune={communeQuery}
+                            onBook={handleBook}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </section>
           </>
         )}
       </main>
@@ -453,7 +623,7 @@ function PublicTransport() {
         <BookingModal
           event={selectedEvent}
           assignment={bookingTarget}
-          commune={selectedCommune}
+          commune={communeQuery}
           onClose={() => setBookingTarget(null)}
           onSuccess={handleBookingSuccess}
         />
