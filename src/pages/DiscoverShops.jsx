@@ -29,11 +29,26 @@ function getShopRating(barbers) {
   return (sum / barbers.length).toFixed(1)
 }
 
+const PROFESSIONAL_TITLES = {
+  barberia:         { singular: 'barbero',      plural: 'barberos' },
+  estilista:        { singular: 'estilista',     plural: 'estilistas' },
+  lashes:           { singular: 'especialista',  plural: 'especialistas' },
+  bazar:            { singular: 'vendedor',      plural: 'vendedores' },
+  'gimnasio-boxeo': { singular: 'instructor',    plural: 'instructores' },
+  transporte:       { singular: 'conductor',     plural: 'conductores' },
+}
+
+function getProfLabel(slug, count) {
+  const entry = PROFESSIONAL_TITLES[slug] ?? { singular: 'profesional', plural: 'profesionales' }
+  return count === 1 ? entry.singular : entry.plural
+}
+
 function DiscoverShops() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
   const [shops, setShops] = useState([])
+  const [categoryMap, setCategoryMap] = useState({}) // id → slug
   const [favoriteShops, setFavoriteShops] = useState([])
   const [favoriteShopIds, setFavoriteShopIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
@@ -51,11 +66,15 @@ function DiscoverShops() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const [shopsData, favsData] = await Promise.all([
+        const [shopsData, favsData, catsData] = await Promise.all([
           api.getAllShops(),
           user ? api.getFavoriteShops(user.userId) : Promise.resolve([]),
+          api.getCategories().catch(() => []),
         ])
         setShops(shopsData || [])
+        const map = {}
+        ;(catsData || []).forEach(c => { map[c.id] = c.slug })
+        setCategoryMap(map)
         const favs = favsData || []
         setFavoriteShops(favs)
         setFavoriteShopIds(new Set(favs.map((f) => f.shop.id)))
@@ -213,6 +232,7 @@ function DiscoverShops() {
               <ShopCard
                 key={shop.id}
                 shop={shop}
+                categorySlug={categoryMap[shop.categoryId] ?? ''}
                 isFavorite={favoriteShopIds.has(shop.id)}
                 isHighlighted={highlightedShopId === shop.id}
                 onToggleFavorite={() => toggleFavorite(shop.id)}
@@ -280,7 +300,7 @@ function DiscoverShops() {
                           </span>
                         )}
                         <span className="text-xs text-gray-500">
-                          {shop.barbers?.length || 0} profesional{(shop.barbers?.length || 0) !== 1 ? 'es' : ''}
+                          {shop.barbers?.length || 0} {getProfLabel(categoryMap[shop.categoryId] ?? '', shop.barbers?.length || 0)}
                         </span>
                       </div>
                       <button
@@ -300,7 +320,7 @@ function DiscoverShops() {
   )
 }
 
-function ShopCard({ shop, isFavorite, isHighlighted, onToggleFavorite, onClick, onHover, onLeave }) {
+function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, onToggleFavorite, onClick, onHover, onLeave }) {
   const rating = getShopRating(shop.barbers)
   return (
     <div
@@ -334,8 +354,7 @@ function ShopCard({ shop, isFavorite, isHighlighted, onToggleFavorite, onClick, 
             <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
               <Users className="w-4 h-4" />
               <span>
-                {shop.barbers?.length || 0} barbero
-                {(shop.barbers?.length || 0) !== 1 ? 's' : ''}
+                {shop.barbers?.length || 0} {getProfLabel(categorySlug, shop.barbers?.length || 0)}
               </span>
             </div>
             {!shop.latitude && (
