@@ -26,6 +26,22 @@ import { toast } from '../lib/swal'
 import { useAuth } from '../context/AuthContext'
 import StarRating from '../components/StarRating'
 
+// ─── Título del profesional según categoría del negocio ───────────────────────
+
+const PROFESSIONAL_TITLES = {
+  barberia:       { singular: 'Barbero/a',    plural: 'Barberos/as' },
+  estilista:      { singular: 'Estilista',     plural: 'Estilistas' },
+  lashes:         { singular: 'Especialista',  plural: 'Especialistas' },
+  bazar:          { singular: 'Vendedor/a',    plural: 'Vendedores/as' },
+  'gimnasio-boxeo': { singular: 'Instructor/a', plural: 'Instructores/as' },
+  transporte:     { singular: 'Conductor/a',   plural: 'Conductores/as' },
+}
+
+function getProfessionalTitle(slug, plural = false) {
+  const entry = PROFESSIONAL_TITLES[slug] ?? { singular: 'Profesional', plural: 'Profesionales' }
+  return plural ? entry.plural : entry.singular
+}
+
 // ─── helpers de fecha/hora ────────────────────────────────────────────────────
 
 function todayStr() {
@@ -91,6 +107,7 @@ function PublicBooking() {
   const { user, isAuthenticated } = useAuth()
 
   const [shop, setShop] = useState(null)
+  const [categorySlug, setCategorySlug] = useState('')
   const [services, setServices] = useState([])
   const [shopReviews, setShopReviews] = useState([])
   const [plans, setPlans] = useState([])
@@ -145,6 +162,7 @@ function PublicBooking() {
         }
         const [servicesData, reviewsData, plansData, productsData, activeSub] = await Promise.all(extras)
         setShop(shopData)
+        setCategorySlug(cat?.slug ?? '')
         setServices(servicesData || [])
         setShopReviews(reviewsData || [])
         setPlans(plansData || [])
@@ -296,7 +314,7 @@ function PublicBooking() {
   const steps = [
     { n: 1, label: 'Servicio', icon: Scissors },
     { n: 2, label: 'Fecha', icon: Calendar },
-    { n: 3, label: 'Hora y profesional', icon: Clock },
+    { n: 3, label: `Hora y ${getProfessionalTitle(categorySlug)}`, icon: Clock },
     { n: 4, label: 'Confirmar', icon: Check },
   ]
 
@@ -411,6 +429,7 @@ function PublicBooking() {
               booking={booking}
               setBooking={setBooking}
               shopId={shop.id}
+              categorySlug={categorySlug}
             />
           )}
           {step === 4 && (
@@ -782,7 +801,7 @@ function DateStep({ booking, setBooking }) {
 
 // ─── Paso 3: Hora + Barbero ────────────────────────────────────────────────────
 
-function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
+function TimeBarberStep({ barbers, booking, setBooking, shopId, categorySlug }) {
   const [bookedBarberIds, setBookedBarberIds] = useState([])
   const [loadingAvailability, setLoadingAvailability] = useState(false)
   const [conflictInfo, setConflictInfo] = useState(null)      // aviso de conflicto entre negocios
@@ -828,9 +847,11 @@ function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1">Hora y profesional</h2>
+      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1">
+        Hora y {getProfessionalTitle(categorySlug)}
+      </h2>
       <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">
-        Elige la hora y ve qué profesionales están disponibles
+        Elige la hora y ve qué {getProfessionalTitle(categorySlug, true).toLowerCase()} están disponibles
       </p>
       <div className="grid md:grid-cols-2 gap-6">
         {/* Columna izquierda: horarios */}
@@ -866,7 +887,9 @@ function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
         <div>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-1.5">
             <Users className="w-4 h-4" />
-            {booking.time ? 'Profesionales disponibles' : 'Profesionales'}
+            {booking.time
+              ? `${getProfessionalTitle(categorySlug, true)} disponibles`
+              : getProfessionalTitle(categorySlug, true)}
           </h3>
 
           {!booking.time ? (
@@ -881,7 +904,7 @@ function TimeBarberStep({ barbers, booking, setBooking, shopId }) {
           ) : (
             <div className="space-y-2">
               {barbers.length === 0 && (
-                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No hay profesionales en este negocio</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No hay {getProfessionalTitle(categorySlug, true).toLowerCase()} en este negocio</p>
               )}
               {barbers.map((barber) => {
                 const booked = bookedBarberIds.includes(barber.id)
