@@ -140,7 +140,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
   // Assignments per expanded event
   const [assignments, setAssignments] = useState({})
   const [loadingAssign, setLoadingAssign] = useState(false)
-  const [assignForm, setAssignForm] = useState({ vehicleId: '', driverId: '' })
+  const [assignForm, setAssignForm] = useState({ driverId: '', vehicleId: '' })
   const [savingAssign, setSavingAssign] = useState(false)
 
   const load = useCallback(async () => {
@@ -280,25 +280,35 @@ function EventsTab({ shopId, vehicles, drivers }) {
         setLoadingAssign(false)
       }
     }
-    setAssignForm({ vehicleId: '', driverId: '' })
+    setAssignForm({ driverId: '', vehicleId: '' })
+  }
+
+  const handleAssignDriverChange = (driverId, driverVehicles) => {
+    // Si el conductor tiene solo 1 vehículo, lo auto-selecciona
+    const autoVehicle = driverVehicles.length === 1 ? String(driverVehicles[0].id) : ''
+    setAssignForm({ driverId, vehicleId: autoVehicle })
   }
 
   const handleAddAssignment = async (eventId) => {
+    if (!assignForm.driverId) {
+      alert('Selecciona un conductor')
+      return
+    }
     if (!assignForm.vehicleId) {
-      alert('Selecciona un vehículo')
+      alert('Selecciona el vehículo que usará en este evento')
       return
     }
     setSavingAssign(true)
     try {
       const created = await api.createEventAssignment(eventId, {
         vehicleId: Number(assignForm.vehicleId),
-        driverId: assignForm.driverId ? Number(assignForm.driverId) : null,
+        driverId: Number(assignForm.driverId),
       })
       setAssignments(prev => ({
         ...prev,
         [eventId]: [...(prev[eventId] || []), created],
       }))
-      setAssignForm({ vehicleId: '', driverId: '' })
+      setAssignForm({ driverId: '', vehicleId: '' })
     } catch (err) {
       alert(err.message || 'Error al asignar')
     } finally {
@@ -394,37 +404,62 @@ function EventsTab({ shopId, vehicles, drivers }) {
                     </div>
                   )}
 
-                  {/* Asignar nuevo */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      value={assignForm.vehicleId}
-                      onChange={e => setAssignForm(f => ({ ...f, vehicleId: e.target.value }))}
-                      className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                    >
-                      <option value="">Selecciona vehículo</option>
-                      {vehicles.map(v => (
-                        <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.licensePlate})</option>
-                      ))}
-                    </select>
-                    <select
-                      value={assignForm.driverId}
-                      onChange={e => setAssignForm(f => ({ ...f, driverId: e.target.value }))}
-                      className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                    >
-                      <option value="">Selecciona conductor</option>
-                      {drivers.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => handleAddAssignment(ev.id)}
-                      disabled={savingAssign}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50"
-                    >
-                      {savingAssign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                      Asignar
-                    </button>
-                  </div>
+                  {/* Asignar nuevo — primero conductor, luego vehículo */}
+                  {(() => {
+                    const driverVehicles = vehicles.filter(v => assignForm.driverId && v.driverId === Number(assignForm.driverId))
+                    return (
+                      <div className="space-y-2">
+                        {/* 1. Seleccionar conductor */}
+                        <select
+                          value={assignForm.driverId}
+                          onChange={e => handleAssignDriverChange(e.target.value, vehicles.filter(v => e.target.value && v.driverId === Number(e.target.value)))}
+                          className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                        >
+                          <option value="">Selecciona conductor...</option>
+                          {drivers.map(d => (
+                            <option key={d.id} value={d.id}>{d.name}{d.phone ? ` · ${d.phone}` : ''}</option>
+                          ))}
+                        </select>
+
+                        {/* 2. Vehículo del conductor (auto o manual si tiene varios) */}
+                        {assignForm.driverId && (
+                          driverVehicles.length === 0 ? (
+                            <p className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1">
+                              ⚠️ Este conductor no tiene vehículos asignados. Asígnale uno en la pestaña Vehículos.
+                            </p>
+                          ) : driverVehicles.length === 1 ? (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                              <span className="text-xs text-green-700 dark:text-green-400">🚌 Vehículo cargado automáticamente:</span>
+                              <span className="text-xs font-semibold text-green-800 dark:text-green-300">
+                                {driverVehicles[0].brand} {driverVehicles[0].model} · {driverVehicles[0].licensePlate || 'Sin patente'} · {driverVehicles[0].passengerCapacity} pax
+                              </span>
+                            </div>
+                          ) : (
+                            <select
+                              value={assignForm.vehicleId}
+                              onChange={e => setAssignForm(f => ({ ...f, vehicleId: e.target.value }))}
+                              className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                            >
+                              <option value="">Selecciona qué vehículo usará hoy...</option>
+                              {driverVehicles.map(v => (
+                                <option key={v.id} value={v.id}>{v.brand} {v.model} · {v.licensePlate || 'Sin patente'} · {v.passengerCapacity} pax</option>
+                              ))}
+                            </select>
+                          )
+                        )}
+
+                        {/* 3. Botón asignar */}
+                        <button
+                          onClick={() => handleAddAssignment(ev.id)}
+                          disabled={savingAssign || !assignForm.driverId || !assignForm.vehicleId}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50"
+                        >
+                          {savingAssign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                          Asignar conductor al evento
+                        </button>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>
@@ -694,10 +729,10 @@ function DriversTab({ shopId, drivers, setDrivers }) {
 
 const EMPTY_VEHICLE = {
   brand: '', model: '', year: '', licensePlate: '',
-  passengerCapacity: '4', commune: '', imageUrl: '', active: true,
+  passengerCapacity: '4', commune: '', driverId: '', imageUrl: '', active: true,
 }
 
-function VehiclesTab({ shopId, vehicles, setVehicles }) {
+function VehiclesTab({ shopId, vehicles, setVehicles, drivers }) {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_VEHICLE)
@@ -723,7 +758,7 @@ function VehiclesTab({ shopId, vehicles, setVehicles }) {
     setForm({
       brand: v.brand ?? '', model: v.model ?? '', year: v.year != null ? String(v.year) : '',
       licensePlate: v.licensePlate ?? '', passengerCapacity: v.passengerCapacity != null ? String(v.passengerCapacity) : '4',
-      commune: v.commune ?? '', imageUrl: v.imageUrl ?? '', active: v.active ?? true,
+      commune: v.commune ?? '', driverId: v.driverId != null ? String(v.driverId) : '', imageUrl: v.imageUrl ?? '', active: v.active ?? true,
     })
     setEditId(v.id)
     setModal(true)
@@ -737,6 +772,7 @@ function VehiclesTab({ shopId, vehicles, setVehicles }) {
         ...form,
         year: form.year ? Number(form.year) : null,
         passengerCapacity: form.passengerCapacity ? Number(form.passengerCapacity) : 4,
+        driverId: form.driverId ? Number(form.driverId) : null,
       }
       if (editId) {
         const updated = await api.updateTransportVehicle(shopId, editId, payload)
@@ -787,6 +823,7 @@ function VehiclesTab({ shopId, vehicles, setVehicles }) {
               <tr className="border-b border-gray-100 dark:border-gray-800">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Vehículo</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Patente</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Conductor</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Capacidad</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden lg:table-cell">Comuna</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</th>
@@ -800,6 +837,7 @@ function VehiclesTab({ shopId, vehicles, setVehicles }) {
                     {v.brand} {v.model} {v.year && <span className="text-gray-400">({v.year})</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs hidden sm:table-cell">{v.licensePlate || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden md:table-cell">{v.driverName || <span className="text-gray-300 dark:text-gray-600">Sin conductor</span>}</td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden md:table-cell">{v.passengerCapacity ?? '—'} pax</td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden lg:table-cell">{v.commune || '—'}</td>
                   <td className="px-4 py-3"><Badge active={v.active} /></td>
@@ -837,6 +875,18 @@ function VehiclesTab({ shopId, vehicles, setVehicles }) {
             </div>
             <Field label="Capacidad de pasajeros">
               <input type="number" min="1" max="60" value={form.passengerCapacity} onChange={e => setForm(f => ({ ...f, passengerCapacity: e.target.value }))} className={inputCls} />
+            </Field>
+            <Field label="Conductor asignado">
+              <select
+                value={form.driverId}
+                onChange={e => setForm(f => ({ ...f, driverId: e.target.value }))}
+                className={inputCls}
+              >
+                <option value="">Sin conductor asignado</option>
+                {(drivers || []).map(d => (
+                  <option key={d.id} value={d.id}>{d.name}{d.phone ? ` · ${d.phone}` : ''}</option>
+                ))}
+              </select>
             </Field>
             <Field label="Comuna de salida">
               <input
@@ -945,7 +995,7 @@ function ShopTransport() {
           <DriversTab shopId={shopId} drivers={drivers} setDrivers={setDrivers} />
         )}
         {tab === 'vehicles' && (
-          <VehiclesTab shopId={shopId} vehicles={vehicles} setVehicles={setVehicles} />
+          <VehiclesTab shopId={shopId} vehicles={vehicles} setVehicles={setVehicles} drivers={drivers} />
         )}
       </div>
     </div>
