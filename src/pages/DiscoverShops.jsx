@@ -114,7 +114,14 @@ function DiscoverShops() {
     }
   }
 
-  const handleShopClick = (slug) => navigate(`/book/${slug}`)
+  const handleShopClick = (shop) => {
+    const catSlug = categoryMap[shop.categoryId] ?? ''
+    if (catSlug === 'transporte') {
+      navigate(`/transport/${shop.slug}`)
+    } else {
+      navigate(`/book/${shop.slug}`)
+    }
+  }
 
   const handleCardHover = (shop) => {
     setHighlightedShopId(shop.id)
@@ -189,7 +196,7 @@ function DiscoverShops() {
             {favoriteShops.map((fav) => (
               <button
                 key={fav.id}
-                onClick={() => handleShopClick(fav.shop.slug)}
+                onClick={() => handleShopClick(fav.shop)}
                 className="flex-shrink-0 w-52 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-primary-400 hover:shadow-sm transition text-left"
               >
                 <div className="flex items-start gap-3">
@@ -236,7 +243,7 @@ function DiscoverShops() {
                 isFavorite={favoriteShopIds.has(shop.id)}
                 isHighlighted={highlightedShopId === shop.id}
                 onToggleFavorite={() => toggleFavorite(shop.id)}
-                onClick={() => handleShopClick(shop.slug)}
+                onClick={() => handleShopClick(shop)}
                 onHover={() => handleCardHover(shop)}
                 onLeave={() => setHighlightedShopId(null)}
               />
@@ -304,7 +311,7 @@ function DiscoverShops() {
                         </span>
                       </div>
                       <button
-                        onClick={() => handleShopClick(shop.slug)}
+                        onClick={() => handleShopClick(shop)}
                         className="mt-2 w-full bg-gray-900 text-white text-xs font-medium py-1.5 rounded-md hover:bg-gray-700 transition"
                       >
                         Reservar cita →
