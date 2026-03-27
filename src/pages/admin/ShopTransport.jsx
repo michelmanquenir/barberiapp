@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus, MapPin } from 'lucide-react'
+import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../../lib/api'
 import AdminNavbar from '../../components/AdminNavbar'
 
@@ -58,88 +59,44 @@ function Badge({ active }) {
     : <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">Inactivo</span>
 }
 
-// ── Autocompletado de dirección (OpenStreetMap Nominatim) ─────────────────────
-function AddressAutocomplete({ value, onChange, placeholder = 'Buscar dirección...' }) {
-  const [query, setQuery] = useState(value || '')
-  const [suggestions, setSuggestions] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef(null)
-  const containerRef = useRef(null)
+// ── Autocompletado de dirección (Google Places) ───────────────────────────────
+function AddressAutocomplete({ value, onChange, placeholder = 'Escribe la dirección del evento...' }) {
+  const autocompleteRef = useRef(null)
+  const inputRef = useRef(null)
 
-  // Sync external value → internal query
-  useEffect(() => { setQuery(value || '') }, [value])
-
-  // Click outside → close
+  // Sync value → input (uncontrolled por Google Autocomplete)
   useEffect(() => {
-    function handleClick(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false)
+    if (inputRef.current && value !== undefined) {
+      inputRef.current.value = value || ''
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+  }, [value])
 
-  const search = useCallback(async (q) => {
-    if (!q || q.length < 4) { setSuggestions([]); return }
-    setLoading(true)
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=cl&limit=6&q=${encodeURIComponent(q)}`
-      const res = await fetch(url, { headers: { 'Accept-Language': 'es' } })
-      const data = await res.json()
-      setSuggestions(data.map(r => r.display_name))
-      setOpen(true)
-    } catch {
-      setSuggestions([])
-    } finally {
-      setLoading(false)
+  const onPlaceChanged = () => {
+    const place = autocompleteRef.current?.getPlace()
+    if (place?.formatted_address) {
+      onChange(place.formatted_address)
+    } else if (inputRef.current) {
+      onChange(inputRef.current.value)
     }
-  }, [])
-
-  const handleChange = (e) => {
-    const val = e.target.value
-    setQuery(val)
-    onChange(val)
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => search(val), 350)
-  }
-
-  const handleSelect = (addr) => {
-    setQuery(addr)
-    onChange(addr)
-    setSuggestions([])
-    setOpen(false)
   }
 
   return (
-    <div ref={containerRef} className="relative">
-      <input
-        type="text"
-        value={query}
-        onChange={handleChange}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
-        className={inputCls}
-        placeholder={placeholder}
-        autoComplete="off"
-      />
-      {loading && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2">
-          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-        </span>
-      )}
-      {open && suggestions.length > 0 && (
-        <ul className="absolute z-[200] left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-56 overflow-y-auto text-sm">
-          {suggestions.map((s, i) => (
-            <li
-              key={i}
-              onMouseDown={() => handleSelect(s)}
-              className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border-b last:border-0 border-gray-100 dark:border-gray-700"
-            >
-              📍 {s}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Autocomplete
+      onLoad={(ref) => (autocompleteRef.current = ref)}
+      onPlaceChanged={onPlaceChanged}
+      options={{ componentRestrictions: { country: 'cl' } }}
+    >
+      <div className="relative">
+        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
+        <input
+          ref={inputRef}
+          type="text"
+          defaultValue={value || ''}
+          placeholder={placeholder}
+          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent"
+        />
+      </div>
+    </Autocomplete>
   )
 }
 
