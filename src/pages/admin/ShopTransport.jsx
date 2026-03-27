@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus, MapPin } from 'lucide-react'
-import { Autocomplete } from '@react-google-maps/api'
+import { Autocomplete, GoogleMap, Marker } from '@react-google-maps/api'
 import { api } from '../../lib/api'
 import AdminNavbar from '../../components/AdminNavbar'
+
+const DEFAULT_MAP_CENTER = { lat: -33.4489, lng: -70.6693 } // Santiago
+const MAP_STYLES = { height: '100%', width: '100%' }
+const MAP_OPTIONS = { zoomControl: true, streetViewControl: false, mapTypeControl: false, fullscreenControl: false }
 
 // ── Comunas de Chile ──────────────────────────────────────────────────────────
 export const CHILEAN_COMMUNES = [
@@ -60,7 +64,7 @@ function Badge({ active }) {
 }
 
 // ── Autocompletado de dirección (Google Places) ───────────────────────────────
-function AddressAutocomplete({ value, onChange, placeholder = 'Escribe la dirección del evento...' }) {
+function AddressAutocomplete({ value, onChange, onPlaceSelect, placeholder = 'Escribe la dirección del evento...' }) {
   const autocompleteRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -73,10 +77,14 @@ function AddressAutocomplete({ value, onChange, placeholder = 'Escribe la direcc
 
   const onPlaceChanged = () => {
     const place = autocompleteRef.current?.getPlace()
-    if (place?.formatted_address) {
-      onChange(place.formatted_address)
-    } else if (inputRef.current) {
-      onChange(inputRef.current.value)
+    const address = place?.formatted_address || inputRef.current?.value || ''
+    onChange(address)
+    if (place?.geometry && onPlaceSelect) {
+      onPlaceSelect({
+        address,
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+      })
     }
   }
 
@@ -106,6 +114,7 @@ function AddressAutocomplete({ value, onChange, placeholder = 'Escribe la direcc
 
 const EMPTY_EVENT = {
   eventCode: '', title: '', address: '', eventDate: '', bannerImageUrl: '', active: true,
+  latitude: null, longitude: null,
 }
 
 function EventsTab({ shopId, vehicles, drivers }) {
@@ -116,6 +125,11 @@ function EventsTab({ shopId, vehicles, drivers }) {
   const [saving, setSaving] = useState(false)
   const [editId, setEditId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+
+  // Mapa del modal
+  const [mapCenter, setMapCenter] = useState(DEFAULT_MAP_CENTER)
+  const [markerPos, setMarkerPos] = useState(null)
+  const mapRef = useRef(null)
 
   // Assignments per expanded event
   const [assignments, setAssignments] = useState({})
@@ -137,7 +151,13 @@ function EventsTab({ shopId, vehicles, drivers }) {
 
   useEffect(() => { load() }, [load])
 
-  const openCreate = () => { setForm(EMPTY_EVENT); setEditId(null); setModal('form') }
+  const openCreate = () => {
+    setForm(EMPTY_EVENT)
+    setEditId(null)
+    setMarkerPos(null)
+    setMapCenter(DEFAULT_MAP_CENTER)
+    setModal('form')
+  }
   const openEdit = (ev) => {
     setForm({
       eventCode: ev.eventCode ?? '',
@@ -146,10 +166,42 @@ function EventsTab({ shopId, vehicles, drivers }) {
       eventDate: ev.eventDate ? ev.eventDate.substring(0, 16) : '',
       bannerImageUrl: ev.bannerImageUrl ?? '',
       active: ev.active ?? true,
+      latitude: ev.latitude ?? null,
+      longitude: ev.longitude ?? null,
     })
     setEditId(ev.id)
+    if (ev.latitude && ev.longitude) {
+      const pos = { lat: ev.latitude, lng: ev.longitude }
+      setMarkerPos(pos)
+      setMapCenter(pos)
+    } else {
+      setMarkerPos(null)
+      setMapCenter(DEFAULT_MAP_CENTER)
+    }
     setModal('form')
   }
+
+  const onMapClick = useCallback((e) => {
+    const lat = e.latLng.lat()
+    const lng = e.latLng.lng()
+    setMarkerPos({ lat, lng })
+    setForm(f => ({ ...f, latitude: lat, longitude: lng }))
+  }, [])
+
+  const onMarkerDragEnd = useCallback((e) => {
+    const lat = e.latLng.lat()
+    const lng = e.latLng.lng()
+    setMarkerPos({ lat, lng })
+    setForm(f => ({ ...f, latitude: lat, longitude: lng }))
+  }, [])
+
+  const onPlaceSelect = useCallback(({ lat, lng }) => {
+    const pos = { lat, lng }
+    setMarkerPos(pos)
+    setMapCenter(pos)
+    setForm(f => ({ ...f, latitude: lat, longitude: lng }))
+    if (mapRef.current) { mapRef.current.panTo(pos); mapRef.current.setZoom(17) }
+  }, [])
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -364,8 +416,33 @@ function EventsTab({ shopId, vehicles, drivers }) {
               <AddressAutocomplete
                 value={form.address}
                 onChange={val => setForm(f => ({ ...f, address: val }))}
+                onPlaceSelect={onPlaceSelect}
                 placeholder="Buscar dirección en Chile..."
               />
+            </Field>
+            <Field label="Ubicación en el mapa">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">
+                Selecciona una dirección arriba o haz clic en el mapa · arrastra el pin para ajustar
+              </p>
+              <div className="h-56 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                <GoogleMap
+                  mapContainerStyle={MAP_STYLES}
+                  center={mapCenter}
+                  zoom={markerPos ? 16 : 13}
+                  options={MAP_OPTIONS}
+                  onLoad={(map) => { mapRef.current = map }}
+                  onClick={onMapClick}
+                >
+                  {markerPos && (
+                    <Marker position={markerPos} draggable onDragEnd={onMarkerDragEnd} />
+                  )}
+                </GoogleMap>
+              </div>
+              {form.latitude && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  📍 {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
+                </p>
+              )}
             </Field>
             <Field label="Fecha y hora">
               <input type="datetime-local" value={form.eventDate} onChange={e => setForm(f => ({ ...f, eventDate: e.target.value }))} className={inputCls} />
