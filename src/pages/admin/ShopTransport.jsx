@@ -147,7 +147,19 @@ function EventsTab({ shopId, vehicles, drivers }) {
     setLoading(true)
     try {
       const data = await api.getTransportEvents(shopId)
-      setEvents(data || [])
+      const evList = data || []
+      setEvents(evList)
+      // Pre-cargar asignaciones de todos los eventos para detectar conflictos
+      const allAssignments = {}
+      await Promise.all(evList.map(async (ev) => {
+        try {
+          const asgn = await api.getEventAssignments(ev.id)
+          allAssignments[ev.id] = asgn || []
+        } catch {
+          allAssignments[ev.id] = []
+        }
+      }))
+      setAssignments(allAssignments)
     } catch {
       // silent
     } finally {
@@ -407,6 +419,23 @@ function EventsTab({ shopId, vehicles, drivers }) {
                   {/* Asignar nuevo — primero conductor, luego vehículo */}
                   {(() => {
                     const driverVehicles = vehicles.filter(v => assignForm.driverId && v.driverId === Number(assignForm.driverId))
+
+                    // IDs de conductores y vehículos ya usados en OTROS eventos
+                    const usedDriverIds = new Set(
+                      Object.entries(assignments)
+                        .filter(([eid]) => Number(eid) !== ev.id)
+                        .flatMap(([, list]) => list.map(a => a.driver?.id).filter(Boolean))
+                    )
+                    const usedVehicleIds = new Set(
+                      Object.entries(assignments)
+                        .filter(([eid]) => Number(eid) !== ev.id)
+                        .flatMap(([, list]) => list.map(a => a.vehicle?.id).filter(Boolean))
+                    )
+                    // IDs de conductores ya en ESTE evento
+                    const thisEventDriverIds = new Set(
+                      (assignments[ev.id] || []).map(a => a.driver?.id).filter(Boolean)
+                    )
+
                     return (
                       <div className="space-y-2">
                         {/* 1. Seleccionar conductor */}
@@ -416,24 +445,34 @@ function EventsTab({ shopId, vehicles, drivers }) {
                           className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
                         >
                           <option value="">Selecciona conductor...</option>
-                          {drivers.map(d => (
-                            <option key={d.id} value={d.id}>{d.name}{d.phone ? ` · ${d.phone}` : ''}</option>
-                          ))}
+                          {drivers.map(d => {
+                            const inOtherEvent = usedDriverIds.has(d.id)
+                            const inThisEvent  = thisEventDriverIds.has(d.id)
+                            const disabled = inOtherEvent || inThisEvent
+                            const label = `${d.name}${d.phone ? ' · ' + d.phone : ''}${inOtherEvent ? ' — ya en otro evento' : inThisEvent ? ' — ya en este evento' : ''}`
+                            return <option key={d.id} value={d.id} disabled={disabled}>{label}</option>
+                          })}
                         </select>
 
                         {/* 2. Vehículo del conductor (auto o manual si tiene varios) */}
                         {assignForm.driverId && (
                           driverVehicles.length === 0 ? (
-                            <p className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1">
+                            <p className="text-xs text-amber-500 dark:text-amber-400">
                               ⚠️ Este conductor no tiene vehículos asignados. Asígnale uno en la pestaña Vehículos.
                             </p>
                           ) : driverVehicles.length === 1 ? (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-                              <span className="text-xs text-green-700 dark:text-green-400">🚌 Vehículo cargado automáticamente:</span>
-                              <span className="text-xs font-semibold text-green-800 dark:text-green-300">
-                                {driverVehicles[0].brand} {driverVehicles[0].model} · {driverVehicles[0].licensePlate || 'Sin patente'} · {driverVehicles[0].passengerCapacity} pax
-                              </span>
-                            </div>
+                            usedVehicleIds.has(driverVehicles[0].id) ? (
+                              <p className="text-xs text-red-500 dark:text-red-400">
+                                ⛔ {driverVehicles[0].brand} {driverVehicles[0].model} ya está asignado a otro evento.
+                              </p>
+                            ) : (
+                              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                                <span className="text-xs text-green-700 dark:text-green-400">🚌 Vehículo cargado automáticamente:</span>
+                                <span className="text-xs font-semibold text-green-800 dark:text-green-300">
+                                  {driverVehicles[0].brand} {driverVehicles[0].model} · {driverVehicles[0].licensePlate || 'Sin patente'} · {driverVehicles[0].passengerCapacity} pax
+                                </span>
+                              </div>
+                            )
                           ) : (
                             <select
                               value={assignForm.vehicleId}
@@ -441,9 +480,14 @@ function EventsTab({ shopId, vehicles, drivers }) {
                               className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
                             >
                               <option value="">Selecciona qué vehículo usará hoy...</option>
-                              {driverVehicles.map(v => (
-                                <option key={v.id} value={v.id}>{v.brand} {v.model} · {v.licensePlate || 'Sin patente'} · {v.passengerCapacity} pax</option>
-                              ))}
+                              {driverVehicles.map(v => {
+                                const inOtherEvent = usedVehicleIds.has(v.id)
+                                return (
+                                  <option key={v.id} value={v.id} disabled={inOtherEvent}>
+                                    {v.brand} {v.model} · {v.licensePlate || 'Sin patente'} · {v.passengerCapacity} pax{inOtherEvent ? ' — ya en otro evento' : ''}
+                                  </option>
+                                )
+                              })}
                             </select>
                           )
                         )}
