@@ -1205,26 +1205,27 @@ function ShopDetail() {
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Categoría <span className="text-gray-400">(opcional)</span></label>
                           <div className="relative">
                             <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
-                            <input
-                              type="text"
-                              list="product-categories-list"
+                            <select
                               value={productForm.category}
                               onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                              placeholder="Ej: Bebidas, Shampoo..."
-                              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent"
-                            />
-                            <datalist id="product-categories-list">
+                              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent appearance-none"
+                            >
+                              <option value="">Selecciona categoría...</option>
                               {productCategories.flatMap(parent =>
                                 parent.children && parent.children.length > 0
                                   ? parent.children.map(child => (
                                       <option
                                         key={child.id}
                                         value={`${parent.icon ? parent.icon + ' ' : ''}${child.name}`}
-                                      />
+                                      >
+                                        {parent.icon ? parent.icon + ' ' : ''}{child.name}
+                                      </option>
                                     ))
-                                  : [<option key={parent.id} value={`${parent.icon ? parent.icon + ' ' : ''}${parent.name}`} />]
+                                  : [<option key={parent.id} value={`${parent.icon ? parent.icon + ' ' : ''}${parent.name}`}>
+                                      {parent.icon ? parent.icon + ' ' : ''}{parent.name}
+                                    </option>]
                               )}
-                            </datalist>
+                            </select>
                           </div>
                         </div>}
                         <div>
