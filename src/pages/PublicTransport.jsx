@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -46,12 +46,6 @@ function Spinner({ text = 'Cargando...' }) {
   )
 }
 
-// ── Fare Calculator ───────────────────────────────────────────────────────────
-function calculateFare(distanceKm, pricePerKm) {
-  if (!distanceKm || !pricePerKm) return null
-  return Math.ceil(distanceKm * pricePerKm)
-}
-
 function formatCLP(amount) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(amount)
 }
@@ -63,62 +57,30 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const autocompleteRef = useRef(null)
 
   const [destinationAddress, setDestinationAddress] = useState('')
-  const [destLatLng, setDestLatLng]   = useState(null)  // { lat, lng } del destino
-  const [originLatLng, setOriginLatLng] = useState(null) // { lat, lng } de la comuna origen
-  const [notes, setNotes]   = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState(null)
-  const [calcState, setCalcState] = useState('idle') // idle | loading | done | error
+  const [distanceKm, setDistanceKm] = useState(null)
+  const [fare, setFare]             = useState(null)
+  const [notes, setNotes]           = useState('')
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState(null)
 
   const pricePerKm   = event?.pricePerKm ?? null
   const available    = assignment.availableSeats ?? 0
-  const eventAddress = event?.address   // dirección completa del evento (origen del viaje)
+  const eventAddress = event?.address
+  const hasCoords    = event?.latitude != null && event?.longitude != null
 
-  // distanceKm debe declararse antes de los useEffects que lo usan
-  const [distanceKm, setDistanceKm] = useState(null)
-  const fare = calculateFare(distanceKm, pricePerKm)
-
-  // Geocodificar la dirección del evento al abrir el modal (una sola vez)
-  useEffect(() => {
-    if (!window.google?.maps) return
-    if (!eventAddress) {
-      // Sin dirección de origen no podemos calcular — mostrar aviso
-      setCalcState('noAddress')
-      return
-    }
-    setCalcState('loading')
-    const geocoder = new window.google.maps.Geocoder()
-    geocoder.geocode({ address: eventAddress }, (results, status) => {
-      if (status === 'OK' && results[0]?.geometry) {
-        setOriginLatLng({
-          lat: results[0].geometry.location.lat(),
-          lng: results[0].geometry.location.lng(),
-        })
-      } else {
-        setCalcState('error')
-      }
-    })
-  }, [eventAddress])
-
-  // Calcular distancia con haversine cuando ambos puntos estén listos
-  useEffect(() => {
-    if (originLatLng && destLatLng) {
-      const km = haversineKm(originLatLng.lat, originLatLng.lng, destLatLng.lat, destLatLng.lng)
-      setDistanceKm(km)
-      setCalcState('done')
-    }
-  }, [originLatLng, destLatLng])
-
-  // Al seleccionar una sugerencia de Google
-  const handlePlaceChanged = () => {
+  // Igual al bazar: cálculo directo y síncrono al seleccionar la sugerencia de Google
+  const handlePlaceChanged = useCallback(() => {
     const place = autocompleteRef.current?.getPlace()
     if (!place?.geometry) return
-    const lat = place.geometry.location.lat()
-    const lng = place.geometry.location.lng()
+    const destLat = place.geometry.location.lat()
+    const destLng = place.geometry.location.lng()
     setDestinationAddress(place.formatted_address || place.name || '')
-    setDestLatLng({ lat, lng })
-    setCalcState(originLatLng ? 'loading' : 'idle')
-  }
+    if (hasCoords) {
+      const km = haversineKm(event.latitude, event.longitude, destLat, destLng)
+      setDistanceKm(km)
+      setFare(pricePerKm != null ? Math.ceil(km * pricePerKm) : null)
+    }
+  }, [event, hasCoords, pricePerKm])
 
   const handleConfirm = async (e) => {
     e.preventDefault()
@@ -196,7 +158,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                   value={destinationAddress}
                   onChange={e => {
                     setDestinationAddress(e.target.value)
-                    if (!e.target.value) { setDestinationPlace(null); setDistanceM(null); setCalcState('idle') }
+                    if (!e.target.value) { setDistanceKm(null); setFare(null) }
                   }}
                   placeholder="Ej: Av. Vicuña Mackenna 1234, Santiago"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -206,73 +168,68 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
               <p className="text-xs text-gray-400 mt-1">Selecciona una sugerencia para calcular la tarifa automáticamente.</p>
             </div>
 
-            {/* ── Resumen de tarifa ── */}
-            {destLatLng && (
-              <div className={`rounded-xl border p-4 transition-all ${
-                calcState === 'done'      ? 'bg-blue-50 border-blue-200' :
-                calcState === 'loading'   ? 'bg-gray-50 border-gray-200' :
-                calcState === 'error' || calcState === 'noAddress' ? 'bg-amber-50 border-amber-200' :
-                'bg-gray-50 border-gray-200'
-              }`}>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Resumen de tarifa</p>
+            {/* ── Resumen de tarifa (mismo patrón que el bazar) ── */}
+            <div className={`rounded-xl border p-4 ${distanceKm != null ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Resumen de tarifa</p>
+              <div className="space-y-2">
 
-                <div className="space-y-2">
-                  {eventAddress && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">🚌 Origen</span>
-                      <span className="font-medium text-gray-800 text-right max-w-[60%]">{eventAddress}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">📍 Destino</span>
-                    <span className="font-medium text-gray-800 text-right max-w-[60%] truncate">{destinationAddress}</span>
-                  </div>
-
-                  {calcState === 'loading' && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500 pt-1">
-                      <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-                      Calculando distancia...
-                    </div>
-                  )}
-
-                  {calcState === 'done' && distanceKm != null && (
-                    <>
-                      <div className="border-t border-blue-200 my-2" />
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">📏 Distancia</span>
-                        <span className="font-medium text-gray-800">{distanceKm.toFixed(1)} km</span>
-                      </div>
-                      {pricePerKm != null && fare != null ? (
-                        <>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">💲 Tarifa/km</span>
-                            <span className="font-medium text-gray-800">{formatCLP(pricePerKm)}/km</span>
-                          </div>
-                          <div className="border-t border-blue-200 my-2" />
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="text-blue-700">Total estimado</span>
-                            <span className="text-blue-700">{formatCLP(fare)}</span>
-                          </div>
-                          <p className="text-xs text-gray-400 mt-1">* Distancia en línea recta, tarifa referencial.</p>
-                        </>
-                      ) : (
-                        <div className="text-sm text-amber-600 font-medium mt-1">
-                          💬 Precio a convenir con el conductor
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {(calcState === 'error' || calcState === 'noAddress') && (
-                    <div className="text-sm text-amber-700 font-medium mt-1">
-                      💬 {calcState === 'noAddress'
-                        ? 'El evento no tiene dirección de origen — precio a convenir con el conductor.'
-                        : 'No se pudo calcular la distancia — precio a convenir con el conductor.'}
-                    </div>
-                  )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">🚌 Origen</span>
+                  <span className="font-medium text-gray-800 text-right max-w-[65%] leading-tight">
+                    {eventAddress || '—'}
+                  </span>
                 </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">📍 Destino</span>
+                  <span className={`text-right max-w-[65%] truncate ${destinationAddress ? 'font-medium text-gray-800' : 'text-gray-400 italic'}`}>
+                    {destinationAddress || 'Ingresa tu dirección'}
+                  </span>
+                </div>
+
+                {distanceKm != null && (
+                  <>
+                    <div className="border-t border-blue-200 my-1" />
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 flex items-center gap-1">
+                        📏 Distancia
+                        <span className="text-xs text-gray-400">(línea recta)</span>
+                      </span>
+                      <span className="font-medium text-gray-800">{distanceKm.toFixed(1)} km</span>
+                    </div>
+
+                    {pricePerKm != null && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">
+                          💲 Tarifa
+                          <span className="text-xs text-gray-400 ml-1">
+                            ({distanceKm.toFixed(1)} km × {formatCLP(pricePerKm)}/km)
+                          </span>
+                        </span>
+                        <span className="font-medium text-gray-800">{formatCLP(fare)}</span>
+                      </div>
+                    )}
+
+                    <div className="border-t border-blue-200 my-1" />
+
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-blue-700 text-base">Total estimado</span>
+                      <span className="font-bold text-blue-700 text-lg">
+                        {fare != null ? formatCLP(fare) : 'A convenir'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">* Tarifa referencial en línea recta.</p>
+                  </>
+                )}
+
+                {!hasCoords && distanceKm == null && (
+                  <p className="text-xs text-amber-600 pt-1">
+                    💬 El conductor definirá el precio según la dirección ingresada.
+                  </p>
+                )}
               </div>
-            )}
+            </div>
 
             {/* ── Notas ── */}
             <div>
@@ -302,7 +259,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                 className="flex-1 py-3 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                {fare ? `Reservar · ${formatCLP(fare)}` : 'Confirmar reserva'}
+                {fare != null ? `Reservar · ${formatCLP(fare)}` : 'Confirmar reserva'}
               </button>
             </div>
           </form>
