@@ -20,12 +20,19 @@ function playBeep() {
  *   beep?                    — si debe sonar al detectar (default: true)
  */
 function BarcodeScanner({ onDetected, onClose, beep = true }) {
-  const videoRef    = useRef(null)
-  const readerRef   = useRef(null)
-  const lastCodeRef = useRef(null)
+  const videoRef      = useRef(null)
+  const readerRef     = useRef(null)
+  const lastCodeRef   = useRef(null)
+  const onDetectedRef = useRef(onDetected)
+  const beepRef       = useRef(beep)
   const [error, setError] = useState(null)
   const [ready, setReady] = useState(false)
 
+  // Mantener refs actualizadas sin reiniciar la cámara
+  useEffect(() => { onDetectedRef.current = onDetected }, [onDetected])
+  useEffect(() => { beepRef.current = beep }, [beep])
+
+  // Iniciar cámara UNA SOLA VEZ al montar — no depende de props
   useEffect(() => {
     const reader = new BrowserMultiFormatReader()
     readerRef.current = reader
@@ -36,14 +43,14 @@ function BarcodeScanner({ onDetected, onClose, beep = true }) {
       videoRef.current,
       (result, err) => {
         if (stopped) return
-        if (!ready) setReady(true)
+        setReady(true)
         if (result) {
           const text = result.getText()
           if (text === lastCodeRef.current) return
           lastCodeRef.current = text
           setTimeout(() => { lastCodeRef.current = null }, 1500)
-          if (beep) playBeep()
-          onDetected(text)
+          if (beepRef.current) playBeep()
+          onDetectedRef.current(text)
         }
         if (err && !(err instanceof NotFoundException)) {
           // Errores de decode son normales — ignorar
@@ -59,7 +66,7 @@ function BarcodeScanner({ onDetected, onClose, beep = true }) {
       stopped = true
       try { reader.reset() } catch (_) {}
     }
-  }, [onDetected, beep, ready])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="fixed inset-0 z-[60] bg-black flex flex-col">

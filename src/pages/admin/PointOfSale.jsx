@@ -124,7 +124,7 @@ export default function PointOfSale() {
   const cartCount  = cartItems.reduce((sum, i) => sum + i.qty, 0)
 
   // ── Agregar producto al carrito ───────────────────────────────────────────
-  const addProduct = useCallback((product, withBeep = false) => {
+  const addProduct = useCallback((product) => {
     setScanError(null)
     if (product.stock <= 0) {
       setScanError(`"${product.name}" no tiene stock disponible.`)
@@ -137,10 +137,8 @@ export default function PointOfSale() {
           setScanError(`Stock máximo alcanzado para "${product.name}".`)
           return prev
         }
-        if (withBeep) playBeep()
         return { ...prev, [product.id]: { ...existing, qty: existing.qty + 1 } }
       }
-      if (withBeep) playBeep()
       return { ...prev, [product.id]: { ...product, qty: 1 } }
     })
   }, [])
@@ -157,7 +155,7 @@ export default function PointOfSale() {
         setScanError(`No se encontró ningún producto con el código "${code}".`)
         return
       }
-      addProduct(product, true)   // true = reproducir beep al agregar
+      addProduct(product)   // el beep lo reproduce BarcodeScanner al detectar
       setScannerOpen(false) // cerrar scanner después de agregar
     } catch {
       setScanError(`No se encontró ningún producto con el código "${code}".`)
