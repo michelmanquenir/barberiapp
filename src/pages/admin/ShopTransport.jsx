@@ -422,15 +422,26 @@ function EventsTab({ shopId, vehicles, drivers }) {
                   {(() => {
                     const driverVehicles = vehicles.filter(v => assignForm.driverId && v.driverId === Number(assignForm.driverId))
 
-                    // IDs de conductores y vehículos ya usados en OTROS eventos
+                    // IDs de conductores y vehículos ya usados en OTROS eventos EL MISMO DÍA
+                    const evDay = ev.eventDate ? new Date(ev.eventDate).toDateString() : null
                     const usedDriverIds = new Set(
                       Object.entries(assignments)
-                        .filter(([eid]) => Number(eid) !== ev.id)
+                        .filter(([eid]) => {
+                          if (Number(eid) === ev.id) return false
+                          const other = events.find(e => e.id === Number(eid))
+                          if (!other?.eventDate || !evDay) return false
+                          return new Date(other.eventDate).toDateString() === evDay
+                        })
                         .flatMap(([, list]) => list.map(a => a.driver?.id).filter(Boolean))
                     )
                     const usedVehicleIds = new Set(
                       Object.entries(assignments)
-                        .filter(([eid]) => Number(eid) !== ev.id)
+                        .filter(([eid]) => {
+                          if (Number(eid) === ev.id) return false
+                          const other = events.find(e => e.id === Number(eid))
+                          if (!other?.eventDate || !evDay) return false
+                          return new Date(other.eventDate).toDateString() === evDay
+                        })
                         .flatMap(([, list]) => list.map(a => a.vehicle?.id).filter(Boolean))
                     )
                     // IDs de conductores ya en ESTE evento

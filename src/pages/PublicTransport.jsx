@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -63,24 +63,53 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState(null)
 
+  // Coordenadas del origen: las del evento directo, o geocodificadas como fallback
+  const [originLat, setOriginLat] = useState(event?.latitude ?? null)
+  const [originLng, setOriginLng] = useState(event?.longitude ?? null)
+  const [destLat, setDestLat]     = useState(null)
+  const [destLng, setDestLng]     = useState(null)
+
   const pricePerKm   = event?.pricePerKm ?? null
   const available    = assignment.availableSeats ?? 0
   const eventAddress = event?.address
-  const hasCoords    = event?.latitude != null && event?.longitude != null
 
-  // Igual al bazar: cálculo directo y síncrono al seleccionar la sugerencia de Google
+  // Fallback: si el evento NO tiene coordenadas pero SÍ tiene dirección, geocodificar
+  useEffect(() => {
+    if (originLat != null || !eventAddress || !window.google?.maps) return
+    const geocoder = new window.google.maps.Geocoder()
+    geocoder.geocode({ address: eventAddress }, (results, status) => {
+      if (status === 'OK' && results[0]?.geometry) {
+        setOriginLat(results[0].geometry.location.lat())
+        setOriginLng(results[0].geometry.location.lng())
+      }
+    })
+  }, [eventAddress, originLat])
+
+  // Recalcular distancia + tarifa cada vez que cambian las coordenadas
+  const calcFare = useCallback((oLat, oLng, dLat, dLng) => {
+    if (oLat == null || dLat == null) return
+    const km = haversineKm(oLat, oLng, dLat, dLng)
+    setDistanceKm(km)
+    setFare(pricePerKm != null ? Math.ceil(km * pricePerKm) : null)
+  }, [pricePerKm])
+
+  // Cuando el geocoding del origen termina y ya hay destino seleccionado
+  useEffect(() => {
+    if (originLat != null && destLat != null) calcFare(originLat, originLng, destLat, destLng)
+  }, [originLat, originLng, destLat, destLng, calcFare])
+
+  // Al seleccionar una sugerencia de Google
   const handlePlaceChanged = useCallback(() => {
     const place = autocompleteRef.current?.getPlace()
     if (!place?.geometry) return
-    const destLat = place.geometry.location.lat()
-    const destLng = place.geometry.location.lng()
+    const lat = place.geometry.location.lat()
+    const lng = place.geometry.location.lng()
     setDestinationAddress(place.formatted_address || place.name || '')
-    if (hasCoords) {
-      const km = haversineKm(event.latitude, event.longitude, destLat, destLng)
-      setDistanceKm(km)
-      setFare(pricePerKm != null ? Math.ceil(km * pricePerKm) : null)
-    }
-  }, [event, hasCoords, pricePerKm])
+    setDestLat(lat)
+    setDestLng(lng)
+    // Cálculo directo si el origen ya está listo
+    if (originLat != null) calcFare(originLat, originLng, lat, lng)
+  }, [originLat, originLng, calcFare])
 
   const handleConfirm = async (e) => {
     e.preventDefault()
@@ -223,7 +252,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                   </>
                 )}
 
-                {!hasCoords && distanceKm == null && (
+                {originLat == null && distanceKm == null && (
                   <p className="text-xs text-amber-600 pt-1">
                     💬 El conductor definirá el precio según la dirección ingresada.
                   </p>
