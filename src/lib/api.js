@@ -348,4 +348,25 @@ export const api = {
 
   // Categorías de producto (público — para el formulario de productos)
   getProductCategories: () => request('/product-categories'),
+
+  // ── Galería del negocio ────────────────────────────────────────────────────
+
+  // Público — cualquiera puede ver las fotos del negocio
+  getShopGallery: (shopId) =>
+    request(`/shops/${shopId}/gallery`),
+
+  // Admin — agregar foto
+  addShopGalleryImage: (shopId, data) =>
+    request(`/shops/${shopId}/gallery`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Admin — eliminar foto
+  deleteShopGalleryImage: (shopId, imageId) =>
+    request(`/shops/${shopId}/gallery/${imageId}`, { method: 'DELETE' }),
+
+  // Admin — actualizar caption
+  updateShopGalleryImageCaption: (shopId, imageId, caption) =>
+    request(`/shops/${shopId}/gallery/${imageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ caption }),
+    }),
 }

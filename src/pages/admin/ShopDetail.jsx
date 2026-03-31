@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { uploadProductImage, deleteProductImageFromStorage } from '../../lib/productImageUpload'
+import { uploadShopGalleryImage, deleteGalleryImageFromStorage } from '../../lib/galleryUpload'
 import {
   Scissors,
   ArrowLeft,
@@ -36,6 +37,8 @@ import {
   Unlink,
   ScanLine,
   Camera,
+  Images,
+  ImagePlus,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -142,6 +145,14 @@ function ShopDetail() {
   // ── Categorías de producto (para el dropdown del formulario) ─────────────────
   const [productCategories, setProductCategories] = useState([])
 
+  // ── Galería del negocio ───────────────────────────────────────────────────────
+  const [shopImages, setShopImages]               = useState([])
+  const [loadingShopGallery, setLoadingShopGallery] = useState(false)
+  const [uploadingShopImage, setUploadingShopImage] = useState(false)
+  const [editingCaptionId, setEditingCaptionId]   = useState(null)
+  const [captionDraft, setCaptionDraft]           = useState('')
+  const shopGalleryInputRef = useRef(null)
+
   // ── Carga del negocio ───────────────────────────────────────────────────────
   const loadShop = useCallback(async () => {
     const shops = await api.getMyShops()
@@ -204,9 +215,22 @@ function ShopDetail() {
       .finally(() => setLoading(false))
   }, [loadShop])
 
+  const loadShopGallery = useCallback(async () => {
+    setLoadingShopGallery(true)
+    try {
+      const data = await api.getShopGallery(shopId)
+      setShopImages(data || [])
+    } catch {
+      setShopImages([])
+    } finally {
+      setLoadingShopGallery(false)
+    }
+  }, [shopId])
+
   useEffect(() => { loadServices() }, [loadServices])
   useEffect(() => { loadPlans() }, [loadPlans])
   useEffect(() => { loadProducts() }, [loadProducts])
+  useEffect(() => { loadShopGallery() }, [loadShopGallery])
   useEffect(() => {
     api.getCategories().then(setCategories).catch(() => setCategories([]))
     api.getProductCategories().then(setProductCategories).catch(() => setProductCategories([]))
@@ -235,6 +259,49 @@ function ShopDetail() {
     }, 300)
     return () => clearTimeout(timer)
   }, [query, showSearch, shop])
+
+  // ── Handlers galería del negocio ─────────────────────────────────────────────
+  const handleShopImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    if (shopImages.length >= 20) {
+      toast.warning('Máximo 20 fotos por negocio')
+      return
+    }
+    setUploadingShopImage(true)
+    try {
+      const url = await uploadShopGalleryImage(file, shopId)
+      const image = await api.addShopGalleryImage(shopId, { imageUrl: url })
+      setShopImages(prev => [...prev, image])
+    } catch (err) {
+      toast.error(err.message || 'Error al subir la foto')
+    } finally {
+      setUploadingShopImage(false)
+    }
+  }
+
+  const handleDeleteShopImage = async (image) => {
+    const ok = await confirmDanger('¿Eliminar esta foto del negocio?')
+    if (!ok) return
+    try {
+      await deleteGalleryImageFromStorage(image.imageUrl)
+      await api.deleteShopGalleryImage(shopId, image.id)
+      setShopImages(prev => prev.filter(i => i.id !== image.id))
+    } catch (err) {
+      toast.error(err.message || 'Error al eliminar la foto')
+    }
+  }
+
+  const handleSaveCaption = async (image) => {
+    try {
+      const updated = await api.updateShopGalleryImageCaption(shopId, image.id, captionDraft)
+      setShopImages(prev => prev.map(i => i.id === updated.id ? updated : i))
+      setEditingCaptionId(null)
+    } catch (err) {
+      toast.error(err.message || 'Error al guardar el pie de foto')
+    }
+  }
 
   // ── Handlers barberos ───────────────────────────────────────────────────────
   const handleCopyLink = () => {
@@ -1070,6 +1137,124 @@ function ShopDetail() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Galería del negocio ── */}
+              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <Images className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-50">
+                      Galería del negocio
+                    </h3>
+                    <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-medium">
+                      {shopImages.length}/20
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={shopGalleryInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleShopImageUpload}
+                    />
+                    <button
+                      onClick={() => shopGalleryInputRef.current?.click()}
+                      disabled={uploadingShopImage || shopImages.length >= 20}
+                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-300 transition disabled:opacity-50"
+                    >
+                      {uploadingShopImage
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Subiendo...</>
+                        : <><ImagePlus className="w-3.5 h-3.5" />Agregar foto</>
+                      }
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                  Sube fotos de tu negocio para que los clientes las vean en tu página pública. Máximo 20 fotos.
+                </p>
+
+                {loadingShopGallery ? (
+                  <div className="flex items-center justify-center py-10 gap-2 text-gray-400 dark:text-gray-500">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-sm">Cargando fotos...</span>
+                  </div>
+                ) : shopImages.length === 0 ? (
+                  <button
+                    onClick={() => shopGalleryInputRef.current?.click()}
+                    className="w-full py-10 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-500 dark:hover:text-gray-400 transition"
+                  >
+                    <Camera className="w-8 h-8" />
+                    <span className="text-sm font-medium">Agrega la primera foto de tu negocio</span>
+                    <span className="text-xs">JPG, PNG, WEBP · máx. 20 MB</span>
+                  </button>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {shopImages.map(img => (
+                      <div key={img.id} className="relative group rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 aspect-square">
+                        <img
+                          src={img.imageUrl}
+                          alt={img.caption || 'Foto del negocio'}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Overlay al hacer hover */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                          {/* Botón eliminar */}
+                          <button
+                            onClick={() => handleDeleteShopImage(img)}
+                            className="self-end p-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+                            title="Eliminar foto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          {/* Editar caption */}
+                          {editingCaptionId === img.id ? (
+                            <div className="flex gap-1">
+                              <input
+                                value={captionDraft}
+                                onChange={e => setCaptionDraft(e.target.value)}
+                                placeholder="Pie de foto..."
+                                className="flex-1 text-xs px-2 py-1 rounded-lg bg-white/90 dark:bg-gray-800/90 text-gray-900 dark:text-gray-100 focus:outline-none"
+                                autoFocus
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleSaveCaption(img)
+                                  if (e.key === 'Escape') setEditingCaptionId(null)
+                                }}
+                              />
+                              <button
+                                onClick={() => handleSaveCaption(img)}
+                                className="px-2 py-1 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition"
+                              >✓</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingCaptionId(img.id); setCaptionDraft(img.caption || '') }}
+                              className="text-left text-xs text-white/80 hover:text-white truncate transition"
+                              title="Editar pie de foto"
+                            >
+                              {img.caption || <span className="italic opacity-60">+ pie de foto</span>}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {/* Tarjeta para agregar más fotos */}
+                    {shopImages.length < 20 && (
+                      <button
+                        onClick={() => shopGalleryInputRef.current?.click()}
+                        disabled={uploadingShopImage}
+                        className="aspect-square rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center gap-1.5 text-gray-400 dark:text-gray-500 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-500 dark:hover:text-gray-400 transition disabled:opacity-50"
+                      >
+                        {uploadingShopImage
+                          ? <Loader2 className="w-5 h-5 animate-spin" />
+                          : <><ImagePlus className="w-5 h-5" /><span className="text-xs">Agregar</span></>
+                        }
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Plus, Minus, X, MapPin, Home, Package,
   CreditCard, Banknote, CheckCircle, Store, ArrowLeft, Loader2,
-  User, Clock, Calendar,
+  User, Clock, Calendar, Images, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -542,17 +542,23 @@ export default function PublicShopCatalog() {
 
   const [activeCategory, setActiveCategory] = useState('Todos')
 
+  // ── Galería del negocio ────────────────────────────────────────────────────
+  const [shopGallery, setShopGallery]       = useState([])
+  const [lightboxIndex, setLightboxIndex]   = useState(null)  // null = cerrado
+
   useEffect(() => {
     setLoading(true)
     api.getShopBySlug(slug)
       .then(async (shopData) => {
-        const [prods, shopBarbers] = await Promise.all([
+        const [prods, shopBarbers, gallery] = await Promise.all([
           api.getShopProducts(shopData.id).catch(() => []),
           api.getShopBarbers(shopData.slug).catch(() => []),
+          api.getShopGallery(shopData.id).catch(() => []),
         ])
         setShop(shopData)
         setProducts(prods.filter(p => p.active !== false))
         setBarbers(shopBarbers || [])
+        setShopGallery(gallery || [])
       })
       .catch(() => setError('Negocio no encontrado'))
       .finally(() => setLoading(false))
@@ -685,6 +691,76 @@ export default function PublicShopCatalog() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6">
+
+        {/* ── Galería del negocio ── */}
+        {shopGallery.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Images className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+              <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                Fotos del negocio
+              </h2>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {shopGallery.map((img, idx) => (
+                <button
+                  key={img.id}
+                  onClick={() => setLightboxIndex(idx)}
+                  className="flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:opacity-90 transition"
+                >
+                  <img
+                    src={img.imageUrl}
+                    alt={img.caption || 'Foto del negocio'}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Lightbox */}
+        {lightboxIndex !== null && shopGallery[lightboxIndex] && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            onClick={() => setLightboxIndex(null)}
+          >
+            <button
+              onClick={e => { e.stopPropagation(); setLightboxIndex(null) }}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+            ><X className="w-5 h-5" /></button>
+
+            {shopGallery.length > 1 && (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); setLightboxIndex(i => (i - 1 + shopGallery.length) % shopGallery.length) }}
+                  className="absolute left-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+                ><ChevronLeft className="w-6 h-6" /></button>
+                <button
+                  onClick={e => { e.stopPropagation(); setLightboxIndex(i => (i + 1) % shopGallery.length) }}
+                  className="absolute right-16 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+                ><ChevronRight className="w-6 h-6" /></button>
+              </>
+            )}
+
+            <div className="max-w-3xl w-full" onClick={e => e.stopPropagation()}>
+              <img
+                src={shopGallery[lightboxIndex].imageUrl}
+                alt={shopGallery[lightboxIndex].caption || ''}
+                className="w-full max-h-[80vh] object-contain rounded-xl"
+              />
+              {shopGallery[lightboxIndex].caption && (
+                <p className="text-center text-white/70 text-sm mt-3">
+                  {shopGallery[lightboxIndex].caption}
+                </p>
+              )}
+              <p className="text-center text-white/40 text-xs mt-1">
+                {lightboxIndex + 1} / {shopGallery.length}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Category filter */}
         {categories.length > 2 && (
           <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">

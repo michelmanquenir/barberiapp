@@ -102,6 +102,36 @@ export async function uploadGalleryImage(file, userId) {
 }
 
 /**
+ * Comprime y sube una foto del negocio al bucket de galería en Supabase Storage.
+ * Usa la carpeta shops/{shopId}/ para separar imágenes de negocios de las de barberos.
+ *
+ * @param {File}   file    Archivo de imagen seleccionado por el usuario
+ * @param {string} shopId  ID del negocio
+ * @returns {Promise<string>} URL pública
+ */
+export async function uploadShopGalleryImage(file, shopId) {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Solo se permiten imágenes')
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    throw new Error('La imagen no puede superar 20 MB')
+  }
+
+  const compressed = await compressImage(file)
+
+  const path = `shops/${shopId}/gallery-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, compressed, { upsert: false, contentType: 'image/jpeg' })
+
+  if (error) throw new Error(error.message)
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  return data.publicUrl
+}
+
+/**
  * Elimina una imagen del bucket de galería dado su URL pública.
  * @param {string} publicUrl URL pública de la imagen
  */
