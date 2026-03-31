@@ -96,14 +96,14 @@ function AdminNavbar() {
                   </div>
 
                   <div className="px-4 pt-2 pb-1">
-                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">WeServ</p>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">WeServ</p>
                   </div>
                   <NavItem to="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" onClick={close} />
                   <NavItem to="/admin/shops" icon={<Store className="w-4 h-4" />} label="Mis Negocios" onClick={close} />
                   <NavItem to="/admin/appointments" icon={<CalendarDays className="w-4 h-4" />} label="Todas las citas" onClick={close} />
 
                   <div className="px-4 pt-3 pb-1 border-t border-gray-100 dark:border-gray-800 mt-1">
-                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Modo Cliente</p>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Modo Cliente</p>
                   </div>
                   <NavItem to="/booking" icon={<Compass className="w-4 h-4" />} label="Explorar negocios" onClick={close} />
                   <NavItem to="/appointments" icon={<Calendar className="w-4 h-4" />} label="Mis citas" onClick={close} />
@@ -114,7 +114,7 @@ function AdminNavbar() {
                   {isSuperAdmin && (
                     <>
                       <div className="px-4 pt-3 pb-1 border-t border-gray-100 dark:border-gray-800 mt-1">
-                        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Super Admin</p>
+                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Super Admin</p>
                       </div>
                       <NavItem to="/super-admin/dashboard" icon={<Shield className="w-4 h-4" />} label="Panel Super Admin" onClick={close} />
                     </>

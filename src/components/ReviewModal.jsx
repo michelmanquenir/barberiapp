@@ -100,7 +100,7 @@ function ReviewModal({ isOpen, onClose, onSubmit, targetName, targetType = 'barb
             {/* Estrellas */}
             <div className="flex flex-col items-center gap-2 mb-5">
               <StarRating value={rating} onChange={setRating} size="lg" />
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {rating === 0 ? 'Selecciona una calificación' : ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'][rating]}
               </p>
             </div>
@@ -108,7 +108,7 @@ function ReviewModal({ isOpen, onClose, onSubmit, targetName, targetType = 'barb
             {/* Comentario */}
             <div className="mb-5">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                Comentario <span className="text-gray-400 dark:text-gray-500 font-normal">(opcional)</span>
+                Comentario <span className="text-gray-500 dark:text-gray-400 font-normal">(opcional)</span>
               </label>
               <textarea
                 value={comment}
@@ -117,7 +117,7 @@ function ReviewModal({ isOpen, onClose, onSubmit, targetName, targetType = 'barb
                 rows={3}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-900 dark:bg-gray-800 dark:text-gray-100"
               />
-              <p className="text-xs text-gray-400 dark:text-gray-500 text-right mt-0.5">{comment.length}/300</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-0.5">{comment.length}/300</p>
             </div>
 
             {/* Error */}

@@ -375,7 +375,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
                     <Badge active={ev.active} />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ev.address}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatDate(ev.eventDate)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{formatDate(ev.eventDate)}</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button onClick={() => toggleExpand(ev.id)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition">
@@ -399,7 +399,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
                       <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando asignaciones...
                     </div>
                   ) : (assignments[ev.id] || []).length === 0 ? (
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Sin vehículos asignados</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Sin vehículos asignados</p>
                   ) : (
                     <div className="space-y-2 mb-3">
                       {(assignments[ev.id] || []).map(a => (
@@ -408,7 +408,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
                             <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                               {a.vehicle?.brand} {a.vehicle?.model} · {a.driver?.name ?? 'Sin conductor'}
                             </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">{a.bookedSeats ?? 0}/{a.vehicle?.passengerCapacity ?? '?'} asientos</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{a.bookedSeats ?? 0}/{a.vehicle?.passengerCapacity ?? '?'} asientos</p>
                           </div>
                           <button onClick={() => handleRemoveAssignment(ev.id, a.id)} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950 text-gray-400 hover:text-red-500 transition">
                             <Trash2 className="w-3.5 h-3.5" />
@@ -542,7 +542,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
               />
             </Field>
             <Field label="Ubicación en el mapa">
-              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">
                 Selecciona una dirección arriba o haz clic en el mapa · arrastra el pin para ajustar
               </p>
               <div className="h-56 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
@@ -560,7 +560,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
                 </GoogleMap>
               </div>
               {form.latitude && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   📍 {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
                 </p>
               )}
@@ -615,7 +615,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
                   onClick={() => bannerInputRef.current?.click()}
                   className="flex flex-col items-center justify-center gap-2 h-32 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition mb-2">
                   <ImagePlus className="w-6 h-6 text-gray-400 dark:text-gray-500" />
-                  <span className="text-xs text-gray-400 dark:text-gray-500">Haz clic para subir una imagen de banner</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Haz clic para subir una imagen de banner</span>
                 </div>
               )}
               {/* Botón cambiar */}

@@ -208,13 +208,13 @@ function BarberCard({ barber, visits, totalSpent, lastDate, services, navigate, 
           { icon: <CreditCard className="w-3 h-3" />,label: 'Gastado', val: `$${totalSpent.toLocaleString()}` },
         ].map(({ icon, label, val }) => (
           <div key={label} className="bg-gray-50 dark:bg-gray-800 rounded-lg px-2 py-2">
-            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5 flex items-center justify-center gap-1">{icon}{label}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 flex items-center justify-center gap-1">{icon}{label}</p>
             <p className="text-sm font-bold text-gray-900 dark:text-gray-50 leading-tight mt-0.5">{val}</p>
           </div>
         ))}
       </div>
 
-      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
         <Clock className="w-3.5 h-3.5" />
         Último corte el <strong className="text-gray-600 dark:text-gray-300">{formatDate(lastDate)}</strong>
       </div>
@@ -309,7 +309,7 @@ function PortfolioModal({ barber, onClose }) {
             </div>
             <div>
               <h2 className="font-bold text-gray-900 dark:text-gray-50 text-base">{barber.name}</h2>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Portafolio de trabajos</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Portafolio de trabajos</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition">
@@ -328,13 +328,13 @@ function PortfolioModal({ barber, onClose }) {
               </div>
             )}
             {!loading && galleries.length === 0 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-8 px-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-8 px-2">
                 Este profesional aún no tiene galerías publicadas
               </p>
             )}
             {!loading && grouped.map((group) => (
               <div key={group.label}>
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-2 mb-1.5 flex items-center gap-1">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2 mb-1.5 flex items-center gap-1">
                   {group.label === 'General' ? <Globe className="w-3 h-3" /> : <Store className="w-3 h-3" />}
                   {group.label}
                 </p>
@@ -366,13 +366,13 @@ function PortfolioModal({ barber, onClose }) {
                 <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-3">
                   <Images className="w-7 h-7 text-gray-300 dark:text-gray-600" />
                 </div>
-                <p className="text-sm text-gray-400 dark:text-gray-500">Esta galería está vacía</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Esta galería está vacía</p>
               </div>
             )}
 
             {activeGallery && images.length > 0 && (
               <>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                   {images.length} foto{images.length !== 1 ? 's' : ''}
                   {activeGallery.description && ` · ${activeGallery.description}`}
                 </p>
@@ -492,7 +492,7 @@ function EmptyState({ navigate, hasHistory, search }) {
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
         <Search className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
         <p className="font-medium text-gray-600 dark:text-gray-300">Sin resultados para "{search}"</p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Intenta con otro nombre</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Intenta con otro nombre</p>
       </div>
     )
   }
@@ -500,7 +500,7 @@ function EmptyState({ navigate, hasHistory, search }) {
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
       <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
       <p className="font-medium text-gray-600 dark:text-gray-300 mb-1">Aún no tienes historial de profesionales</p>
-      <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
         Aquí aparecerán todos los profesionales con los que hayas agendado
       </p>
       <button onClick={() => navigate('/booking')}

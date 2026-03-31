@@ -114,7 +114,7 @@ export default function AvatarUpload({
       </div>
 
       {/* Texto de ayuda */}
-      <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
         {uploading ? 'Subiendo imagen...' : 'Haz clic para cambiar foto'}
       </p>
 

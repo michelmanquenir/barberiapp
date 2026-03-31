@@ -154,7 +154,7 @@ function EditProfile() {
               }}
             />
             <p className="text-sm font-medium text-gray-900 dark:text-gray-50 mt-3">{user?.fullName}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{user?.email}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{user?.email}</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-5">
@@ -203,7 +203,7 @@ function EditProfile() {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                 Dirección
-                <span className="text-gray-400 dark:text-gray-500 font-normal"> — escribe para buscar</span>
+                <span className="text-gray-500 dark:text-gray-400 font-normal"> — escribe para buscar</span>
               </label>
               <Autocomplete
                 onLoad={onAutocompleteLoad}
@@ -220,7 +220,7 @@ function EditProfile() {
                   />
                 </div>
               </Autocomplete>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Al seleccionar una sugerencia se completará automáticamente
               </p>
             </div>

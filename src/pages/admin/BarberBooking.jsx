@@ -623,8 +623,8 @@ function BarberBooking() {
 
 function FormCard({ title, icon, children }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-4">
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
         {icon}
         {title}
       </h3>

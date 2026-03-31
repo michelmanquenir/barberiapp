@@ -271,7 +271,7 @@ export default function PointOfSale() {
         <div className="flex-1 flex flex-col gap-4">
           {/* Scanner / búsqueda */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
-            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
               Agregar producto
             </p>
 
@@ -368,7 +368,7 @@ export default function PointOfSale() {
           <div className="lg:w-80 flex flex-col gap-4">
             {/* Resumen */}
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-4">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
                 Resumen
               </p>
 
@@ -399,7 +399,7 @@ export default function PointOfSale() {
 
             {/* Método de pago */}
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
                 Método de pago
               </p>
               <div className="grid grid-cols-2 gap-2">
