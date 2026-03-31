@@ -146,23 +146,23 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="fixed inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[95dvh] overflow-y-auto">
+      <div className="relative bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md max-h-[95dvh] overflow-y-auto">
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-600" />
         </div>
         <div className="px-5 pt-4 pb-6 sm:pt-5">
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Reservar asiento</h3>
-          <p className="text-sm text-gray-500 mb-4">{event.title} · {formatDate(event.eventDate)}</p>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50 mb-1">Reservar asiento</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{event.title} · {formatDate(event.eventDate)}</p>
 
           {/* Vehicle info */}
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-5">
+          <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl mb-5">
             {assignment.vehicle?.imageUrl
               ? <img src={assignment.vehicle.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
-              : <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center text-2xl flex-shrink-0">🚌</div>
+              : <div className="w-14 h-14 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-2xl flex-shrink-0">🚌</div>
             }
             <div className="min-w-0">
-              <p className="font-semibold text-gray-800 text-sm">{assignment.vehicle?.brand} {assignment.vehicle?.model} {assignment.vehicle?.year && `(${assignment.vehicle.year})`}</p>
-              <p className="text-xs text-gray-500">Conductor: <span className="font-medium">{assignment.driver?.name ?? 'Por confirmar'}</span></p>
+              <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{assignment.vehicle?.brand} {assignment.vehicle?.model} {assignment.vehicle?.year && `(${assignment.vehicle.year})`}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Conductor: <span className="font-medium">{assignment.driver?.name ?? 'Por confirmar'}</span></p>
               {assignment.vehicle?.commune && (
                 <p className="text-xs text-indigo-600 font-medium">📍 Sale desde: {assignment.vehicle.commune}</p>
               )}
@@ -174,7 +174,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
 
             {/* ── Dirección de destino ── */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">
                 📍 Tu dirección de destino
               </label>
               <Autocomplete
@@ -190,11 +190,11 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                     if (!e.target.value) { setDistanceKm(null); setFare(null) }
                   }}
                   placeholder="Ej: Av. Vicuña Mackenna 1234, Santiago"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </Autocomplete>
-              <p className="text-xs text-gray-400 mt-1">Selecciona una sugerencia para calcular la tarifa automáticamente.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Selecciona una sugerencia para calcular la tarifa automáticamente.</p>
             </div>
 
             {/* ── Resumen de tarifa (mismo patrón que el bazar) ── */}
