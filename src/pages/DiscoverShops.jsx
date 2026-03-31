@@ -9,6 +9,7 @@ import {
   Store,
   Search,
   X,
+  Scissors,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
