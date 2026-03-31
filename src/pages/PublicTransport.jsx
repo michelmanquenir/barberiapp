@@ -198,57 +198,57 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
             </div>
 
             {/* ── Resumen de tarifa (mismo patrón que el bazar) ── */}
-            <div className={`rounded-xl border p-4 ${distanceKm != null ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Resumen de tarifa</p>
+            <div className={`rounded-xl border p-4 ${distanceKm != null ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Resumen de tarifa</p>
               <div className="space-y-2">
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">🚌 Origen</span>
-                  <span className="font-medium text-gray-800 text-right max-w-[65%] leading-tight">
+                  <span className="text-gray-500 dark:text-gray-400">🚌 Origen</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100 text-right max-w-[65%] leading-tight">
                     {eventAddress || '—'}
                   </span>
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">📍 Destino</span>
-                  <span className={`text-right max-w-[65%] truncate ${destinationAddress ? 'font-medium text-gray-800' : 'text-gray-400 italic'}`}>
+                  <span className="text-gray-500 dark:text-gray-400">📍 Destino</span>
+                  <span className={`text-right max-w-[65%] truncate ${destinationAddress ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 italic'}`}>
                     {destinationAddress || 'Ingresa tu dirección'}
                   </span>
                 </div>
 
                 {distanceKm != null && (
                   <>
-                    <div className="border-t border-blue-200 my-1" />
+                    <div className="border-t border-blue-200 dark:border-blue-800 my-1" />
 
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 flex items-center gap-1">
+                      <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
                         📏 Distancia
-                        <span className="text-xs text-gray-400">(línea recta)</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">(línea recta)</span>
                       </span>
-                      <span className="font-medium text-gray-800">{distanceKm.toFixed(1)} km</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-100">{distanceKm.toFixed(1)} km</span>
                     </div>
 
                     {pricePerKm != null && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">
+                        <span className="text-gray-500 dark:text-gray-400">
                           💲 Tarifa
-                          <span className="text-xs text-gray-400 ml-1">
+                          <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
                             ({distanceKm.toFixed(1)} km × {formatCLP(pricePerKm)}/km)
                           </span>
                         </span>
-                        <span className="font-medium text-gray-800">{formatCLP(fare)}</span>
+                        <span className="font-medium text-gray-800 dark:text-gray-100">{formatCLP(fare)}</span>
                       </div>
                     )}
 
-                    <div className="border-t border-blue-200 my-1" />
+                    <div className="border-t border-blue-200 dark:border-blue-800 my-1" />
 
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-blue-700 text-base">Total estimado</span>
-                      <span className="font-bold text-blue-700 text-lg">
+                      <span className="font-bold text-blue-700 dark:text-blue-400 text-base">Total estimado</span>
+                      <span className="font-bold text-blue-700 dark:text-blue-400 text-lg">
                         {fare != null ? formatCLP(fare) : 'A convenir'}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400">* Tarifa referencial en línea recta.</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">* Tarifa referencial en línea recta.</p>
                   </>
                 )}
 
@@ -262,15 +262,15 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
 
             {/* ── Notas ── */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notas <span className="text-gray-400 font-normal">(opcional)</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                Notas <span className="text-gray-400 dark:text-gray-500 font-normal">(opcional)</span>
               </label>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 rows={2}
                 placeholder="Punto de encuentro, necesidades especiales..."
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
 
@@ -279,7 +279,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
             )}
 
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
                 Cancelar
               </button>
               <button
@@ -302,13 +302,13 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
 function SuccessScreen({ booking, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
         <div className="text-5xl mb-3">🎉</div>
-        <h3 className="text-xl font-bold text-gray-900 mb-1">¡Reserva confirmada!</h3>
-        <p className="text-gray-500 text-sm mb-4">Tu asiento ha sido reservado exitosamente.</p>
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
-          <p className="text-xs text-blue-600 font-medium uppercase tracking-wide mb-0.5">Código de reserva</p>
-          <p className="text-2xl font-bold text-blue-700 font-mono">#{booking.id}</p>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-1">¡Reserva confirmada!</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Tu asiento ha sido reservado exitosamente.</p>
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3 mb-5">
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium uppercase tracking-wide mb-0.5">Código de reserva</p>
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-400 font-mono">#{booking.id}</p>
         </div>
         <button onClick={onClose} className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-700 transition">
           Entendido
@@ -328,9 +328,9 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
     (assignment.vehicle?.commune || '').toLowerCase() === selectedCommune.toLowerCase()
 
   return (
-    <div className={`bg-white rounded-2xl border transition-all hover:shadow-md overflow-hidden
+    <div className={`bg-white dark:bg-gray-900 rounded-2xl border transition-all hover:shadow-md overflow-hidden
       ${isFull ? 'opacity-60' : ''}
-      ${isMatch ? 'border-indigo-400 ring-2 ring-indigo-100 shadow-sm' : 'border-gray-200 shadow-sm'}
+      ${isMatch ? 'border-indigo-400 ring-2 ring-indigo-100 dark:ring-indigo-900 shadow-sm' : 'border-gray-200 dark:border-gray-700 shadow-sm'}
     `}>
       {/* Vehicle image */}
       {assignment.vehicle?.imageUrl ? (
@@ -343,7 +343,7 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
           )}
         </div>
       ) : (
-        <div className="w-full h-32 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-5xl relative">
+        <div className="w-full h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center text-5xl relative">
           🚌
           {isMatch && (
             <span className="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white font-semibold">
@@ -357,19 +357,19 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
         {/* Vehicle name + commune badge */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div>
-            <p className="font-bold text-gray-900 text-sm leading-tight">
+            <p className="font-bold text-gray-900 dark:text-gray-50 text-sm leading-tight">
               {assignment.vehicle?.brand} {assignment.vehicle?.model}
-              {assignment.vehicle?.year && <span className="font-normal text-gray-400 text-xs ml-1">({assignment.vehicle.year})</span>}
+              {assignment.vehicle?.year && <span className="font-normal text-gray-400 dark:text-gray-500 text-xs ml-1">({assignment.vehicle.year})</span>}
             </p>
             {assignment.vehicle?.licensePlate && (
-              <p className="text-xs text-gray-400 font-mono mt-0.5">{assignment.vehicle.licensePlate}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">{assignment.vehicle.licensePlate}</p>
             )}
           </div>
           {assignment.vehicle?.commune && (
             <span className={`text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${
               isMatch
-                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
-                : 'bg-gray-50 text-gray-500 border-gray-200'
+                ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 font-semibold'
+                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700'
             }`}>
               {assignment.vehicle.commune}
             </span>
@@ -378,14 +378,14 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
 
         {/* Driver */}
         {assignment.driver && (
-          <div className="flex items-center gap-2 mb-3 py-2 px-2.5 bg-gray-50 rounded-lg">
-            <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs flex-shrink-0">
+          <div className="flex items-center gap-2 mb-3 py-2 px-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs flex-shrink-0">
               {assignment.driver.name?.[0]?.toUpperCase() ?? '?'}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-700 truncate">{assignment.driver.name}</p>
+              <p className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{assignment.driver.name}</p>
               {assignment.driver.phone && (
-                <p className="text-xs text-gray-400">{assignment.driver.phone}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{assignment.driver.phone}</p>
               )}
             </div>
           </div>
@@ -394,12 +394,12 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
         {/* Seats progress */}
         <div className="mb-3">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-500">Asientos disponibles</span>
+            <span className="text-gray-500 dark:text-gray-400">Asientos disponibles</span>
             <span className={`font-semibold ${isFull ? 'text-red-500' : 'text-green-600'}`}>
               {available}/{capacity}
             </span>
           </div>
-          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${isFull ? 'bg-red-400' : available <= 2 ? 'bg-amber-400' : 'bg-green-400'}`}
               style={{ width: `${Math.min(100, (booked / (capacity || 1)) * 100)}%` }}
@@ -411,7 +411,7 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
         </div>
 
         {isFull ? (
-          <span className="block w-full text-center py-2 rounded-xl bg-gray-100 text-gray-500 text-sm font-medium">Sin cupos</span>
+          <span className="block w-full text-center py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm font-medium">Sin cupos</span>
         ) : (
           <button
             onClick={() => onBook(assignment)}
@@ -432,8 +432,8 @@ function EventCard({ event, selected, onClick }) {
       onClick={onClick}
       className={`w-full text-left rounded-2xl border transition-all overflow-hidden
         ${selected
-          ? 'border-blue-500 ring-2 ring-blue-200 shadow-md bg-white'
-          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white shadow-sm'
+          ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900 shadow-md bg-white dark:bg-gray-900'
+          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm bg-white dark:bg-gray-900 shadow-sm'
         }`}
     >
       {event.bannerImageUrl ? (
@@ -446,19 +446,19 @@ function EventCard({ event, selected, onClick }) {
           )}
         </div>
       ) : (
-        <div className={`w-full h-24 flex items-center justify-center text-4xl ${selected ? 'bg-blue-50' : 'bg-gradient-to-br from-slate-100 to-slate-200'}`}>
+        <div className={`w-full h-24 flex items-center justify-center text-4xl ${selected ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700'}`}>
           🚌
         </div>
       )}
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-bold text-gray-900 text-base leading-tight">{event.title}</h3>
+          <h3 className="font-bold text-gray-900 dark:text-gray-50 text-base leading-tight">{event.title}</h3>
           {event.eventCode && (
             <span className="text-xs font-mono text-gray-400 flex-shrink-0">{event.eventCode}</span>
           )}
         </div>
         {event.address && (
-          <p className="text-sm text-gray-500 flex items-start gap-1.5 mb-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 flex items-start gap-1.5 mb-1">
             <span className="flex-shrink-0">📍</span>
             <span className="line-clamp-1">{event.address}</span>
           </p>
@@ -589,17 +589,17 @@ function PublicTransport() {
   const eventCommunes = [...new Set(assignments.map(a => a.vehicle?.commune).filter(Boolean))]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500 flex-shrink-0">
+            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400 flex-shrink-0">
               ←
             </button>
             <div className="min-w-0">
-              <h1 className="font-bold text-gray-900 text-lg leading-tight truncate">{shop?.name ?? slug}</h1>
+              <h1 className="font-bold text-gray-900 dark:text-gray-50 text-lg leading-tight truncate">{shop?.name ?? slug}</h1>
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚌 Transporte</span>
             </div>
           </div>
@@ -624,8 +624,8 @@ function PublicTransport() {
         {!loadingEvents && !errorEvents && events.length === 0 && (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🚌</div>
-            <h2 className="text-xl font-semibold text-gray-700 mb-2">Sin eventos disponibles</h2>
-            <p className="text-sm text-gray-400">No hay eventos de transporte publicados por este negocio.</p>
+            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Sin eventos disponibles</h2>
+            <p className="text-sm text-gray-400 dark:text-gray-500">No hay eventos de transporte publicados por este negocio.</p>
           </div>
         )}
 
@@ -635,7 +635,7 @@ function PublicTransport() {
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                <h2 className="text-base font-semibold text-gray-800">Selecciona un evento</h2>
+                <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Selecciona un evento</h2>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {events.map(ev => (
@@ -652,25 +652,25 @@ function PublicTransport() {
             {/* ── PASO 2: Vehículos ────────────────────────────────────────── */}
             <section ref={vehiclesSectionRef}>
               {!selectedEvent ? (
-                <div className="flex items-center gap-3 p-5 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400">
-                  <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-400 text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                <div className="flex items-center gap-3 p-5 bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500">
+                  <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
                   <p className="text-sm">Selecciona un evento para ver los vehículos disponibles</p>
                 </div>
               ) : (
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                    <h2 className="text-base font-semibold text-gray-800">
+                    <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
                       Elige tu vehículo
                       <span className="text-blue-600 ml-1">· {selectedEvent.title}</span>
                     </h2>
                   </div>
 
                   {/* Filters */}
-                  <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4 space-y-3">
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 mb-4 space-y-3">
                     {/* Commune search */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                         📍 Buscar por comuna de salida
                       </label>
                       <input
@@ -679,7 +679,7 @@ function PublicTransport() {
                         value={communeQuery}
                         onChange={e => setCommuneQuery(e.target.value)}
                         placeholder="Ej: Puente Alto, Santiago..."
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 transition"
                       />
                       <datalist id="communes-filter">
                         {/* First show communes actually in this event */}
@@ -696,7 +696,7 @@ function PublicTransport() {
                               className={`text-xs px-2.5 py-1 rounded-full border transition ${
                                 communeQuery === c
                                   ? 'bg-indigo-600 text-white border-indigo-600'
-                                  : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'
+                                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:text-indigo-600'
                               }`}
                             >
                               {c}
@@ -708,7 +708,7 @@ function PublicTransport() {
 
                     {/* Driver search */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                         🧑‍✈️ Buscar por conductor
                       </label>
                       <input
@@ -716,7 +716,7 @@ function PublicTransport() {
                         value={driverQuery}
                         onChange={e => setDriverQuery(e.target.value)}
                         placeholder="Nombre del conductor..."
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 transition"
                       />
                     </div>
 
@@ -734,9 +734,9 @@ function PublicTransport() {
                   {loadingAssignments ? (
                     <Spinner text="Cargando vehículos..." />
                   ) : filteredAssignments.length === 0 ? (
-                    <div className="text-center py-10 bg-white rounded-2xl border border-gray-200">
+                    <div className="text-center py-10 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700">
                       <div className="text-4xl mb-2">🔍</div>
-                      <p className="text-gray-500 text-sm font-medium">
+                      <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
                         {assignments.length === 0
                           ? 'No hay vehículos asignados a este evento'
                           : 'No hay vehículos que coincidan con tu búsqueda'}
@@ -753,8 +753,8 @@ function PublicTransport() {
                   ) : (
                     <>
                       {communeQuery && (
-                        <p className="text-xs text-gray-400 mb-3">
-                          Mostrando {filteredAssignments.length} vehículo{filteredAssignments.length !== 1 ? 's' : ''} ordenados por proximidad a <strong className="text-gray-600">{communeQuery}</strong>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                          Mostrando {filteredAssignments.length} vehículo{filteredAssignments.length !== 1 ? 's' : ''} ordenados por proximidad a <strong className="text-gray-600 dark:text-gray-300">{communeQuery}</strong>
                         </p>
                       )}
                       <div className="grid gap-4 sm:grid-cols-2">
