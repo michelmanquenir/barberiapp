@@ -19,6 +19,8 @@ import {
   Repeat2,
   ShoppingBag,
   Package,
+  X,
+  Images,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -110,6 +112,7 @@ function PublicBooking() {
   const [categorySlug, setCategorySlug] = useState('')
   const [services, setServices] = useState([])
   const [shopReviews, setShopReviews] = useState([])
+  const [shopGallery, setShopGallery] = useState([])
   const [plans, setPlans] = useState([])
   const [products, setProducts] = useState([])
   const [loadingShop, setLoadingShop] = useState(true)
@@ -150,21 +153,23 @@ function PublicBooking() {
           return
         }
 
-        // Cargar servicios, reseñas, planes, productos y suscripción activa del usuario en paralelo
+        // Cargar servicios, reseñas, planes, productos, galería y suscripción activa en paralelo
         const extras = [
           api.getShopServices(shopData.id).catch(() => []),
           api.getShopReviews(shopData.id).catch(() => []),
           api.getShopSubscriptionPlans(shopData.id).catch(() => []),
           api.getShopProducts(shopData.id).catch(() => []),
+          api.getShopGallery(shopData.id).catch(() => []),
         ]
         if (isAuthenticated) {
           extras.push(api.getMyActiveSubscription(shopData.id).catch(() => null))
         }
-        const [servicesData, reviewsData, plansData, productsData, activeSub] = await Promise.all(extras)
+        const [servicesData, reviewsData, plansData, productsData, galleryData, activeSub] = await Promise.all(extras)
         setShop(shopData)
         setCategorySlug(cat?.slug ?? '')
         setServices(servicesData || [])
         setShopReviews(reviewsData || [])
+        setShopGallery(galleryData || [])
         setPlans(plansData || [])
         setProducts(productsData || [])
         if (activeSub) setActiveSubscription(activeSub)
@@ -412,6 +417,7 @@ function PublicBooking() {
               setBooking={setBooking}
               shop={shop}
               shopReviews={shopReviews}
+              shopGallery={shopGallery}
               plans={plans}
               activeSubscription={activeSubscription}
               setActiveSubscription={setActiveSubscription}
@@ -561,22 +567,31 @@ function PublicBooking() {
 
 // ─── Paso 1: Servicio ──────────────────────────────────────────────────────────
 
-function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], plans = [], activeSubscription, setActiveSubscription, isAuthenticated, navigate, slug }) {
+function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], shopGallery = [], plans = [], activeSubscription, setActiveSubscription, isAuthenticated, navigate, slug }) {
+  const [lightboxIndex, setLightboxIndex] = useState(null)
+  const [showAllReviews, setShowAllReviews] = useState(false)
+
   const handleLocationChange = (locationType) => {
     setBooking((b) => ({
       ...b,
       locationType,
       durationMinutes: locationType === 'home' ? 180 : 30,
-      // Resetear hora/barbero porque cambia la disponibilidad
       time: '',
       barberId: null,
     }))
   }
 
-  // Calcular rating promedio del negocio
+  // Calcular rating promedio y distribución por estrella
   const avgRating = shopReviews.length > 0
     ? shopReviews.reduce((sum, r) => sum + r.rating, 0) / shopReviews.length
     : null
+
+  const starCounts = [5, 4, 3, 2, 1].map(star => ({
+    star,
+    count: shopReviews.filter(r => r.rating === star).length,
+  }))
+
+  const visibleReviews = showAllReviews ? shopReviews : shopReviews.slice(0, 3)
 
   if (services.length === 0) {
     return (
@@ -585,20 +600,88 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], pl
       </div>
     )
   }
+
   return (
     <div>
+      {/* ── Galería del negocio ─────────────────────────────────────────── */}
+      {shopGallery.length > 0 && (
+        <div className="mb-6 -mx-1">
+          <div className="flex items-center gap-1.5 mb-2.5 px-1">
+            <Images className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+            <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+              Fotos del negocio
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 px-1 scrollbar-hide">
+            {shopGallery.map((img, idx) => (
+              <button
+                key={img.id}
+                onClick={() => setLightboxIndex(idx)}
+                className="flex-shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:opacity-90 hover:scale-[1.02] transition-all"
+              >
+                <img
+                  src={img.imageUrl}
+                  alt={img.caption || 'Foto del negocio'}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && shopGallery[lightboxIndex] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightboxIndex(null)}
+        >
+          <button
+            onClick={e => { e.stopPropagation(); setLightboxIndex(null) }}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+          ><X className="w-5 h-5" /></button>
+
+          {shopGallery.length > 1 && (
+            <>
+              <button
+                onClick={e => { e.stopPropagation(); setLightboxIndex(i => (i - 1 + shopGallery.length) % shopGallery.length) }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+              ><ChevronLeft className="w-6 h-6" /></button>
+              <button
+                onClick={e => { e.stopPropagation(); setLightboxIndex(i => (i + 1) % shopGallery.length) }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+              ><ChevronRight className="w-6 h-6" /></button>
+            </>
+          )}
+
+          <div className="max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+            <img
+              src={shopGallery[lightboxIndex].imageUrl}
+              alt={shopGallery[lightboxIndex].caption || ''}
+              className="w-full max-h-[75vh] object-contain rounded-xl"
+            />
+            {shopGallery[lightboxIndex].caption && (
+              <p className="text-center text-white/70 text-sm mt-3">{shopGallery[lightboxIndex].caption}</p>
+            )}
+            <p className="text-center text-white/40 text-xs mt-1">{lightboxIndex + 1} / {shopGallery.length}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cabecera + rating promedio ──────────────────────────────────── */}
       <div className="flex items-start justify-between mb-1">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Selecciona un servicio</h2>
-        {/* Rating promedio del negocio */}
         {avgRating !== null && (
-          <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 rounded-lg px-2.5 py-1 flex-shrink-0">
-            <StarRating value={Math.round(avgRating)} size="sm" />
-            <span className="text-xs font-semibold text-yellow-700">{avgRating.toFixed(1)}</span>
-            <span className="text-xs text-yellow-600">{shopReviews.length})</span>
+          <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg px-2.5 py-1 flex-shrink-0">
+            <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+            <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400">{avgRating.toFixed(1)}</span>
+            <span className="text-xs text-yellow-600 dark:text-yellow-500">({shopReviews.length})</span>
           </div>
         )}
       </div>
       <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">Elige el servicio que deseas reservar</p>
+
+      {/* ── Lista de servicios ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
         {services.map((service) => {
           const selected = booking.serviceId === service.id
@@ -607,7 +690,7 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], pl
               key={service.id}
               onClick={() => setBooking({ ...booking, serviceId: service.id })}
               className={`p-4 rounded-xl border-2 text-left transition-all ${
-                selected ? 'border-gray-900 bg-gray-50 dark:bg-gray-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'
+                selected ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
               }`}
             >
               <div className="flex justify-between items-start">
@@ -632,14 +715,12 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], pl
         })}
       </div>
 
-      {/* Planes de suscripción */}
+      {/* ── Planes de suscripción ───────────────────────────────────────── */}
       {(plans.length > 0 || activeSubscription) && (
         <div className="mb-5">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-1.5">
             <Crown className="w-4 h-4 text-purple-500" /> Planes de suscripción
           </h3>
-
-          {/* Suscripción activa */}
           {activeSubscription && (
             <div className="mb-3 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3">
               <div className="flex items-center justify-between mb-1">
@@ -650,35 +731,22 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], pl
                 <span className="flex items-center gap-1"><Repeat2 className="w-3 h-3" />{activeSubscription.cutsRemaining} cortes restantes</span>
                 <span>{activeSubscription.daysRemaining} días</span>
               </div>
-              {/* Barra de progreso */}
               <div className="mt-2 w-full bg-purple-200 dark:bg-purple-800 rounded-full h-1.5">
-                <div
-                  className="bg-purple-500 h-1.5 rounded-full"
-                  style={{ width: `${Math.round((activeSubscription.cutsUsed / activeSubscription.cutsAllowed) * 100)}%` }}
-                />
+                <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${Math.round((activeSubscription.cutsUsed / activeSubscription.cutsAllowed) * 100)}%` }} />
               </div>
             </div>
           )}
-
-          {/* Planes disponibles (solo si no tiene suscripción activa) */}
           {!activeSubscription && plans.length > 0 && (
             <div className="space-y-2">
               {plans.map((plan) => (
-                <PlanCard
-                  key={plan.id}
-                  plan={plan}
-                  isAuthenticated={isAuthenticated}
-                  navigate={navigate}
-                  slug={slug}
-                  setActiveSubscription={setActiveSubscription}
-                />
+                <PlanCard key={plan.id} plan={plan} isAuthenticated={isAuthenticated} navigate={navigate} slug={slug} setActiveSubscription={setActiveSubscription} />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Selector de ubicación (solo si el negocio ofrece domicilio) */}
+      {/* ── Selector de ubicación ───────────────────────────────────────── */}
       {shop?.homeServiceEnabled && (
         <div className="mb-5">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-1.5">
@@ -689,13 +757,8 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], pl
               { id: 'barbershop', label: 'En el local', emoji: '🏪', desc: 'Visita el local' },
               { id: 'home', label: 'A domicilio', emoji: '🏠', desc: `+$${(shop.pricePerKm || 0).toLocaleString()}/km ida y vuelta · 3 h bloqueo` },
             ].map((l) => (
-              <button
-                key={l.id}
-                onClick={() => handleLocationChange(l.id)}
-                className={`p-3 rounded-xl border-2 text-left transition-all ${
-                  booking.locationType === l.id ? 'border-gray-900 bg-gray-50 dark:bg-gray-800' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'
-                }`}
-              >
+              <button key={l.id} onClick={() => handleLocationChange(l.id)}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${booking.locationType === l.id ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-800' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'}`}>
                 <div className="flex items-start gap-2">
                   <span className="text-xl">{l.emoji}</span>
                   <div className="flex-1 min-w-0">
@@ -710,28 +773,79 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], pl
         </div>
       )}
 
-      {/* Reseñas recientes del negocio */}
+      {/* ── Reseñas ─────────────────────────────────────────────────────── */}
       {shopReviews.length > 0 && (
-        <div>
+        <div className="border-t border-gray-100 dark:border-gray-800 pt-5 mt-2">
+
+          {/* Resumen de puntuación */}
+          <div className="flex items-center gap-4 mb-4">
+            {/* Número grande */}
+            <div className="text-center flex-shrink-0">
+              <p className="text-4xl font-bold text-gray-900 dark:text-gray-50 leading-none">{avgRating.toFixed(1)}</p>
+              <StarRating value={Math.round(avgRating)} size="sm" />
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{shopReviews.length} reseña{shopReviews.length !== 1 ? 's' : ''}</p>
+            </div>
+            {/* Barras por estrella */}
+            <div className="flex-1 space-y-1">
+              {starCounts.map(({ star, count }) => (
+                <div key={star} className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 w-3 text-right">{star}</span>
+                  <Star className="w-3 h-3 text-yellow-400 fill-yellow-400 flex-shrink-0" />
+                  <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-yellow-400 rounded-full transition-all"
+                      style={{ width: shopReviews.length > 0 ? `${(count / shopReviews.length) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 w-4 text-right">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Título sección */}
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-1.5">
             <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            Reseñas de clientes
+            Opiniones de clientes
           </h3>
-          <div className="space-y-2.5">
-            {shopReviews.slice(0, 5).map((review) => (
-              <div key={review.id} className="bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
-                    {review.reviewerName || 'Cliente'}
-                  </span>
-                  <StarRating value={review.rating} size="sm" />
+
+          {/* Tarjetas de reseñas */}
+          <div className="space-y-3">
+            {visibleReviews.map((review) => {
+              const initials = (review.reviewerName || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+              return (
+                <div key={review.id} className="bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700/50 p-3.5">
+                  <div className="flex items-start gap-2.5">
+                    {/* Avatar */}
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-500 dark:from-gray-500 dark:to-gray-700 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-white">{initials}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">
+                          {review.reviewerName || 'Cliente'}
+                        </span>
+                        <StarRating value={review.rating} size="sm" />
+                      </div>
+                      {review.comment && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{review.comment}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {review.comment && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{review.comment}</p>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
+
+          {/* Ver más / Ver menos */}
+          {shopReviews.length > 3 && (
+            <button
+              onClick={() => setShowAllReviews(v => !v)}
+              className="mt-3 w-full py-2 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              {showAllReviews ? '▲ Ver menos' : `Ver todas las reseñas (${shopReviews.length})`}
+            </button>
+          )}
         </div>
       )}
     </div>
