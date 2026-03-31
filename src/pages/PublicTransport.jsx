@@ -62,6 +62,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const [notes, setNotes]           = useState('')
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState(null)
+  const [vehicleImgError, setVehicleImgError] = useState(false)
 
   // Coordenadas del origen: las del evento directo, o geocodificadas como fallback
   const [originLat, setOriginLat] = useState(event?.latitude ?? null)
@@ -156,8 +157,13 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
 
           {/* Vehicle info */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl mb-5">
-            {assignment.vehicle?.imageUrl
-              ? <img src={assignment.vehicle.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+            {assignment.vehicle?.imageUrl && !vehicleImgError
+              ? <img
+                  src={assignment.vehicle.imageUrl}
+                  alt=""
+                  className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                  onError={() => setVehicleImgError(true)}
+                />
               : <div className="w-14 h-14 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-2xl flex-shrink-0">🚌</div>
             }
             <div className="min-w-0">
@@ -326,6 +332,9 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
   const isFull    = available <= 0
   const isMatch   = selectedCommune &&
     (assignment.vehicle?.commune || '').toLowerCase() === selectedCommune.toLowerCase()
+  const [imgError, setImgError] = useState(false)
+
+  const showImage = assignment.vehicle?.imageUrl && !imgError
 
   return (
     <div className={`bg-white dark:bg-gray-900 rounded-2xl border transition-all hover:shadow-md overflow-hidden
@@ -333,9 +342,14 @@ function VehicleCard({ assignment, selectedCommune, onBook }) {
       ${isMatch ? 'border-indigo-400 ring-2 ring-indigo-100 dark:ring-indigo-900 shadow-sm' : 'border-gray-200 dark:border-gray-700 shadow-sm'}
     `}>
       {/* Vehicle image */}
-      {assignment.vehicle?.imageUrl ? (
+      {showImage ? (
         <div className="relative">
-          <img src={assignment.vehicle.imageUrl} alt={`${assignment.vehicle.brand} ${assignment.vehicle.model}`} className="w-full h-36 object-cover" />
+          <img
+            src={assignment.vehicle.imageUrl}
+            alt={`${assignment.vehicle.brand} ${assignment.vehicle.model}`}
+            className="w-full h-36 object-cover"
+            onError={() => setImgError(true)}
+          />
           {isMatch && (
             <span className="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white font-semibold shadow">
               📍 Cerca de ti

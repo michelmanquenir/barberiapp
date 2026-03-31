@@ -975,6 +975,21 @@ function VehiclesTab({ shopId, vehicles, setVehicles, drivers }) {
             </Field>
             <Field label="URL imagen del vehículo">
               <input type="text" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} className={inputCls} placeholder="https://..." />
+              {form.imageUrl && (
+                <div className="mt-2 relative">
+                  <img
+                    src={form.imageUrl}
+                    alt="Vista previa"
+                    className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                    onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
+                    onLoad={e => { e.currentTarget.style.display = 'block'; e.currentTarget.nextSibling.style.display = 'none' }}
+                  />
+                  <div className="hidden w-full h-32 rounded-lg border border-dashed border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 flex-col items-center justify-center gap-1 text-center px-3">
+                    <span className="text-red-500 dark:text-red-400 text-xs font-medium">No se pudo cargar la imagen</span>
+                    <span className="text-red-400 dark:text-red-500 text-xs">Verifica que la URL sea una imagen directa (jpg, png, webp)</span>
+                  </div>
+                </div>
+              )}
             </Field>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="veh-active" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} className="w-4 h-4 rounded" />
