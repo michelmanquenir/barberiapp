@@ -21,12 +21,14 @@ import {
   Package,
   X,
   Images,
+  MessageSquarePlus,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
 import { toast } from '../lib/swal'
 import { useAuth } from '../context/AuthContext'
 import StarRating from '../components/StarRating'
+import ReviewModal from '../components/ReviewModal'
 
 // ─── Título del profesional según categoría del negocio ───────────────────────
 
@@ -417,6 +419,7 @@ function PublicBooking() {
               setBooking={setBooking}
               shop={shop}
               shopReviews={shopReviews}
+              setShopReviews={setShopReviews}
               shopGallery={shopGallery}
               plans={plans}
               activeSubscription={activeSubscription}
@@ -567,9 +570,21 @@ function PublicBooking() {
 
 // ─── Paso 1: Servicio ──────────────────────────────────────────────────────────
 
-function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], shopGallery = [], plans = [], activeSubscription, setActiveSubscription, isAuthenticated, navigate, slug }) {
+function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], setShopReviews, shopGallery = [], plans = [], activeSubscription, setActiveSubscription, isAuthenticated, navigate, slug }) {
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
+  const [showReviewModal, setShowReviewModal] = useState(false)
+
+  const handleSubmitReview = async (rating, comment) => {
+    await api.createReview({
+      reviewType: 'CLIENT_TO_SHOP',
+      targetShopId: shop.id,
+      rating,
+      comment,
+    })
+    const updated = await api.getShopReviews(shop.id).catch(() => [])
+    setShopReviews(updated || [])
+  }
 
   const handleLocationChange = (locationType) => {
     setBooking((b) => ({
@@ -604,14 +619,14 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
   return (
     <div>
       {/* ── Galería del negocio ─────────────────────────────────────────── */}
-      {shopGallery.length > 0 && (
-        <div className="mb-6 -mx-1">
-          <div className="flex items-center gap-1.5 mb-2.5 px-1">
-            <Images className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-            <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
-              Fotos del negocio
-            </span>
-          </div>
+      <div className="mb-6 -mx-1">
+        <div className="flex items-center gap-1.5 mb-2.5 px-1">
+          <Images className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+          <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+            Fotos del negocio
+          </span>
+        </div>
+        {shopGallery.length > 0 ? (
           <div className="flex gap-2 overflow-x-auto pb-1 px-1 scrollbar-hide">
             {shopGallery.map((img, idx) => (
               <button
@@ -627,8 +642,12 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
               </button>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="px-1 py-5 flex items-center justify-center border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+            <p className="text-xs text-gray-400 dark:text-gray-500">Este negocio aún no ha subido fotos</p>
+          </div>
+        )}
+      </div>
 
       {/* Lightbox */}
       {lightboxIndex !== null && shopGallery[lightboxIndex] && (
@@ -774,9 +793,34 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
       )}
 
       {/* ── Reseñas ─────────────────────────────────────────────────────── */}
-      {shopReviews.length > 0 && (
-        <div className="border-t border-gray-100 dark:border-gray-800 pt-5 mt-2">
+      <div className="border-t border-gray-100 dark:border-gray-800 pt-5 mt-2">
 
+        {/* Encabezado + botón dejar reseña */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+            Opiniones de clientes
+            {shopReviews.length > 0 && (
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">({shopReviews.length})</span>
+            )}
+          </h3>
+          <button
+            onClick={() => {
+              if (!isAuthenticated) {
+                navigate('/login', { state: { from: `/book/${slug}` } })
+                return
+              }
+              setShowReviewModal(true)
+            }}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            <MessageSquarePlus className="w-3.5 h-3.5" />
+            Calificar negocio
+          </button>
+        </div>
+
+        {shopReviews.length > 0 && (
+          <>
           {/* Resumen de puntuación */}
           <div className="flex items-center gap-4 mb-4">
             {/* Número grande */}
@@ -802,12 +846,6 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
               ))}
             </div>
           </div>
-
-          {/* Título sección */}
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-1.5">
-            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            Opiniones de clientes
-          </h3>
 
           {/* Tarjetas de reseñas */}
           <div className="space-y-3">
@@ -846,8 +884,25 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
               {showAllReviews ? '▲ Ver menos' : `Ver todas las reseñas (${shopReviews.length})`}
             </button>
           )}
-        </div>
-      )}
+          </>
+        )}
+
+        {/* Estado vacío de reseñas */}
+        {shopReviews.length === 0 && (
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+            Aún no hay reseñas. ¡Sé el primero en opinar!
+          </p>
+        )}
+      </div>
+
+      {/* Modal de reseña */}
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSubmit={handleSubmitReview}
+        targetName={shop?.name}
+        targetType="shop"
+      />
     </div>
   )
 }
