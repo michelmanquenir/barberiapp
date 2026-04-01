@@ -11,9 +11,12 @@ import {
   X,
   Scissors,
   Images,
+  MessageSquarePlus,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import StarRating from '../components/StarRating'
+import ReviewModal from '../components/ReviewModal'
 
 const DEFAULT_CENTER = { lat: -33.4489, lng: -70.6693 }
 const MAP_STYLES = { height: '100%', width: '100%' }
@@ -47,7 +50,7 @@ function getProfLabel(slug, count) {
 
 function DiscoverShops() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
 
   const [shops, setShops] = useState([])
   const [categoryMap, setCategoryMap] = useState({}) // id → slug
@@ -259,10 +262,12 @@ function DiscoverShops() {
                 isFavorite={favoriteShopIds.has(shop.id)}
                 isHighlighted={highlightedShopId === shop.id}
                 reviews={shopReviews[shop.id] || []}
+                isAuthenticated={isAuthenticated}
                 onToggleFavorite={() => toggleFavorite(shop.id)}
                 onClick={() => handleShopClick(shop)}
                 onHover={() => handleCardHover(shop)}
                 onLeave={() => setHighlightedShopId(null)}
+                navigate={navigate}
               />
             ))
           )}
@@ -344,15 +349,25 @@ function DiscoverShops() {
   )
 }
 
-function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [], onToggleFavorite, onClick, onHover, onLeave }) {
+function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews: initialReviews = [], isAuthenticated, onToggleFavorite, onClick, onHover, onLeave, navigate }) {
   const [gallery, setGallery] = useState([])
+  const [reviews, setReviews] = useState(initialReviews)
+  const [showReviewModal, setShowReviewModal] = useState(false)
+
+  useEffect(() => { setReviews(initialReviews) }, [initialReviews])
 
   useEffect(() => {
     api.getShopGallery(shop.id).then(imgs => setGallery(imgs || [])).catch(() => {})
   }, [shop.id])
 
+  const handleSubmitReview = async (rating, comment) => {
+    await api.createReview({ reviewType: 'CLIENT_TO_SHOP', targetShopId: shop.id, rating, comment })
+    const updated = await api.getShopReviews(shop.id).catch(() => [])
+    setReviews(updated || [])
+  }
+
   const avgRating = reviews.length > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : null
 
   const previewPhotos = gallery.slice(0, 4)
@@ -370,17 +385,10 @@ function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [],
     >
       {/* Franja de galería */}
       {previewPhotos.length > 0 && (
-        <div className="flex gap-0.5 h-24 overflow-hidden" onClick={onClick}>
+        <div className="flex gap-0.5 h-28 overflow-hidden" onClick={onClick}>
           {previewPhotos.map((img, idx) => (
-            <div
-              key={img.id}
-              className="relative flex-1 overflow-hidden"
-            >
-              <img
-                src={img.imageUrl}
-                alt={img.caption || ''}
-                className="w-full h-full object-cover"
-              />
+            <div key={img.id} className="relative flex-1 overflow-hidden">
+              <img src={img.imageUrl} alt={img.caption || ''} className="w-full h-full object-cover" />
               {idx === previewPhotos.length - 1 && extraCount > 0 && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <span className="text-white text-sm font-bold">+{extraCount}</span>
@@ -404,19 +412,10 @@ function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [],
             {shop.description && (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 line-clamp-2">{shop.description}</p>
             )}
-            <div className="flex items-center gap-4 mt-3 flex-wrap">
-              {avgRating ? (
-                <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{avgRating}</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">({reviews.length})</span>
-                </div>
-              ) : null}
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
               <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
                 <Users className="w-4 h-4" />
-                <span>
-                  {shop.barbers?.length || 0} {getProfLabel(categorySlug, shop.barbers?.length || 0)}
-                </span>
+                <span>{shop.barbers?.length || 0} {getProfLabel(categorySlug, shop.barbers?.length || 0)}</span>
               </div>
               {gallery.length > 0 && (
                 <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
@@ -424,28 +423,55 @@ function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [],
                   <span>{gallery.length} foto{gallery.length !== 1 ? 's' : ''}</span>
                 </div>
               )}
-              {!shop.latitude && (
-                <span className="text-xs text-gray-300 dark:text-gray-600">Sin ubicación</span>
-              )}
             </div>
           </div>
 
           {/* Favorite toggle */}
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleFavorite()
-            }}
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
             className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-950 transition flex-shrink-0"
           >
-            <Heart
-              className={`w-5 h-5 transition-colors ${
-                isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-red-300'
-              }`}
-            />
+            <Heart className={`w-5 h-5 transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-red-300'}`} />
+          </button>
+        </div>
+
+        {/* Rating + botón de reseña */}
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <StarRating value={avgRating !== null ? Math.round(avgRating) : 0} size="sm" />
+            {avgRating !== null ? (
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                {avgRating.toFixed(1)}
+                <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">({reviews.length})</span>
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400 dark:text-gray-500">Sin reseñas aún</span>
+            )}
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!isAuthenticated) {
+                navigate('/login', { state: { from: '/booking' } })
+                return
+              }
+              setShowReviewModal(true)
+            }}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition flex-shrink-0"
+          >
+            <MessageSquarePlus className="w-3.5 h-3.5" />
+            Calificar
           </button>
         </div>
       </div>
+
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSubmit={handleSubmitReview}
+        targetName={shop.name}
+        targetType="shop"
+      />
     </div>
   )
 }
