@@ -4,6 +4,7 @@ import {
   ShoppingBag, Plus, Minus, X, MapPin, Home, Package,
   CreditCard, Banknote, CheckCircle, Store, ArrowLeft, Loader2,
   User, Clock, Calendar, Images, ChevronLeft, ChevronRight,
+  Search, SlidersHorizontal, ChevronDown,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -541,6 +542,10 @@ export default function PublicShopCatalog() {
   const [orderPlaced, setOrderPlaced] = useState(false)
 
   const [activeCategory, setActiveCategory] = useState('Todos')
+  const [searchQuery, setSearchQuery]     = useState('')
+  const [priceRange, setPriceRange]       = useState('all') // 'all' | '0-5000' | '5000-15000' | '15000-50000' | '50000+'
+  const [sortBy, setSortBy]               = useState('default') // 'default' | 'price-asc' | 'price-desc' | 'name'
+  const [showFilters, setShowFilters]     = useState(false)
 
   // ── Galería del negocio ────────────────────────────────────────────────────
   const [shopGallery, setShopGallery]       = useState([])
@@ -585,9 +590,34 @@ export default function PublicShopCatalog() {
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
 
   const categories = ['Todos', ...new Set(products.map(p => p.category).filter(Boolean))]
-  const visibleProducts = activeCategory === 'Todos'
-    ? products
-    : products.filter(p => p.category === activeCategory)
+
+  const PRICE_RANGES = {
+    'all':         { label: 'Todos los precios', min: 0, max: Infinity },
+    '0-5000':      { label: 'Hasta $5.000',      min: 0, max: 5000 },
+    '5000-15000':  { label: '$5.000 – $15.000',   min: 5000, max: 15000 },
+    '15000-50000': { label: '$15.000 – $50.000',   min: 15000, max: 50000 },
+    '50000+':      { label: 'Más de $50.000',      min: 50000, max: Infinity },
+  }
+
+  const activeFiltersCount = (searchQuery ? 1 : 0) + (priceRange !== 'all' ? 1 : 0) + (sortBy !== 'default' ? 1 : 0)
+
+  const visibleProducts = (() => {
+    let filtered = activeCategory === 'Todos' ? products : products.filter(p => p.category === activeCategory)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(p =>
+        p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)
+      )
+    }
+    if (priceRange !== 'all') {
+      const { min, max } = PRICE_RANGES[priceRange]
+      filtered = filtered.filter(p => (p.salePrice ?? 0) >= min && (p.salePrice ?? 0) < max)
+    }
+    if (sortBy === 'price-asc') filtered = [...filtered].sort((a, b) => (a.salePrice ?? 0) - (b.salePrice ?? 0))
+    else if (sortBy === 'price-desc') filtered = [...filtered].sort((a, b) => (b.salePrice ?? 0) - (a.salePrice ?? 0))
+    else if (sortBy === 'name') filtered = [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    return filtered
+  })()
 
   const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, notes, deliveryFee, assignedBarberId, scheduledAt }) => {
     if (!isAuthenticated) {
@@ -669,7 +699,7 @@ export default function PublicShopCatalog() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
           <button onClick={() => navigate('/booking')}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
             <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -690,7 +720,7 @@ export default function PublicShopCatalog() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
 
         {/* ── Galería del negocio ── */}
         {shopGallery.length > 0 && (
@@ -761,30 +791,139 @@ export default function PublicShopCatalog() {
           </div>
         )}
 
-        {/* Category filter */}
-        {categories.length > 2 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
-            {categories.map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                  activeCategory === cat
-                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                }`}>
-                {cat}
-              </button>
-            ))}
+        {/* ── Barra de búsqueda + filtros ── */}
+        <div className="mb-4 space-y-3">
+          {/* Búsqueda + botón filtros */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar producto..."
+                className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowFilters(v => !v)}
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-sm font-medium transition ${
+                showFilters || activeFiltersCount > 0
+                  ? 'border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              Filtros
+              {activeFiltersCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
           </div>
-        )}
 
-        {/* Products grid */}
+          {/* Panel de filtros expandible */}
+          {showFilters && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              {/* Rango de precio */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Rango de precio</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(PRICE_RANGES).map(([key, { label }]) => (
+                    <button key={key} onClick={() => setPriceRange(key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        priceRange === key
+                          ? 'border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ordenar */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Ordenar por</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: 'default', label: 'Predeterminado' },
+                    { key: 'price-asc', label: 'Menor precio' },
+                    { key: 'price-desc', label: 'Mayor precio' },
+                    { key: 'name', label: 'Nombre A-Z' },
+                  ].map(({ key, label }) => (
+                    <button key={key} onClick={() => setSortBy(key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        sortBy === key
+                          ? 'border-gray-900 dark:border-white bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Limpiar filtros */}
+              {activeFiltersCount > 0 && (
+                <button
+                  onClick={() => { setSearchQuery(''); setPriceRange('all'); setSortBy('default') }}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium transition"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Category pills */}
+          {categories.length > 2 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {categories.map(cat => (
+                <button key={cat} onClick={() => setActiveCategory(cat)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                    activeCategory === cat
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                      : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                  }`}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Contador de resultados */}
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+          {visibleProducts.length} producto{visibleProducts.length !== 1 ? 's' : ''}
+          {activeCategory !== 'Todos' && ` en "${activeCategory}"`}
+          {searchQuery && ` · "${searchQuery}"`}
+        </p>
+
+        {/* Products grid — 2 cols mobile, 3 tablet, 5 desktop */}
         {visibleProducts.length === 0 ? (
           <div className="text-center py-16">
             <Package className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">No hay productos disponibles</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              {searchQuery || priceRange !== 'all' ? 'No hay productos que coincidan con los filtros' : 'No hay productos disponibles'}
+            </p>
+            {(searchQuery || priceRange !== 'all') && (
+              <button
+                onClick={() => { setSearchQuery(''); setPriceRange('all'); setSortBy('default'); setActiveCategory('Todos') }}
+                className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {visibleProducts.map(product => (
               <ProductCard key={product.id} product={product}
                 qty={cart[product.id] ?? 0}
