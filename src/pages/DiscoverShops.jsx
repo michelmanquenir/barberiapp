@@ -10,6 +10,7 @@ import {
   Search,
   X,
   Scissors,
+  Images,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -52,6 +53,7 @@ function DiscoverShops() {
   const [categoryMap, setCategoryMap] = useState({}) // id → slug
   const [favoriteShops, setFavoriteShops] = useState([])
   const [favoriteShopIds, setFavoriteShopIds] = useState(new Set())
+  const [shopReviews, setShopReviews] = useState({}) // shopId → reviews[]
   const [loading, setLoading] = useState(true)
   const [highlightedShopId, setHighlightedShopId] = useState(null)
   const [openInfoId, setOpenInfoId] = useState(null)
@@ -72,13 +74,26 @@ function DiscoverShops() {
           user ? api.getFavoriteShops(user.userId) : Promise.resolve([]),
           api.getCategories().catch(() => []),
         ])
-        setShops(shopsData || [])
+        const shops = shopsData || []
+        setShops(shops)
         const map = {}
         ;(catsData || []).forEach(c => { map[c.id] = c.slug })
         setCategoryMap(map)
         const favs = favsData || []
         setFavoriteShops(favs)
         setFavoriteShopIds(new Set(favs.map((f) => f.shop.id)))
+
+        // Cargar reseñas de todos los negocios en paralelo
+        const reviewResults = await Promise.all(
+          shops.map(s =>
+            api.getShopReviews(s.id)
+              .then(r => ({ id: s.id, reviews: r || [] }))
+              .catch(() => ({ id: s.id, reviews: [] }))
+          )
+        )
+        const reviewsMap = {}
+        reviewResults.forEach(({ id, reviews }) => { reviewsMap[id] = reviews })
+        setShopReviews(reviewsMap)
       } catch (err) {
         console.error('Error loading shops:', err)
       } finally {
@@ -243,6 +258,7 @@ function DiscoverShops() {
                 categorySlug={categoryMap[shop.categoryId] ?? ''}
                 isFavorite={favoriteShopIds.has(shop.id)}
                 isHighlighted={highlightedShopId === shop.id}
+                reviews={shopReviews[shop.id] || []}
                 onToggleFavorite={() => toggleFavorite(shop.id)}
                 onClick={() => handleShopClick(shop)}
                 onHover={() => handleCardHover(shop)}
@@ -328,63 +344,107 @@ function DiscoverShops() {
   )
 }
 
-function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, onToggleFavorite, onClick, onHover, onLeave }) {
-  const rating = getShopRating(shop.barbers)
+function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [], onToggleFavorite, onClick, onHover, onLeave }) {
+  const [gallery, setGallery] = useState([])
+
+  useEffect(() => {
+    api.getShopGallery(shop.id).then(imgs => setGallery(imgs || [])).catch(() => {})
+  }, [shop.id])
+
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : null
+
+  const previewPhotos = gallery.slice(0, 4)
+  const extraCount = gallery.length > 4 ? gallery.length - 4 : 0
+
   return (
     <div
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
-      className={`bg-white dark:bg-gray-900 rounded-xl border p-5 cursor-pointer transition-all ${
+      className={`bg-white dark:bg-gray-900 rounded-xl border overflow-hidden cursor-pointer transition-all ${
         isHighlighted
           ? 'border-primary-500 shadow-md ring-1 ring-primary-200 dark:ring-primary-800'
           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
       }`}
     >
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex-1 min-w-0" onClick={onClick}>
-          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
-          {shop.address && (
-            <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
-              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{shop.address}</span>
+      {/* Franja de galería */}
+      {previewPhotos.length > 0 && (
+        <div className="flex gap-0.5 h-24 overflow-hidden" onClick={onClick}>
+          {previewPhotos.map((img, idx) => (
+            <div
+              key={img.id}
+              className="relative flex-1 overflow-hidden"
+            >
+              <img
+                src={img.imageUrl}
+                alt={img.caption || ''}
+                className="w-full h-full object-cover"
+              />
+              {idx === previewPhotos.length - 1 && extraCount > 0 && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">+{extraCount}</span>
+                </div>
+              )}
             </div>
-          )}
-          {shop.description && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 line-clamp-2">{shop.description}</p>
-          )}
-          <div className="flex items-center gap-4 mt-3">
-            {rating && (
-              <div className="flex items-center gap-1">
-                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{rating}</span>
+          ))}
+        </div>
+      )}
+
+      <div className="p-4">
+        <div className="flex justify-between items-start gap-3">
+          <div className="flex-1 min-w-0" onClick={onClick}>
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
+            {shop.address && (
+              <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{shop.address}</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-              <Users className="w-4 h-4" />
-              <span>
-                {shop.barbers?.length || 0} {getProfLabel(categorySlug, shop.barbers?.length || 0)}
-              </span>
-            </div>
-            {!shop.latitude && (
-              <span className="text-xs text-gray-300 dark:text-gray-600">Sin ubicación</span>
+            {shop.description && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 line-clamp-2">{shop.description}</p>
             )}
+            <div className="flex items-center gap-4 mt-3 flex-wrap">
+              {avgRating ? (
+                <div className="flex items-center gap-1">
+                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{avgRating}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">({reviews.length})</span>
+                </div>
+              ) : null}
+              <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                <Users className="w-4 h-4" />
+                <span>
+                  {shop.barbers?.length || 0} {getProfLabel(categorySlug, shop.barbers?.length || 0)}
+                </span>
+              </div>
+              {gallery.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+                  <Images className="w-3.5 h-3.5" />
+                  <span>{gallery.length} foto{gallery.length !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+              {!shop.latitude && (
+                <span className="text-xs text-gray-300 dark:text-gray-600">Sin ubicación</span>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Favorite toggle */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleFavorite()
-          }}
-          className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-950 transition flex-shrink-0"
-        >
-          <Heart
-            className={`w-5 h-5 transition-colors ${
-              isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-red-300'
-            }`}
-          />
-        </button>
+          {/* Favorite toggle */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFavorite()
+            }}
+            className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-950 transition flex-shrink-0"
+          >
+            <Heart
+              className={`w-5 h-5 transition-colors ${
+                isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-red-300'
+              }`}
+            />
+          </button>
+        </div>
       </div>
     </div>
   )
