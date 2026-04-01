@@ -54,6 +54,9 @@ function Appointments() {
   // Modal
   const [modal, setModal] = useState(null) // { aptId, barberId, shopId, barberName, shopName, type }
 
+  // orderReviewsMap: { orderId: ReviewResponse[] }
+  const [orderReviewsMap, setOrderReviewsMap] = useState({})
+
   // ── Pedidos ──────────────────────────────────────────────────────────────────
   const [orders, setOrders] = useState([])
   const [loadingOrders, setLoadingOrders] = useState(false)
@@ -70,10 +73,22 @@ function Appointments() {
     if (activeTab !== 'pedidos') return
     setLoadingOrders(true)
     api.getMyOrders()
-      .then(data => setOrders(data || []))
+      .then(data => {
+        const ordersData = data || []
+        setOrders(ordersData)
+        // Cargar reseñas de pedidos entregados
+        ordersData
+          .filter(o => o.status === 'delivered')
+          .forEach(o => {
+            if (orderReviewsMap[o.id] !== undefined) return
+            api.getOrderReviews(o.id)
+              .then(reviews => setOrderReviewsMap(prev => ({ ...prev, [o.id]: reviews || [] })))
+              .catch(() => setOrderReviewsMap(prev => ({ ...prev, [o.id]: [] })))
+          })
+      })
       .catch(console.error)
       .finally(() => setLoadingOrders(false))
-  }, [activeTab])
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cargar reseñas para citas completadas cuando se cambia al tab
   useEffect(() => {
@@ -132,25 +147,49 @@ function Appointments() {
       barberName: apt.barber?.name ?? 'Barbero',
       shopName: apt.shopName ?? apt.barber?.shopName ?? 'Barbería',
       type,
+      source: 'appointment',
+    })
+  }
+
+  const openOrderModal = (order) => {
+    setModal({
+      orderId: order.id,
+      shopName: order.shopName ?? 'Negocio',
+      type: 'CLIENT_TO_SHOP',
+      source: 'order',
     })
   }
 
   const handleReviewSubmit = useCallback(async (rating, comment) => {
     if (!modal) return
-    const req = {
-      appointmentId: modal.aptId,
-      rating,
-      comment,
-    }
-    if (modal.type === 'CLIENT_TO_BARBER') {
-      req.reviewType = 'CLIENT_TO_BARBER'
-      req.targetBarberId = modal.barberId
+
+    if (modal.source === 'order') {
+      // Reseña de pedido
+      await api.createReview({
+        orderId: modal.orderId,
+        reviewType: 'CLIENT_TO_SHOP',
+        rating,
+        comment,
+      })
+      const updated = await api.getOrderReviews(modal.orderId)
+      setOrderReviewsMap(prev => ({ ...prev, [modal.orderId]: updated || [] }))
     } else {
-      req.reviewType = 'CLIENT_TO_SHOP'
+      // Reseña de cita
+      const req = {
+        appointmentId: modal.aptId,
+        rating,
+        comment,
+      }
+      if (modal.type === 'CLIENT_TO_BARBER') {
+        req.reviewType = 'CLIENT_TO_BARBER'
+        req.targetBarberId = modal.barberId
+      } else {
+        req.reviewType = 'CLIENT_TO_SHOP'
+      }
+      await api.createReview(req)
+      const updated = await api.getAppointmentReviews(modal.aptId)
+      setReviewsMap(prev => ({ ...prev, [modal.aptId]: updated || [] }))
     }
-    await api.createReview(req)
-    const updated = await api.getAppointmentReviews(modal.aptId)
-    setReviewsMap(prev => ({ ...prev, [modal.aptId]: updated || [] }))
   }, [modal])
 
   // Filtrado:
@@ -296,6 +335,38 @@ function Appointments() {
                       Nota: {order.notes}
                     </p>
                   )}
+
+                  {/* Reseña para pedidos entregados */}
+                  {order.status === 'delivered' && (() => {
+                    const orderReviews = orderReviewsMap[order.id]
+                    const shopReview = orderReviews?.find(r => r.reviewType === 'CLIENT_TO_SHOP')
+                    const loadingOrderReviews = orderReviews === undefined
+                    return (
+                      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                        {loadingOrderReviews ? (
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Cargando reseña...</p>
+                        ) : shopReview ? (
+                          <div className="flex items-start gap-2 bg-blue-50 dark:bg-blue-950 rounded-lg px-3 py-2">
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Tu reseña del negocio</p>
+                              <StarRating value={shopReview.rating} size="sm" />
+                              {shopReview.comment && (
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 italic">"{shopReview.comment}"</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => openOrderModal(order)}
+                            className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium transition border border-blue-200 dark:border-blue-800 hover:border-blue-400 rounded-lg px-3 py-1.5"
+                          >
+                            <Star className="w-3.5 h-3.5 fill-blue-400 text-blue-400" />
+                            Calificar el negocio
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {order.status === 'pending' && (
                     <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
@@ -551,7 +622,10 @@ function Appointments() {
         )}
       </div>
 
-      {/* Modal de reseña */}
+        </>
+      )}
+
+      {/* Modal de reseña (compartido entre citas y pedidos) */}
       <ReviewModal
         isOpen={!!modal}
         onClose={() => setModal(null)}
@@ -559,8 +633,6 @@ function Appointments() {
         targetName={modal?.type === 'CLIENT_TO_BARBER' ? modal?.barberName : modal?.shopName}
         targetType={modal?.type === 'CLIENT_TO_BARBER' ? 'barber' : 'shop'}
       />
-        </>
-      )}
     </div>
   )
 }

@@ -127,6 +127,7 @@ export const api = {
   getShopReviews: (shopId) => request(`/reviews/shop/${shopId}`),
   getClientReviews: (userId) => request(`/reviews/client/${userId}`),
   getAppointmentReviews: (appointmentId) => request(`/reviews/appointment/${appointmentId}`),
+  getOrderReviews: (orderId) => request(`/reviews/order/${orderId}`),
 
   // Favoritos (barberos)
   getFavorites: (userId) => request(`/favorites?userId=${userId}`),
