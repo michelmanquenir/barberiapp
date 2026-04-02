@@ -494,7 +494,7 @@ function ShopDetail() {
   const handleSavePlan = async (e) => {
     e.preventDefault()
     if (!planForm.name.trim() || !planForm.price || !planForm.cutsPerPeriod) {
-      setPlanError('Completa nombre, precio y cantidad de cortes')
+      setPlanError(`Completa nombre, precio y cantidad de ${serviceUnit}`)
       return
     }
     setSavingPlan(true)
@@ -712,6 +712,16 @@ function ShopDetail() {
   const isProductShop = shopCategory?.slug?.includes('bazar') ?? false
   const isTransportShop = shopCategory?.slug?.includes('transport') ?? false
   const isGymShop = (shopCategory?.slug?.includes('gym') || shopCategory?.slug?.includes('box')) ?? false
+
+  // Término que se usa para las "unidades" de servicio en los planes según el tipo de negocio
+  const serviceUnit = (() => {
+    const slug = shopCategory?.slug ?? ''
+    if (slug.includes('gym') || slug.includes('box'))   return 'clases'
+    if (slug.includes('transport'))                      return 'viajes'
+    if (slug.includes('bazar') || slug.includes('shop')) return 'compras'
+    if (slug.includes('salon') || slug.includes('spa'))  return 'sesiones'
+    return 'cortes' // barbería por defecto
+  })()
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -1018,7 +1028,7 @@ function ShopDetail() {
                             </div>
                             <div className="text-right">
                               <p className="text-xs font-medium text-gray-700 dark:text-gray-200">
-                                {sub.cutsUsed}/{sub.cutsAllowed} cortes
+                                {sub.cutsUsed}/{sub.cutsAllowed} {serviceUnit}
                               </p>
                               <p className="text-xs text-gray-400 dark:text-gray-500">{sub.daysRemaining} días restantes</p>
                             </div>
@@ -1067,9 +1077,9 @@ function ShopDetail() {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Cortes incluidos *</label>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1 capitalize">{serviceUnit.charAt(0).toUpperCase() + serviceUnit.slice(1)} incluidos *</label>
                           <div className="relative">
-                            <Scissors className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                            <Repeat2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                             <input type="number" min="1" value={planForm.cutsPerPeriod}
                               onChange={(e) => setPlanForm({ ...planForm, cutsPerPeriod: e.target.value })}
                               placeholder="4"
@@ -1121,7 +1131,7 @@ function ShopDetail() {
                             <p className="text-sm font-semibold text-gray-900 dark:text-gray-50">{plan.name}</p>
                             <span className="text-xs bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2 py-0.5 rounded-full font-medium">${plan.price?.toLocaleString()}/mes</span>
                             <span className="text-xs bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Repeat2 className="w-3 h-3" />{plan.cutsPerPeriod} cortes
+                              <Repeat2 className="w-3 h-3" />{plan.cutsPerPeriod} {serviceUnit}
                             </span>
                             {!plan.active && (
                               <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span>

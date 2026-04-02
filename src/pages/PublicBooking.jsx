@@ -44,6 +44,15 @@ function getProfessionalTitle(slug, plural = false) {
   return plural ? entry.plural : entry.singular
 }
 
+/** Retorna el término correcto para las "unidades" de servicio según la categoría del negocio */
+function getServiceUnit(slug = '') {
+  if (slug.includes('gym') || slug.includes('box'))   return 'clases'
+  if (slug.includes('transport'))                      return 'viajes'
+  if (slug.includes('bazar') || slug.includes('shop')) return 'compras'
+  if (slug.includes('salon') || slug.includes('spa'))  return 'sesiones'
+  return 'cortes'
+}
+
 // ─── helpers de fecha/hora ────────────────────────────────────────────────────
 
 function todayStr() {
@@ -424,6 +433,7 @@ function PublicBooking() {
               isAuthenticated={isAuthenticated}
               navigate={navigate}
               slug={slug}
+              categorySlug={categorySlug}
             />
           )}
           {step === 2 && (
@@ -567,7 +577,8 @@ function PublicBooking() {
 
 // ─── Paso 1: Servicio ──────────────────────────────────────────────────────────
 
-function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], shopGallery = [], plans = [], activeSubscription, setActiveSubscription, isAuthenticated, navigate, slug }) {
+function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], shopGallery = [], plans = [], activeSubscription, setActiveSubscription, isAuthenticated, navigate, slug, categorySlug = '' }) {
+  const serviceUnit = getServiceUnit(categorySlug)
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [showAllReviews, setShowAllReviews] = useState(false)
 
@@ -732,7 +743,7 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
                 <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">Activa</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-purple-700 dark:text-purple-400">
-                <span className="flex items-center gap-1"><Repeat2 className="w-3 h-3" />{activeSubscription.cutsRemaining} cortes restantes</span>
+                <span className="flex items-center gap-1"><Repeat2 className="w-3 h-3" />{activeSubscription.cutsRemaining} {serviceUnit} restantes</span>
                 <span>{activeSubscription.daysRemaining} días</span>
               </div>
               <div className="mt-2 w-full bg-purple-200 dark:bg-purple-800 rounded-full h-1.5">
@@ -743,7 +754,7 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
           {!activeSubscription && plans.length > 0 && (
             <div className="space-y-2">
               {plans.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} isAuthenticated={isAuthenticated} navigate={navigate} slug={slug} setActiveSubscription={setActiveSubscription} />
+                <PlanCard key={plan.id} plan={plan} isAuthenticated={isAuthenticated} navigate={navigate} slug={slug} setActiveSubscription={setActiveSubscription} serviceUnit={serviceUnit} />
               ))}
             </div>
           )}
@@ -1380,7 +1391,7 @@ function ConfirmStep({ booking, setBooking, shop, selectedService, selectedBarbe
 
 // ─── PlanCard ───────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, isAuthenticated, navigate, slug, setActiveSubscription }) {
+function PlanCard({ plan, isAuthenticated, navigate, slug, setActiveSubscription, serviceUnit = 'cortes' }) {
   const [subscribing, setSubscribing] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState(null)
@@ -1407,7 +1418,7 @@ function PlanCard({ plan, isAuthenticated, navigate, slug, setActiveSubscription
     return (
       <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-3 text-sm text-green-700 dark:text-green-300">
         <Check className="w-4 h-4 flex-shrink-0" />
-        <span>¡Te suscribiste a <strong>{plan.name}</strong>! Ya puedes usar un corte en tu próxima cita.</span>
+        <span>¡Te suscribiste a <strong>{plan.name}</strong>! Ya puedes usar tus {serviceUnit} incluidos en tu próxima cita.</span>
       </div>
     )
   }
@@ -1419,7 +1430,7 @@ function PlanCard({ plan, isAuthenticated, navigate, slug, setActiveSubscription
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-50">{plan.name}</p>
           <span className="text-xs bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2 py-0.5 rounded-full font-medium">${plan.price?.toLocaleString()}/mes</span>
           <span className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
-            <Repeat2 className="w-3 h-3" />{plan.cutsPerPeriod} cortes
+            <Repeat2 className="w-3 h-3" />{plan.cutsPerPeriod} {serviceUnit}
           </span>
         </div>
         {plan.description && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-1">{plan.description}</p>}
