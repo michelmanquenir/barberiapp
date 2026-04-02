@@ -711,6 +711,7 @@ function ShopDetail() {
   const shopCategory = categories.find(c => c.id === shop?.categoryId)
   const isProductShop = shopCategory?.slug?.includes('bazar') ?? false
   const isTransportShop = shopCategory?.slug?.includes('transport') ?? false
+  const isGymShop = (shopCategory?.slug?.includes('gym') || shopCategory?.slug?.includes('box')) ?? false
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -816,6 +817,12 @@ function ShopDetail() {
                       <button onClick={() => navigate(`/admin/shops/${shopId}/transport`)}
                         className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
                         🚌 Transporte
+                      </button>
+                    )}
+                    {isGymShop && (
+                      <button onClick={() => navigate(`/admin/shops/${shopId}/gym`)}
+                        className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
+                        🥊 Gestionar Gym
                       </button>
                     )}
                     <button onClick={() => navigate(`/admin/shops/${shopId}/stats`)}

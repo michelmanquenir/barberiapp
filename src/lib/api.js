@@ -297,6 +297,48 @@ export const api = {
   getMyActiveSubscription: (shopId) =>
     request(`/subscriptions/me/active?shopId=${shopId}`),
 
+  // ── Gym / Boxing ──────────────────────────────────────────────────────────────
+
+  // Stats
+  getGymStats: (shopId) => request(`/gym/shops/${shopId}/stats`),
+
+  // Miembros
+  getGymMembers: (shopId) => request(`/gym/shops/${shopId}/members`),
+  getGymMember: (shopId, memberId) => request(`/gym/shops/${shopId}/members/${memberId}`),
+  createGymMember: (shopId, data) =>
+    request(`/gym/shops/${shopId}/members`, { method: 'POST', body: JSON.stringify(data) }),
+  updateGymMember: (shopId, memberId, data) =>
+    request(`/gym/shops/${shopId}/members/${memberId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteGymMember: (shopId, memberId) =>
+    request(`/gym/shops/${shopId}/members/${memberId}`, { method: 'DELETE' }),
+
+  // Membresías
+  getGymMemberships: (shopId, memberId) =>
+    request(`/gym/shops/${shopId}/members/${memberId}/memberships`),
+  createGymMembership: (shopId, memberId, data) =>
+    request(`/gym/shops/${shopId}/members/${memberId}/memberships`, { method: 'POST', body: JSON.stringify(data) }),
+  updateGymMembership: (shopId, membershipId, data) =>
+    request(`/gym/shops/${shopId}/memberships/${membershipId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Asistencia
+  gymCheckIn: (shopId, data) =>
+    request(`/gym/shops/${shopId}/attendance`, { method: 'POST', body: JSON.stringify(data) }),
+  getGymTodayAttendance: (shopId) => request(`/gym/shops/${shopId}/attendance/today`),
+  getGymMemberAttendance: (shopId, memberId) =>
+    request(`/gym/shops/${shopId}/members/${memberId}/attendance`),
+  deleteGymAttendance: (shopId, attendanceId) =>
+    request(`/gym/shops/${shopId}/attendance/${attendanceId}`, { method: 'DELETE' }),
+
+  // Progreso
+  getGymProgress: (shopId, memberId) =>
+    request(`/gym/shops/${shopId}/members/${memberId}/progress`),
+  addGymProgress: (shopId, memberId, data) =>
+    request(`/gym/shops/${shopId}/members/${memberId}/progress`, { method: 'POST', body: JSON.stringify(data) }),
+  updateGymProgress: (shopId, memberId, progressId, data) =>
+    request(`/gym/shops/${shopId}/members/${memberId}/progress/${progressId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteGymProgress: (shopId, memberId, progressId) =>
+    request(`/gym/shops/${shopId}/members/${memberId}/progress/${progressId}`, { method: 'DELETE' }),
+
   // Categorías de negocio (público — sin auth)
   getCategories: () => request('/categories'),
 

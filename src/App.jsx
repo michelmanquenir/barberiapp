@@ -22,6 +22,7 @@ import ShopStats from './pages/admin/ShopStats'
 import ShopOrders from './pages/admin/ShopOrders'
 import ShopTransport from './pages/admin/ShopTransport'
 import PointOfSale from './pages/admin/PointOfSale'
+import GymMembers from './pages/admin/GymMembers'
 import PublicShopCatalog from './pages/PublicShopCatalog'
 import PublicTransport from './pages/PublicTransport'
 import PublicBooking from './pages/PublicBooking'
@@ -225,6 +226,14 @@ function App() {
               element={
                 <ProtectedRoute requireBusinessOwner>
                   <PointOfSale />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/shops/:shopId/gym"
+              element={
+                <ProtectedRoute requireBusinessOwner>
+                  <GymMembers />
                 </ProtectedRoute>
               }
             />
