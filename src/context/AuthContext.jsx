@@ -41,9 +41,13 @@ export function AuthProvider({ children }) {
   const isPending = auth?.status === 'PENDING'
   const isRejected = auth?.status === 'REJECTED'
   const isActive = auth?.status === 'ACTIVE'
+  const mustChangePassword = !!auth?.mustChangePassword
+
+  /** Llama esto tras cambiar la contraseña exitosamente para limpiar el flag */
+  const clearMustChangePassword = () => updateUser({ mustChangePassword: false })
 
   return (
-    <AuthContext.Provider value={{ user: auth, token: auth?.token, login, logout, updateUser, isAuthenticated, isBusinessOwner, isSuperAdmin, isPending, isRejected, isActive }}>
+    <AuthContext.Provider value={{ user: auth, token: auth?.token, login, logout, updateUser, isAuthenticated, isBusinessOwner, isSuperAdmin, isPending, isRejected, isActive, mustChangePassword, clearMustChangePassword }}>
       {children}
     </AuthContext.Provider>
   )

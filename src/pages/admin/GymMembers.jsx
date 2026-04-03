@@ -69,6 +69,7 @@ const MEMBER_STATUS = {
 const EMPTY_MEMBER = {
   name: '', email: '', phone: '', rut: '', birthDate: '', joinDate: '',
   status: 'active', photoUrl: '', emergencyContactName: '', emergencyContactPhone: '', medicalNotes: '',
+  createAppAccount: false,
 }
 
 const EMPTY_MEMBERSHIP = {
@@ -201,6 +202,7 @@ export default function GymMembers() {
       emergencyContactName: m.emergencyContactName || '',
       emergencyContactPhone: m.emergencyContactPhone || '',
       medicalNotes: m.medicalNotes || '',
+      createAppAccount: false, // nunca re-crear cuenta al editar
     })
     setShowMemberForm(true)
   }
@@ -540,7 +542,7 @@ export default function GymMembers() {
 
       {showMemberForm && (
         <Modal title={editingMemberId ? 'Editar miembro' : 'Nuevo miembro'} onClose={() => setShowMemberForm(false)}>
-          <MemberForm form={memberForm} setForm={setMemberForm} />
+          <MemberForm form={memberForm} setForm={setMemberForm} isEditing={!!editingMemberId} />
           <ModalFooter
             onCancel={() => setShowMemberForm(false)}
             onSave={saveMember}
@@ -1152,7 +1154,7 @@ function CheckinTab({ members, todayAttendance, onCheckin, onDeleteAttendance })
 
 // ─── Forms ────────────────────────────────────────────────────────────────────
 
-function MemberForm({ form, setForm }) {
+function MemberForm({ form, setForm, isEditing = false }) {
   const f = (field) => ({ value: form[field], onChange: e => setForm({ ...form, [field]: e.target.value }) })
   return (
     <div className="space-y-4">
@@ -1171,6 +1173,34 @@ function MemberForm({ form, setForm }) {
           </select>
         </FormField>
       </div>
+
+      {/* Crear cuenta en la app — solo al crear (no al editar) */}
+      {!isEditing && (
+        <div className="border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 bg-emerald-50 dark:bg-emerald-950 space-y-3">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.createAppAccount}
+              onChange={e => setForm({ ...form, createAppAccount: e.target.checked })}
+              className="w-4 h-4 mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <div>
+              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                Crear cuenta en la app
+              </p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                Se enviará un correo al alumno con sus credenciales de acceso y una contraseña provisional que deberá cambiar en su primer ingreso.
+              </p>
+            </div>
+          </label>
+          {form.createAppAccount && !form.email && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              ⚠️ Debes ingresar el email del alumno para enviar las credenciales.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Contacto de emergencia</p>
         <div className="grid sm:grid-cols-2 gap-4">

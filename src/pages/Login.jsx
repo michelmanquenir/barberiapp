@@ -25,6 +25,11 @@ function Login() {
     try {
       const data = await api.login(form)
       login(data)
+      // Si el usuario tiene contraseña provisional debe cambiarla antes de continuar
+      if (data.mustChangePassword) {
+        navigate('/change-password', { replace: true })
+        return
+      }
       const dest = data.role === 'SUPER_ADMIN'      ? '/super-admin/dashboard'
                  : data.role === 'BUSINESS_OWNER'   ? '/admin'
                  : '/booking'

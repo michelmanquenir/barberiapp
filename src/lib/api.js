@@ -48,6 +48,8 @@ export const api = {
     request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword: (data) =>
     request('/auth/reset-password', { method: 'POST', body: JSON.stringify(data) }),
+  changePassword: (data) =>
+    request('/auth/change-password', { method: 'POST', body: JSON.stringify(data) }),
 
   // Servicios globales (legacy)
   getServices: () => request('/services'),
