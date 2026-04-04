@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
+import { GoogleMap, Marker, InfoWindow, Circle } from '@react-google-maps/api'
 import {
   Heart,
   MapPin,
@@ -11,10 +11,15 @@ import {
   X,
   Scissors,
   Images,
+  Navigation,
+  Loader2,
+  LocateFixed,
+  XCircle,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import StarRating from '../components/StarRating'
+import { useUserLocation, haversineDistance, formatDistance } from '../hooks/useUserLocation'
 
 const DEFAULT_CENTER = { lat: -33.4489, lng: -70.6693 }
 const MAP_STYLES = { height: '100%', width: '100%' }
@@ -46,15 +51,18 @@ function getProfLabel(slug, count) {
   return count === 1 ? entry.singular : entry.plural
 }
 
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 function DiscoverShops() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { location: userLocation, permission, loading: locationLoading, requestLocation, dismissLocation } = useUserLocation()
 
   const [shops, setShops] = useState([])
-  const [categoryMap, setCategoryMap] = useState({}) // id → slug
+  const [categoryMap, setCategoryMap] = useState({})
   const [favoriteShops, setFavoriteShops] = useState([])
   const [favoriteShopIds, setFavoriteShopIds] = useState(new Set())
-  const [shopReviews, setShopReviews] = useState({}) // shopId → reviews[]
+  const [shopReviews, setShopReviews] = useState({})
   const [loading, setLoading] = useState(true)
   const [highlightedShopId, setHighlightedShopId] = useState(null)
   const [openInfoId, setOpenInfoId] = useState(null)
@@ -84,7 +92,6 @@ function DiscoverShops() {
         setFavoriteShops(favs)
         setFavoriteShopIds(new Set(favs.map((f) => f.shop.id)))
 
-        // Cargar reseñas de todos los negocios en paralelo
         const reviewResults = await Promise.all(
           shops.map(s =>
             api.getShopReviews(s.id)
@@ -147,20 +154,57 @@ function DiscoverShops() {
     }
   }
 
-  const filteredShops = searchQuery.trim()
-    ? shops.filter(
-        (s) =>
-          s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (s.address && s.address.toLowerCase().includes(searchQuery.toLowerCase()))
+  // ── Calcular distancias y ordenar ──────────────────────────────────────────
+
+  const shopsWithDistance = useMemo(() => {
+    if (!userLocation) return shops.map(s => ({ ...s, distance: null }))
+    return shops.map(s => {
+      if (!s.latitude || !s.longitude) return { ...s, distance: null }
+      const dist = haversineDistance(userLocation.lat, userLocation.lng, s.latitude, s.longitude)
+      return { ...s, distance: dist }
+    })
+  }, [shops, userLocation])
+
+  const filteredShops = useMemo(() => {
+    let result = shopsWithDistance
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(
+        s => s.name.toLowerCase().includes(q) || (s.address && s.address.toLowerCase().includes(q))
       )
-    : shops
+    }
+    // Ordenar: los que tienen distancia primero (más cercanos), luego sin coordenadas
+    if (userLocation) {
+      result = [...result].sort((a, b) => {
+        if (a.distance == null && b.distance == null) return 0
+        if (a.distance == null) return 1
+        if (b.distance == null) return -1
+        return a.distance - b.distance
+      })
+    }
+    return result
+  }, [shopsWithDistance, searchQuery, userLocation])
 
-  const mappableShops = filteredShops.filter((s) => s.latitude && s.longitude)
+  const mappableShops = filteredShops.filter(s => s.latitude && s.longitude)
 
-  const mapCenter =
-    mappableShops.length > 0
+  const mapCenter = userLocation
+    ? { lat: userLocation.lat, lng: userLocation.lng }
+    : mappableShops.length > 0
       ? { lat: mappableShops[0].latitude, lng: mappableShops[0].longitude }
       : DEFAULT_CENTER
+
+  const mapZoom = userLocation ? 14 : 13
+
+  // ── Centrar mapa en mi ubicación ───────────────────────────────────────────
+
+  const centerOnMe = () => {
+    if (mapRef.current && userLocation) {
+      mapRef.current.panTo({ lat: userLocation.lat, lng: userLocation.lng })
+      mapRef.current.setZoom(14)
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -172,30 +216,81 @@ function DiscoverShops() {
 
   return (
     <div className="max-w-full -mx-4 sm:-mx-6 lg:-mx-8">
+
+      {/* ── Banner de ubicación ─────────────────────────────────────────── */}
+      {permission === null && (
+        <div className="px-4 sm:px-6 lg:px-8 mb-4">
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                <Navigation className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  Activar ubicación
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-400">
+                  Muestra negocios cerca de ti y ordénalos por distancia
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
+              <button
+                onClick={requestLocation}
+                disabled={locationLoading}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-60 font-medium"
+              >
+                {locationLoading
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Obteniendo...</>
+                  : <><LocateFixed className="w-3.5 h-3.5" />Permitir</>
+                }
+              </button>
+              <button
+                onClick={dismissLocation}
+                className="flex-1 sm:flex-none text-sm px-4 py-2 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition font-medium"
+              >
+                No, gracias
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header + Search */}
       <div className="px-4 sm:px-6 lg:px-8 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">Descubre Negocios</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-              Encuentra el negocio ideal y agenda tu cita
+              {userLocation
+                ? 'Negocios cerca de ti, ordenados por distancia'
+                : 'Encuentra el negocio ideal y agenda tu cita'}
             </p>
           </div>
-          <div className="relative max-w-sm w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre o dirección..."
-              className="w-full pl-9 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            {searchQuery && (
+          <div className="flex items-center gap-2 max-w-sm w-full">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nombre o dirección..."
+                className="w-full pl-9 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                </button>
+              )}
+            </div>
+            {/* Botón de re-centrar si ya tenemos ubicación */}
+            {userLocation && (
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
+                onClick={centerOnMe}
+                title="Centrar en mi ubicación"
+                className="p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition flex-shrink-0"
               >
-                <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                <LocateFixed className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </button>
             )}
           </div>
@@ -260,6 +355,7 @@ function DiscoverShops() {
                 isFavorite={favoriteShopIds.has(shop.id)}
                 isHighlighted={highlightedShopId === shop.id}
                 reviews={shopReviews[shop.id] || []}
+                distance={shop.distance}
                 onToggleFavorite={() => toggleFavorite(shop.id)}
                 onClick={() => handleShopClick(shop)}
                 onHover={() => handleCardHover(shop)}
@@ -274,11 +370,38 @@ function DiscoverShops() {
           <GoogleMap
             mapContainerStyle={MAP_STYLES}
             center={mapCenter}
-            zoom={13}
+            zoom={mapZoom}
             options={MAP_OPTIONS}
             onLoad={onMapLoad}
             onClick={() => setOpenInfoId(null)}
           >
+              {/* Marcador del usuario */}
+              {userLocation && (
+                <>
+                  <Marker
+                    position={{ lat: userLocation.lat, lng: userLocation.lng }}
+                    title="Tu ubicación"
+                    icon={{
+                      url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                      scaledSize: { width: 40, height: 40 },
+                    }}
+                    zIndex={1000}
+                  />
+                  <Circle
+                    center={{ lat: userLocation.lat, lng: userLocation.lng }}
+                    radius={200}
+                    options={{
+                      fillColor: '#3b82f6',
+                      fillOpacity: 0.1,
+                      strokeColor: '#3b82f6',
+                      strokeOpacity: 0.3,
+                      strokeWeight: 1,
+                    }}
+                  />
+                </>
+              )}
+
+              {/* Marcadores de negocios */}
               {mappableShops.map((shop) => (
                 <Marker
                   key={shop.id}
@@ -291,7 +414,7 @@ function DiscoverShops() {
                           scaledSize: { width: 40, height: 40 },
                         }
                       : {
-                          url: 'https://maps.google.com/mapfiles/ms/icons/barbershop.png',
+                          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
                           scaledSize: { width: 32, height: 32 },
                         }
                   }
@@ -327,6 +450,11 @@ function DiscoverShops() {
                         <span className="text-xs text-gray-500">
                           {shop.barbers?.length || 0} {getProfLabel(categoryMap[shop.categoryId] ?? '', shop.barbers?.length || 0)}
                         </span>
+                        {shop.distance != null && (
+                          <span className="text-xs text-blue-600 font-medium">
+                            {formatDistance(shop.distance)}
+                          </span>
+                        )}
                       </div>
                       <button
                         onClick={() => handleShopClick(shop)}
@@ -345,7 +473,9 @@ function DiscoverShops() {
   )
 }
 
-function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [], onToggleFavorite, onClick, onHover, onLeave }) {
+// ─── ShopCard ─────────────────────────────────────────────────────────────────
+
+function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [], distance, onToggleFavorite, onClick, onHover, onLeave }) {
   const [gallery, setGallery] = useState([])
 
   useEffect(() => {
@@ -389,7 +519,16 @@ function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [],
       <div className="p-4">
         <div className="flex justify-between items-start gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
+              {/* Badge de distancia */}
+              {distance != null && (
+                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full flex-shrink-0 border border-blue-200 dark:border-blue-800">
+                  <Navigation className="w-3 h-3" />
+                  {formatDistance(distance)}
+                </span>
+              )}
+            </div>
             {shop.address && (
               <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
                 <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
