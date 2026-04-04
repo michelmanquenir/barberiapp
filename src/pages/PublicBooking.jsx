@@ -604,7 +604,7 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
 
   const visibleReviews = showAllReviews ? shopReviews : shopReviews.slice(0, 3)
 
-  if (services.length === 0) {
+  if (services.length === 0 && plans.length === 0 && !activeSubscription) {
     return (
       <div className="text-center py-10 text-gray-400 dark:text-gray-500 text-sm">
         No hay servicios disponibles en este momento.
@@ -685,7 +685,9 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
 
       {/* ── Cabecera + rating promedio ──────────────────────────────────── */}
       <div className="flex items-start justify-between mb-1">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">Selecciona un servicio</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">
+          {services.length > 0 ? 'Selecciona un servicio' : shop?.name}
+        </h2>
         {avgRating !== null && (
           <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg px-2.5 py-1 flex-shrink-0">
             <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
@@ -694,41 +696,45 @@ function ServiceStep({ services, booking, setBooking, shop, shopReviews = [], sh
           </div>
         )}
       </div>
-      <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">Elige el servicio que deseas reservar</p>
+      <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">
+        {services.length > 0 ? 'Elige el servicio que deseas reservar' : 'Suscríbete a un plan para acceder al gimnasio'}
+      </p>
 
-      {/* ── Lista de servicios ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-        {services.map((service) => {
-          const selected = booking.serviceId === service.id
-          return (
-            <button
-              key={service.id}
-              onClick={() => setBooking({ ...booking, serviceId: service.id })}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                selected ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-sm">{service.name}</h3>
-                {selected && <Check className="h-4 w-4 text-gray-900 dark:text-gray-50 flex-shrink-0" />}
-              </div>
-              {service.description && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{service.description}</p>
-              )}
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-lg font-bold text-gray-900 dark:text-gray-50">
-                  ${service.price?.toLocaleString()}
-                </span>
-                {service.duration_minutes && (
-                  <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
-                    {service.duration_minutes} min
-                  </span>
+      {/* ── Lista de servicios (solo si hay servicios) ──────────────────── */}
+      {services.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+          {services.map((service) => {
+            const selected = booking.serviceId === service.id
+            return (
+              <button
+                key={service.id}
+                onClick={() => setBooking({ ...booking, serviceId: service.id })}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  selected ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-sm">{service.name}</h3>
+                  {selected && <Check className="h-4 w-4 text-gray-900 dark:text-gray-50 flex-shrink-0" />}
+                </div>
+                {service.description && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{service.description}</p>
                 )}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-50">
+                    ${service.price?.toLocaleString()}
+                  </span>
+                  {service.duration_minutes && (
+                    <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
+                      {service.duration_minutes} min
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Planes de suscripción ───────────────────────────────────────── */}
       {(plans.length > 0 || activeSubscription) && (
