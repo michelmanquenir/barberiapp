@@ -27,7 +27,9 @@ async function request(path, options = {}) {
     let message = `Error API: ${response.status} ${response.statusText}`
     try {
       const body = await response.json()
+      // El backend puede usar "message" o "error" como clave según el controlador
       if (body?.message) message = body.message
+      else if (body?.error) message = body.error
     } catch { /* ignore */ }
     throw new Error(message)
   }
