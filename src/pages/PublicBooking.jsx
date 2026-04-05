@@ -27,6 +27,7 @@ import { api } from '../lib/api'
 import { toast } from '../lib/swal'
 import { useAuth } from '../context/AuthContext'
 import StarRating from '../components/StarRating'
+import PublicUserMenu from '../components/PublicUserMenu'
 
 // ─── Título del profesional según categoría del negocio ───────────────────────
 
@@ -350,15 +351,7 @@ function PublicBooking() {
               )}
             </div>
           </div>
-          {!isAuthenticated && (
-            <button
-              onClick={() => navigate('/login', { state: { from: `/book/${slug}` } })}
-              className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition"
-            >
-              <LogIn className="w-4 h-4" />
-              Iniciar sesión
-            </button>
-          )}
+          <PublicUserMenu loginRedirect={`/book/${slug}`} dark />
         </div>
       </header>
 

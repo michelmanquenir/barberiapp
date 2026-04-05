@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import PublicUserMenu from '../components/PublicUserMenu'
 
 // ── Comunas de Chile ──────────────────────────────────────────────────────────
 const CHILEAN_COMMUNES = [
@@ -617,11 +618,7 @@ function PublicTransport() {
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚌 Transporte</span>
             </div>
           </div>
-          {user && (
-            <button onClick={() => navigate('/appointments')} className="text-sm text-blue-600 font-medium hover:underline flex-shrink-0">
-              Mis reservas
-            </button>
-          )}
+          <PublicUserMenu loginRedirect={`/transport/${slug}`} dark={false} />
         </div>
       </header>
 

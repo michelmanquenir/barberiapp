@@ -9,6 +9,7 @@ import {
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import PublicUserMenu from '../components/PublicUserMenu'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + Number(n ?? 0).toLocaleString('es-AR')
@@ -717,6 +718,7 @@ export default function PublicShopCatalog() {
               Delivery disponible
             </span>
           )}
+          <PublicUserMenu loginRedirect={`/shop/${slug}`} dark={false} />
         </div>
       </div>
 
