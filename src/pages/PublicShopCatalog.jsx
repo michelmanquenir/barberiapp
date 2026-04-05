@@ -698,11 +698,11 @@ export default function PublicShopCatalog() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
+      {/* Header — ancho completo */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
           <button onClick={() => navigate('/booking')}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition flex-shrink-0">
             <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
           <div className="flex-1 min-w-0">
@@ -714,7 +714,7 @@ export default function PublicShopCatalog() {
             )}
           </div>
           {shop.homeServiceEnabled && (
-            <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full font-medium whitespace-nowrap">
+            <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full font-medium whitespace-nowrap hidden sm:inline">
               Delivery disponible
             </span>
           )}
@@ -722,34 +722,109 @@ export default function PublicShopCatalog() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* ── Galería del negocio (ancho completo, encima del layout) ── */}
+      {shopGallery.length > 0 && (
+        <div className="w-full px-4 sm:px-6 lg:px-8 pt-5 pb-0">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {shopGallery.map((img, idx) => (
+              <button
+                key={img.id}
+                onClick={() => setLightboxIndex(idx)}
+                className="flex-shrink-0 w-28 h-24 sm:w-40 sm:h-32 lg:w-48 lg:h-36 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:opacity-90 transition"
+              >
+                <img
+                  src={img.imageUrl}
+                  alt={img.caption || 'Foto del negocio'}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-        {/* ── Galería del negocio ── */}
-        {shopGallery.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-3">
-              <Images className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-              <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Fotos del negocio
-              </h2>
+      {/* ── Layout principal: sidebar + contenido ── */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 flex gap-6 items-start">
+
+        {/* ── SIDEBAR (solo desktop) ── */}
+        <aside className="hidden lg:flex flex-col gap-4 w-56 xl:w-64 flex-shrink-0 sticky top-[73px]">
+
+          {/* Categorías */}
+          {categories.length > 2 && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Categorías</p>
+              </div>
+              <nav className="py-1">
+                {categories.map(cat => (
+                  <button key={cat} onClick={() => setActiveCategory(cat)}
+                    className={`w-full text-left px-4 py-2 text-sm transition flex items-center justify-between gap-2 ${
+                      activeCategory === cat
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}>
+                    <span className="truncate">{cat}</span>
+                    {activeCategory === cat && <span className="text-xs opacity-60">✓</span>}
+                  </button>
+                ))}
+              </nav>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {shopGallery.map((img, idx) => (
-                <button
-                  key={img.id}
-                  onClick={() => setLightboxIndex(idx)}
-                  className="flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:opacity-90 transition"
-                >
-                  <img
-                    src={img.imageUrl}
-                    alt={img.caption || 'Foto del negocio'}
-                    className="w-full h-full object-cover"
-                  />
+          )}
+
+          {/* Filtros */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Precio</p>
+            </div>
+            <nav className="py-1">
+              {Object.entries(PRICE_RANGES).map(([key, { label }]) => (
+                <button key={key} onClick={() => setPriceRange(key)}
+                  className={`w-full text-left px-4 py-2 text-sm transition ${
+                    priceRange === key
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold'
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}>
+                  {label}
                 </button>
               ))}
-            </div>
+            </nav>
           </div>
-        )}
+
+          {/* Ordenar */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Ordenar</p>
+            </div>
+            <nav className="py-1">
+              {[
+                { key: 'default',    label: 'Predeterminado' },
+                { key: 'price-asc',  label: 'Menor precio' },
+                { key: 'price-desc', label: 'Mayor precio' },
+                { key: 'name',       label: 'Nombre A-Z' },
+              ].map(({ key, label }) => (
+                <button key={key} onClick={() => setSortBy(key)}
+                  className={`w-full text-left px-4 py-2 text-sm transition ${
+                    sortBy === key
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold'
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={() => { setSearchQuery(''); setPriceRange('all'); setSortBy('default'); setActiveCategory('Todos') }}
+              className="text-xs text-red-500 hover:text-red-600 font-medium transition text-left px-1">
+              Limpiar filtros ({activeFiltersCount})
+            </button>
+          )}
+        </aside>
+
+        {/* ── CONTENIDO PRINCIPAL ── */}
+        <div className="flex-1 min-w-0">
 
         {/* Lightbox */}
         {lightboxIndex !== null && shopGallery[lightboxIndex] && (
@@ -830,12 +905,11 @@ export default function PublicShopCatalog() {
             </button>
           </div>
 
-          {/* Panel de filtros expandible */}
+          {/* Panel filtros móvil expandible */}
           {showFilters && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              {/* Rango de precio */}
+            <div className="lg:hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
               <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Rango de precio</p>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Precio</p>
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(PRICE_RANGES).map(([key, { label }]) => (
                     <button key={key} onClick={() => setPriceRange(key)}
@@ -849,8 +923,6 @@ export default function PublicShopCatalog() {
                   ))}
                 </div>
               </div>
-
-              {/* Ordenar */}
               <div>
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Ordenar por</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -871,22 +943,18 @@ export default function PublicShopCatalog() {
                   ))}
                 </div>
               </div>
-
-              {/* Limpiar filtros */}
               {activeFiltersCount > 0 && (
-                <button
-                  onClick={() => { setSearchQuery(''); setPriceRange('all'); setSortBy('default') }}
-                  className="text-xs text-red-500 hover:text-red-600 font-medium transition"
-                >
+                <button onClick={() => { setSearchQuery(''); setPriceRange('all'); setSortBy('default') }}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium transition">
                   Limpiar filtros
                 </button>
               )}
             </div>
           )}
 
-          {/* Category pills */}
+          {/* Category pills móvil */}
           {categories.length > 2 && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {categories.map(cat => (
                 <button key={cat} onClick={() => setActiveCategory(cat)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
@@ -908,7 +976,7 @@ export default function PublicShopCatalog() {
           {searchQuery && ` · "${searchQuery}"`}
         </p>
 
-        {/* Products grid — 2 cols mobile, 3 tablet, 5 desktop */}
+        {/* Products grid — 2 cols móvil, 3 tablet, 3-4 desktop (con sidebar) */}
         {visibleProducts.length === 0 ? (
           <div className="text-center py-16">
             <Package className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -925,7 +993,7 @@ export default function PublicShopCatalog() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
             {visibleProducts.map(product => (
               <ProductCard key={product.id} product={product}
                 qty={cart[product.id] ?? 0}
@@ -935,7 +1003,9 @@ export default function PublicShopCatalog() {
             ))}
           </div>
         )}
-      </div>
+
+        </div>{/* fin contenido principal */}
+      </div>{/* fin layout sidebar+contenido */}
 
       {/* Floating cart */}
       {cartCount > 0 && (
