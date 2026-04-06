@@ -94,9 +94,11 @@ export default function PointOfSale() {
   const [cart, setCart] = useState({})
 
   // ── Scanner ───────────────────────────────────────────────────────────────
-  const [scannerOpen, setScannerOpen] = useState(false)
-  const [scanning, setScanning]       = useState(false)  // procesando barcode
-  const [scanError, setScanError]     = useState(null)
+  const [scannerOpen, setScannerOpen]   = useState(false)
+  const [scanning, setScanning]         = useState(false)  // procesando barcode
+  const [scanError, setScanError]       = useState(null)
+  const [scanFeedback, setScanFeedback] = useState(null)   // { type, message } para el banner interno
+  const feedbackTimerRef                = useRef(null)
 
   // ── Búsqueda manual ───────────────────────────────────────────────────────
   const [manualBarcode, setManualBarcode] = useState('')
@@ -143,8 +145,15 @@ export default function PointOfSale() {
     })
   }, [])
 
+  // ── Feedback temporal dentro del scanner ──────────────────────────────────
+  const showScanFeedback = useCallback((type, message) => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    setScanFeedback({ type, message })
+    feedbackTimerRef.current = setTimeout(() => setScanFeedback(null), 2000)
+  }, [])
+
   // ── Buscar por código de barras (scanner o manual) ────────────────────────
-  const lookupBarcode = useCallback(async (barcode) => {
+  const lookupBarcode = useCallback(async (barcode, fromScanner = false) => {
     if (!barcode?.trim() || !shopId) return
     const code = barcode.trim()
     setScanning(true)
@@ -152,22 +161,31 @@ export default function PointOfSale() {
     try {
       const product = await api.getProductByBarcode(shopId, code)
       if (!product) {
-        setScanError(`No se encontró ningún producto con el código "${code}".`)
+        const msg = `No encontrado: "${code}"`
+        if (fromScanner) showScanFeedback('error', msg)
+        else setScanError(`No se encontró ningún producto con el código "${code}".`)
         return
       }
-      addProduct(product)   // el beep lo reproduce BarcodeScanner al detectar
-      setScannerOpen(false) // cerrar scanner después de agregar
+      addProduct(product)
+      if (fromScanner) {
+        // Quedarse en el scanner — mostrar feedback de éxito y seguir escaneando
+        showScanFeedback('success', `✓ ${product.name}`)
+      } else {
+        setScannerOpen(false)
+      }
     } catch {
-      setScanError(`No se encontró ningún producto con el código "${code}".`)
+      const msg = `No encontrado: "${code}"`
+      if (fromScanner) showScanFeedback('error', msg)
+      else setScanError(`No se encontró ningún producto con el código "${code}".`)
     } finally {
       setScanning(false)
     }
-  }, [shopId, addProduct])
+  }, [shopId, addProduct, showScanFeedback])
 
   // ── Handler scanner ───────────────────────────────────────────────────────
   const handleBarcodeDetected = useCallback((barcode) => {
     if (scanning) return // evitar procesamiento simultáneo
-    lookupBarcode(barcode)
+    lookupBarcode(barcode, true) // fromScanner=true → no cierra el scanner
   }, [scanning, lookupBarcode])
 
   // ── Búsqueda manual ───────────────────────────────────────────────────────
@@ -258,11 +276,17 @@ export default function PointOfSale() {
         </div>
       </div>
 
-      {/* Scanner modal */}
+      {/* Scanner modal — permanece abierto hasta que el usuario lo cierre */}
       {scannerOpen && (
         <BarcodeScanner
           onDetected={handleBarcodeDetected}
-          onClose={() => setScannerOpen(false)}
+          onClose={() => {
+            setScannerOpen(false)
+            setScanFeedback(null)
+            if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+          }}
+          feedback={scanFeedback}
+          processing={scanning}
         />
       )}
 

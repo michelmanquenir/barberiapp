@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
-import { ScanLine, X, CameraOff, Loader2 } from 'lucide-react'
+import { ScanLine, X, CameraOff, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 
 // ── Beep compartido ───────────────────────────────────────────────────────────
 const _beepAudio = new Audio('/sounds/beep.wav')
@@ -15,11 +15,14 @@ function playBeep() {
  * Funciona en iOS Safari y Android Chrome.
  *
  * Props:
- *   onDetected(code: string) — llamado al detectar un código
- *   onClose()                — llamado al pulsar "X" o "Volver"
- *   beep?                    — si debe sonar al detectar (default: true)
+ *   onDetected(code: string)  — llamado al detectar un código
+ *   onClose()                 — llamado al pulsar "X" o "Volver"
+ *   beep?                     — si debe sonar al detectar (default: true)
+ *   feedback?                 — { type: 'success'|'error', message: string } | null
+ *                               Muestra un banner en la parte inferior del visor
+ *   processing?               — boolean, muestra spinner mientras se busca el producto
  */
-function BarcodeScanner({ onDetected, onClose, beep = true }) {
+function BarcodeScanner({ onDetected, onClose, beep = true, feedback = null, processing = false }) {
   const videoRef      = useRef(null)
   const readerRef     = useRef(null)
   const lastCodeRef   = useRef(null)
@@ -117,13 +120,14 @@ function BarcodeScanner({ onDetected, onClose, beep = true }) {
       <div className="flex items-center justify-between px-4 py-3 bg-black/80 safe-top">
         <div className="flex items-center gap-2 text-white">
           <ScanLine className="w-5 h-5 text-green-400" />
-          <span className="font-semibold">Escanear código de barras</span>
+          <span className="font-semibold">Escanear productos</span>
         </div>
         <button
           onClick={onClose}
-          className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition text-sm font-medium"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
+          Cerrar
         </button>
       </div>
 
@@ -173,11 +177,30 @@ function BarcodeScanner({ onDetected, onClose, beep = true }) {
                 )}
               </div>
             </div>
-            {!initializing && (
-              <p className="absolute bottom-10 left-0 right-0 text-center text-white/70 text-sm">
-                Apunta al código de barras del producto
-              </p>
-            )}
+            {/* Banner de feedback (éxito / error / procesando) */}
+            <div className="absolute bottom-8 left-4 right-4 flex flex-col items-center gap-2 pointer-events-none">
+              {processing && !feedback && (
+                <div className="flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded-xl px-4 py-2.5">
+                  <Loader2 className="w-4 h-4 text-white animate-spin flex-shrink-0" />
+                  <span className="text-white text-sm font-medium">Buscando producto…</span>
+                </div>
+              )}
+              {feedback && feedback.type === 'success' && (
+                <div className="flex items-center gap-2 bg-green-500/90 backdrop-blur-sm rounded-xl px-4 py-2.5 w-full max-w-xs">
+                  <CheckCircle className="w-4 h-4 text-white flex-shrink-0" />
+                  <span className="text-white text-sm font-semibold truncate">{feedback.message}</span>
+                </div>
+              )}
+              {feedback && feedback.type === 'error' && (
+                <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-sm rounded-xl px-4 py-2.5 w-full max-w-xs">
+                  <AlertCircle className="w-4 h-4 text-white flex-shrink-0" />
+                  <span className="text-white text-sm font-medium truncate">{feedback.message}</span>
+                </div>
+              )}
+              {!initializing && !processing && !feedback && (
+                <p className="text-white/60 text-sm">Apunta al código de barras</p>
+              )}
+            </div>
           </>
         )}
       </div>
