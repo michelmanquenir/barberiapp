@@ -6,6 +6,23 @@ import { ScanLine, X, CameraOff, Loader2, CheckCircle, AlertCircle } from 'lucid
 const _beepAudio = new Audio('/sounds/beep.wav')
 _beepAudio.preload = 'auto'
 
+/**
+ * Llama esto durante un gesto del usuario (ej. click al abrir el scanner).
+ * iOS/Safari bloquea audio.play() en callbacks asíncronos hasta que el
+ * AudioContext haya sido "desbloqueado" con un play() dentro de un evento
+ * de usuario. Al hacer play+pause durante el click, el primer escaneo
+ * ya tiene el audio desbloqueado.
+ */
+export function primeBeepAudio() {
+  try {
+    _beepAudio.currentTime = 0
+    _beepAudio.play().then(() => {
+      _beepAudio.pause()
+      _beepAudio.currentTime = 0
+    }).catch(() => {})
+  } catch (_) {}
+}
+
 function playBeep() {
   try { _beepAudio.currentTime = 0; _beepAudio.play().catch(() => {}) } catch (_) {}
 }

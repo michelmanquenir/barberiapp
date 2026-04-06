@@ -10,7 +10,7 @@ import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import AdminNavbar from '../../components/AdminNavbar'
 import { toast } from '../../lib/swal'
-import BarcodeScanner from '../../components/BarcodeScanner'
+import BarcodeScanner, { primeBeepAudio } from '../../components/BarcodeScanner'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + Number(n ?? 0).toLocaleString('es-CL')
@@ -301,7 +301,7 @@ export default function PointOfSale() {
 
             {/* Botón abrir cámara */}
             <button
-              onClick={() => { setScanError(null); setScannerOpen(true) }}
+              onClick={() => { primeBeepAudio(); setScanError(null); setScannerOpen(true) }}
               className="w-full flex items-center justify-center gap-2 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-700 dark:hover:bg-gray-100 transition mb-3"
             >
               <Camera className="w-5 h-5" />

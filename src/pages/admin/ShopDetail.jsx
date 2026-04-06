@@ -44,7 +44,7 @@ import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import AdminNavbar from '../../components/AdminNavbar'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
-import BarcodeScanner from '../../components/BarcodeScanner'
+import BarcodeScanner, { primeBeepAudio } from '../../components/BarcodeScanner'
 
 // ─── constantes ───────────────────────────────────────────────────────────────
 
@@ -1515,7 +1515,7 @@ function ShopDetail() {
                               }`} />
                             <button
                               type="button"
-                              onClick={() => setProductScannerOpen(true)}
+                              onClick={() => { primeBeepAudio(); setProductScannerOpen(true) }}
                               title="Escanear código de barras"
                               className="flex-shrink-0 px-2.5 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
                             >
