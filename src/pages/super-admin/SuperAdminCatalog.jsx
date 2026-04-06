@@ -143,26 +143,37 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Categoría</label>
-              <input
-                type="text"
-                list="catalog-modal-categories"
-                value={form.category}
-                onChange={e => set('category', e.target.value)}
-                placeholder="Bebidas"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-              />
-              <datalist id="catalog-modal-categories">
-                {productCategories.flatMap(parent =>
-                  parent.children && parent.children.length > 0
-                    ? parent.children.map(child => (
-                        <option
-                          key={child.id}
-                          value={`${parent.icon ? parent.icon + ' ' : ''}${child.name}`}
-                        />
-                      ))
-                    : [<option key={parent.id} value={`${parent.icon ? parent.icon + ' ' : ''}${parent.name}`} />]
-                )}
-              </datalist>
+              {productCategories.length > 0 ? (
+                <select
+                  value={form.category}
+                  onChange={e => set('category', e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 appearance-none"
+                >
+                  <option value="">Sin categoría</option>
+                  {productCategories.flatMap(parent =>
+                    parent.children && parent.children.length > 0
+                      ? parent.children.map(child => (
+                          <option
+                            key={child.id}
+                            value={`${parent.icon ? parent.icon + ' ' : ''}${child.name}`}
+                          >
+                            {parent.icon ? parent.icon + ' ' : ''}{child.name}
+                          </option>
+                        ))
+                      : [<option key={parent.id} value={`${parent.icon ? parent.icon + ' ' : ''}${parent.name}`}>
+                          {parent.icon ? parent.icon + ' ' : ''}{parent.name}
+                        </option>]
+                  )}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={form.category}
+                  onChange={e => set('category', e.target.value)}
+                  placeholder="Bebidas"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                />
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">SKU</label>
