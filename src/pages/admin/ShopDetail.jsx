@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { uploadProductImage, deleteProductImageFromStorage } from '../../lib/productImageUpload'
 import { uploadShopGalleryImage, deleteGalleryImageFromStorage } from '../../lib/galleryUpload'
@@ -125,6 +125,20 @@ function ShopDetail() {
   const [editingProductId, setEditingProductId] = useState(null)
   const [savingProduct, setSavingProduct] = useState(false)
   const [productError, setProductError] = useState(null)
+
+  // ── Validación de duplicados en tiempo real ──────────────────────────────────
+  const productDupes = useMemo(() => {
+    // Comparar contra todos los productos excepto el que se está editando
+    const others = products.filter(p => p.id !== editingProductId)
+    const name    = productForm.name.trim().toLowerCase()
+    const barcode = productForm.barcode.trim()
+    const sku     = productForm.sku.trim()
+    return {
+      name:    name    ? others.some(p => (p.name    || '').toLowerCase() === name)    : false,
+      barcode: barcode ? others.some(p => (p.barcode || '') === barcode)               : false,
+      sku:     sku     ? others.some(p => (p.sku     || '') === sku)                   : false,
+    }
+  }, [productForm.name, productForm.barcode, productForm.sku, products, editingProductId])
   const [adjustingStockId, setAdjustingStockId] = useState(null)
   // búsqueda / filtros / paginación
   const [productSearch, setProductSearch] = useState('')
@@ -644,6 +658,14 @@ function ShopDetail() {
     }
     if (!productForm.salePrice) {
       setProductError('El precio de venta es obligatorio')
+      return
+    }
+    if (productDupes.barcode) {
+      setProductError(`El código de barras "${productForm.barcode.trim()}" ya está asignado a otro producto.`)
+      return
+    }
+    if (productDupes.sku) {
+      setProductError(`El SKU "${productForm.sku.trim()}" ya está en uso por otro producto.`)
       return
     }
     setSavingProduct(true)
@@ -1399,8 +1421,18 @@ function ShopDetail() {
                             <input type="text" value={productForm.name}
                               onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                               placeholder="Ej: Pomada fijadora, Aceite de barba..."
-                              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent" />
+                              className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:border-transparent ${
+                                productDupes.name
+                                  ? 'border-amber-400 dark:border-amber-500 focus:ring-amber-400'
+                                  : 'border-gray-200 dark:border-gray-600 focus:ring-gray-900 dark:focus:ring-gray-100'
+                              }`} />
                           </div>
+                          {productDupes.name && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                              Ya existe un producto con este nombre en tu tienda
+                            </p>
+                          )}
                         </div>}
                         {/* Categoría: solo cuando NO está vinculado al catálogo */}
                         {!selectedGlobalProduct && <div>
@@ -1476,7 +1508,11 @@ function ShopDetail() {
                             <input type="text" value={productForm.barcode}
                               onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
                               placeholder="Ej: 7802900000000"
-                              className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent font-mono" />
+                              className={`flex-1 min-w-0 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:border-transparent font-mono ${
+                                productDupes.barcode
+                                  ? 'border-red-400 dark:border-red-500 focus:ring-red-400'
+                                  : 'border-gray-200 dark:border-gray-600 focus:ring-gray-900 dark:focus:ring-gray-100'
+                              }`} />
                             <button
                               type="button"
                               onClick={() => setProductScannerOpen(true)}
@@ -1486,6 +1522,12 @@ function ShopDetail() {
                               <ScanLine className="w-4 h-4" />
                             </button>
                           </div>
+                          {productDupes.barcode && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                              Este código de barras ya está asignado a otro producto
+                            </p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
@@ -1494,7 +1536,17 @@ function ShopDetail() {
                           <input type="text" value={productForm.sku}
                             onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
                             placeholder="Código interno"
-                            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent" />
+                            className={`w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:border-transparent ${
+                              productDupes.sku
+                                ? 'border-red-400 dark:border-red-500 focus:ring-red-400'
+                                : 'border-gray-200 dark:border-gray-600 focus:ring-gray-900 dark:focus:ring-gray-100'
+                            }`} />
+                          {productDupes.sku && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                              Este SKU ya está en uso por otro producto
+                            </p>
+                          )}
                         </div>
                       </div>}
                       {/* Imagen del producto: solo local */}
