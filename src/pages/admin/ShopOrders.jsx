@@ -161,7 +161,7 @@ function ShopOrders() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950 transition-colors">
       <AdminNavbar />
 
-      <div className="pt-20 px-4 sm:px-6 pb-12 max-w-5xl mx-auto">
+      <div className="pt-20 px-4 sm:px-6 pb-12 max-w-screen-2xl mx-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
