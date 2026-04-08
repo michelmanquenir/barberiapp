@@ -82,44 +82,173 @@ function generateHourlySlots(daySlots) {
   return [...times].sort()
 }
 
+// ── ProductDetailModal ────────────────────────────────────────────────────────
+function ProductDetailModal({ product, qty, onAdd, onRemove, onClose }) {
+  const outOfStock = product.stock <= 0
+  const lowStock   = product.stock > 0 && product.stock <= 5
+
+  // Cerrar con Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Imagen */}
+        <div className="relative w-full bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="w-full max-h-72 object-contain"
+            />
+          ) : (
+            <div className="w-full h-48 flex items-center justify-center">
+              <Package className="w-16 h-16 text-gray-300 dark:text-gray-600" />
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          {/* Badge stock sobre imagen */}
+          <div className="absolute bottom-3 left-3">
+            {outOfStock ? (
+              <span className="text-xs bg-red-600 text-white px-2.5 py-1 rounded-full font-medium shadow">Agotado</span>
+            ) : lowStock ? (
+              <span className="text-xs bg-orange-500 text-white px-2.5 py-1 rounded-full font-medium shadow">Últimas {product.stock} unidades</span>
+            ) : (
+              <span className="text-xs bg-green-600 text-white px-2.5 py-1 rounded-full font-medium shadow">En stock</span>
+            )}
+          </div>
+        </div>
+
+        {/* Contenido */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {product.category && (
+            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              {product.category}
+            </span>
+          )}
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mt-1 leading-tight">
+            {product.name}
+          </h2>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+            {fmt(product.salePrice)}
+          </p>
+
+          {product.description && (
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-3 leading-relaxed">
+              {product.description}
+            </p>
+          )}
+
+          {(product.barcode || product.sku) && (
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-wrap gap-4 text-xs text-gray-400 dark:text-gray-500">
+              {product.barcode && (
+                <span className="font-mono">Barcode: {product.barcode}</span>
+              )}
+              {product.sku && (
+                <span className="font-mono">SKU: {product.sku}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer: acciones carrito */}
+        <div className="px-5 pb-6 pt-3 border-t border-gray-100 dark:border-gray-800 flex-shrink-0">
+          {qty === 0 ? (
+            <button
+              onClick={() => { onAdd(); onClose() }}
+              disabled={outOfStock}
+              className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-4 h-4" /> Agregar al carrito
+            </button>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <button onClick={onRemove}
+                className="w-11 h-11 rounded-xl border-2 border-gray-200 dark:border-gray-600 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-200">
+                <Minus className="w-5 h-5" />
+              </button>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{qty} en carrito</span>
+              <button onClick={onAdd} disabled={qty >= product.stock}
+                className="w-11 h-11 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── ProductCard ───────────────────────────────────────────────────────────────
-function ProductCard({ product, qty, onAdd, onRemove }) {
+function ProductCard({ product, qty, onAdd, onRemove, onDetail }) {
   const outOfStock = product.stock <= 0
   const lowStock = product.stock > 0 && product.stock <= 5
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden shadow-sm flex flex-col">
-      {product.imageUrl ? (
-        <img src={product.imageUrl} alt={product.name} className="w-full h-40 object-cover" />
-      ) : (
-        <div className="w-full h-40 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+      {/* Imagen clickeable */}
+      <button
+        type="button"
+        onClick={onDetail}
+        className="w-full bg-gray-50 dark:bg-gray-700 flex items-center justify-center overflow-hidden focus:outline-none"
+        style={{ aspectRatio: '1 / 1' }}
+      >
+        {product.imageUrl ? (
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
+          />
+        ) : (
           <Package className="w-10 h-10 text-gray-300 dark:text-gray-500" />
-        </div>
-      )}
+        )}
+      </button>
 
-      <div className="p-4 flex flex-col flex-1">
+      <div className="p-3 flex flex-col flex-1">
         {product.category && (
-          <span className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">
+          <span className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-0.5">
             {product.category}
           </span>
         )}
-        <p className="text-sm font-semibold text-gray-900 dark:text-white flex-1">{product.name}</p>
+        {/* Nombre clickeable */}
+        <button
+          type="button"
+          onClick={onDetail}
+          className="text-left text-sm font-semibold text-gray-900 dark:text-white flex-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
+          {product.name}
+        </button>
+
         {product.description && (
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{product.description}</p>
         )}
 
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-lg font-bold text-gray-900 dark:text-white">{fmt(product.salePrice)}</span>
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-base font-bold text-gray-900 dark:text-white">{fmt(product.salePrice)}</span>
           {outOfStock ? (
-            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-full font-medium">Agotado</span>
+            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-medium">Agotado</span>
           ) : lowStock ? (
-            <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-full font-medium">Últimas {product.stock}</span>
-          ) : (
-            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-1 rounded-full font-medium">En stock</span>
-          )}
+            <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full font-medium">Últimas {product.stock}</span>
+          ) : null}
         </div>
 
-        <div className="mt-3">
+        <div className="mt-2">
           {qty === 0 ? (
             <button onClick={onAdd} disabled={outOfStock}
               className="w-full py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed">
@@ -551,6 +680,7 @@ export default function PublicShopCatalog() {
   // ── Galería del negocio ────────────────────────────────────────────────────
   const [shopGallery, setShopGallery]       = useState([])
   const [lightboxIndex, setLightboxIndex]   = useState(null)  // null = cerrado
+  const [detailProduct, setDetailProduct]   = useState(null)  // producto en el modal de detalle
 
   useEffect(() => {
     setLoading(true)
@@ -999,6 +1129,7 @@ export default function PublicShopCatalog() {
                 qty={cart[product.id] ?? 0}
                 onAdd={() => addToCart(product.id)}
                 onRemove={() => removeFromCart(product.id)}
+                onDetail={() => setDetailProduct(product)}
               />
             ))}
           </div>
@@ -1041,6 +1172,17 @@ export default function PublicShopCatalog() {
           onClose={() => setCheckoutOpen(false)}
           onConfirm={handleConfirmOrder}
           submitting={submitting}
+        />
+      )}
+
+      {/* Product detail modal */}
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          qty={cart[detailProduct.id] ?? 0}
+          onAdd={() => addToCart(detailProduct.id)}
+          onRemove={() => removeFromCart(detailProduct.id)}
+          onClose={() => setDetailProduct(null)}
         />
       )}
     </div>
