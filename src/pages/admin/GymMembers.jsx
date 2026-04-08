@@ -27,6 +27,10 @@ import {
   Phone,
   Mail,
   Award,
+  CalendarDays,
+  GraduationCap,
+  UserPlus,
+  UserMinus,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
@@ -95,7 +99,24 @@ const TABS = [
   { key: 'dashboard', label: 'Panel', icon: BarChart2 },
   { key: 'members',   label: 'Miembros', icon: Users },
   { key: 'checkin',   label: 'Check-in', icon: Activity },
+  { key: 'clases',    label: 'Clases', icon: CalendarDays },
 ]
+
+// ─── gym class constants ──────────────────────────────────────────────────────
+
+const DAY_LABELS = {
+  MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
+  THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo',
+}
+const DAY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY']
+const CLASS_TYPES = ['boxing','sparring','zumba','funcional','cardio','tecnica','libre','otro']
+const CLASS_COLORS = ['#6366f1','#ec4899','#f97316','#10b981','#3b82f6','#8b5cf6','#ef4444','#eab308']
+
+const EMPTY_CLASS = {
+  name: '', classType: 'boxing', instructorName: '', dayOfWeek: 'MONDAY',
+  startTime: '09:00', endTime: '10:00', maxCapacity: '', description: '',
+  color: '#6366f1', active: true,
+}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -138,6 +159,14 @@ export default function GymMembers() {
   const [editingProgressId, setEditingProgressId] = useState(null)
   const [savingProgress, setSavingProgress] = useState(false)
 
+  // Classes tab state
+  const [classes, setClasses] = useState([])
+  const [classesLoading, setClassesLoading] = useState(false)
+  const [classModal, setClassModal] = useState(null) // null | 'create' | {class object for edit}
+  const [enrollModal, setEnrollModal] = useState(null) // null | {classObj}
+  const [enrollments, setEnrollments] = useState([])
+  const [enrollSearch, setEnrollSearch] = useState('')
+
   // ─── Load ────────────────────────────────────────────────────────────────────
 
   const loadAll = useCallback(async () => {
@@ -158,7 +187,16 @@ export default function GymMembers() {
     }
   }, [shopId])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  const loadClasses = useCallback(async () => {
+    setClassesLoading(true)
+    try {
+      const data = await api.getGymClasses(shopId)
+      setClasses(data || [])
+    } catch { /* ignore */ }
+    finally { setClassesLoading(false) }
+  }, [shopId])
+
+  useEffect(() => { loadAll(); loadClasses() }, [loadAll, loadClasses])
 
   const loadMemberDetail = useCallback(async (memberId) => {
     setLoadingDetail(true)
@@ -536,6 +574,33 @@ export default function GymMembers() {
             onDeleteAttendance={deleteAttendanceRecord}
           />
         )}
+
+        {/* ── TAB: Clases ───────────────────────────────────────────────── */}
+        {tab === 'clases' && (
+          <ClassesTab
+            classes={classes}
+            loading={classesLoading}
+            onNewClass={() => setClassModal({ ...EMPTY_CLASS })}
+            onEditClass={(c) => setClassModal(c)}
+            onDeleteClass={async (c) => {
+              const ok = await confirmDanger(`¿Eliminar "${c.name}"?`, 'Se eliminará la clase y todas las inscripciones.')
+              if (!ok) return
+              try {
+                await api.deleteGymClass(shopId, c.id)
+                toast.success('Clase eliminada')
+                loadClasses()
+              } catch (e) { toast.error(e.message || 'Error al eliminar') }
+            }}
+            onManageEnrollments={async (c) => {
+              setEnrollModal(c)
+              setEnrollSearch('')
+              try {
+                const data = await api.getGymClassEnrollments(shopId, c.id)
+                setEnrollments(data || [])
+              } catch { setEnrollments([]) }
+            }}
+          />
+        )}
       </div>
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
@@ -587,6 +652,63 @@ export default function GymMembers() {
           />
         </Modal>
       )}
+
+      {classModal !== null && (
+        <ClassFormModal
+          form={classModal}
+          setForm={setClassModal}
+          onClose={() => setClassModal(null)}
+          onSave={async () => {
+            const isEdit = !!classModal.id
+            try {
+              const payload = {
+                ...classModal,
+                maxCapacity: classModal.maxCapacity !== '' && classModal.maxCapacity !== null ? Number(classModal.maxCapacity) : null,
+              }
+              if (isEdit) {
+                await api.updateGymClass(shopId, classModal.id, payload)
+                toast.success('Clase actualizada')
+              } else {
+                await api.createGymClass(shopId, payload)
+                toast.success('Clase creada')
+              }
+              setClassModal(null)
+              loadClasses()
+            } catch (e) { toast.error(e.message || 'Error al guardar') }
+          }}
+        />
+      )}
+
+      {enrollModal !== null && (
+        <EnrollmentModal
+          gymClass={enrollModal}
+          enrollments={enrollments}
+          members={members}
+          enrollSearch={enrollSearch}
+          setEnrollSearch={setEnrollSearch}
+          onClose={() => { setEnrollModal(null); setEnrollments([]) }}
+          onEnroll={async (memberId) => {
+            try {
+              await api.enrollInGymClass(shopId, enrollModal.id, memberId)
+              toast.success('Alumno inscrito')
+              const data = await api.getGymClassEnrollments(shopId, enrollModal.id)
+              setEnrollments(data || [])
+              loadClasses()
+            } catch (e) { toast.error(e.message || 'Error al inscribir') }
+          }}
+          onUnenroll={async (enrollmentId) => {
+            const ok = await confirmDanger('¿Quitar alumno?', 'Se eliminará la inscripción.')
+            if (!ok) return
+            try {
+              await api.unenrollFromGymClass(shopId, enrollModal.id, enrollmentId)
+              toast.success('Alumno quitado')
+              const data = await api.getGymClassEnrollments(shopId, enrollModal.id)
+              setEnrollments(data || [])
+              loadClasses()
+            } catch (e) { toast.error(e.message || 'Error al quitar') }
+          }}
+        />
+      )}
     </div>
   )
 
@@ -595,6 +717,410 @@ export default function GymMembers() {
     setSelectedMember(m)
     loadMemberDetail(m.id)
   }
+}
+
+// ─── ClassFormModal ───────────────────────────────────────────────────────────
+
+function ClassFormModal({ form, setForm, onClose, onSave }) {
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  async function handleSave() {
+    if (!form.name?.trim()) { return }
+    setSaving(true)
+    try { await onSave() } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-white">
+            {form.id ? 'Editar clase' : 'Nueva clase'}
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nombre *</label>
+            <input value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="ej. Boxeo Matutino"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de clase</label>
+              <select value={form.classType || 'boxing'} onChange={e => set('classType', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                {CLASS_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Día de la semana</label>
+              <select value={form.dayOfWeek || 'MONDAY'} onChange={e => set('dayOfWeek', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                {DAY_ORDER.map(d => <option key={d} value={d}>{DAY_LABELS[d]}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Instructor / Profesor</label>
+            <input value={form.instructorName || ''} onChange={e => set('instructorName', e.target.value)} placeholder="Nombre del instructor"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Inicio</label>
+              <input type="time" value={form.startTime || '09:00'} onChange={e => set('startTime', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Fin</label>
+              <input type="time" value={form.endTime || '10:00'} onChange={e => set('endTime', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Cap. máx.</label>
+              <input type="number" min="0" value={form.maxCapacity ?? ''} onChange={e => set('maxCapacity', e.target.value)}
+                placeholder="Sin límite"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Descripción</label>
+            <textarea value={form.description || ''} onChange={e => set('description', e.target.value)} rows={2}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Color</label>
+            <div className="flex gap-2 flex-wrap">
+              {CLASS_COLORS.map(c => (
+                <button key={c} onClick={() => set('color', c)}
+                  style={{ backgroundColor: c }}
+                  className={`w-7 h-7 rounded-full transition border-2 ${form.color === c ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent'}`} />
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => set('active', !form.active)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.active ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} />
+            </button>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Clase activa</span>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-800">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={saving || !form.name?.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-60">
+            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {form.id ? 'Guardar cambios' : 'Crear clase'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── EnrollmentModal ──────────────────────────────────────────────────────────
+
+function EnrollmentModal({ gymClass, enrollments, members, enrollSearch, setEnrollSearch, onClose, onEnroll, onUnenroll }) {
+  const enrolledIds = new Set(enrollments.map(e => e.memberId))
+  const availableMembers = members.filter(m =>
+    !enrolledIds.has(m.id) && (
+      enrollSearch === '' ||
+      m.name?.toLowerCase().includes(enrollSearch.toLowerCase()) ||
+      m.phone?.includes(enrollSearch)
+    )
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-emerald-500" />
+              Alumnos — {gymClass.name}
+            </h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {DAY_LABELS[gymClass.dayOfWeek]} · {gymClass.startTime}–{gymClass.endTime}
+              {gymClass.maxCapacity ? ` · Cap: ${enrollments.length}/${gymClass.maxCapacity}` : ` · ${enrollments.length} inscritos`}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {/* Enrolled list */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Inscritos</h4>
+            {enrollments.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-3">Sin alumnos inscritos</p>
+            ) : (
+              <div className="space-y-2">
+                {enrollments.map(e => (
+                  <div key={e.enrollmentId} className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 dark:text-white">{e.memberName}</p>
+                      {e.memberPhone && <p className="text-xs text-gray-400 dark:text-gray-500">{e.memberPhone}</p>}
+                    </div>
+                    <button onClick={() => onUnenroll(e.enrollmentId)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-500 transition">
+                      <UserMinus className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add member */}
+          <div>
+            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Agregar alumno</h4>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input value={enrollSearch} onChange={e => setEnrollSearch(e.target.value)}
+                placeholder="Buscar miembro..."
+                className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+            {availableMembers.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">
+                {enrollSearch ? 'Sin resultados' : 'Todos los miembros ya están inscritos'}
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {availableMembers.map(m => (
+                  <div key={m.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 dark:text-white">{m.name}</p>
+                      {m.phone && <p className="text-xs text-gray-400 dark:text-gray-500">{m.phone}</p>}
+                    </div>
+                    <button onClick={() => onEnroll(m.id)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 hover:text-emerald-600 transition">
+                      <UserPlus className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end px-5 py-4 border-t border-gray-100 dark:border-gray-800">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── WeeklyCalendar ───────────────────────────────────────────────────────────
+
+const HOUR_START = 6
+const HOUR_END   = 22
+const HOUR_PX    = 60
+
+function timeToMinutes(t) {
+  if (!t) return 0
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollments, onNewClass }) {
+  const totalHours = HOUR_END - HOUR_START
+  const gridHeight = totalHours * HOUR_PX
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Hour grid */}
+      <div className="flex">
+        {/* Time column */}
+        <div className="w-14 flex-shrink-0 border-r border-gray-200 dark:border-gray-700">
+          <div className="h-10 border-b border-gray-200 dark:border-gray-700" />
+          <div className="relative" style={{ height: gridHeight }}>
+            {Array.from({ length: totalHours }, (_, i) => (
+              <div key={i} className="absolute w-full border-t border-gray-100 dark:border-gray-800 flex items-start justify-end pr-2"
+                style={{ top: i * HOUR_PX, height: HOUR_PX }}>
+                <span className="text-xs text-gray-400 dark:text-gray-500 -mt-2">{String(HOUR_START + i).padStart(2, '0')}:00</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Day columns */}
+        <div className="flex-1 overflow-x-auto">
+          <div className="flex min-w-0" style={{ minWidth: 480 }}>
+            {DAY_ORDER.map(day => {
+              const dayClasses = classes.filter(c => c.dayOfWeek === day)
+              return (
+                <div key={day} className="flex-1 min-w-0 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                  {/* Day header */}
+                  <div className="h-10 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{DAY_LABELS[day].substring(0, 3)}</span>
+                  </div>
+                  {/* Day body */}
+                  <div className="relative" style={{ height: gridHeight }}>
+                    {/* Hour lines */}
+                    {Array.from({ length: totalHours }, (_, i) => (
+                      <div key={i} className="absolute w-full border-t border-gray-100 dark:border-gray-800"
+                        style={{ top: i * HOUR_PX }} />
+                    ))}
+                    {/* Class blocks */}
+                    {dayClasses.map(c => {
+                      const startMin = timeToMinutes(c.startTime)
+                      const endMin   = timeToMinutes(c.endTime)
+                      const top      = (startMin - HOUR_START * 60)
+                      const height   = Math.max(endMin - startMin, 20)
+                      return (
+                        <div key={c.id}
+                          className="absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 overflow-hidden cursor-pointer group transition hover:brightness-90"
+                          style={{ top, height, backgroundColor: c.color || '#6366f1' }}
+                          title={`${c.name} · ${c.startTime}–${c.endTime}`}
+                        >
+                          <p className="text-white text-xs font-semibold leading-tight truncate">{c.name}</p>
+                          {height >= 36 && c.instructorName && (
+                            <p className="text-white/80 text-xs truncate">{c.instructorName}</p>
+                          )}
+                          {height >= 50 && (
+                            <p className="text-white/70 text-xs">
+                              {c.enrollmentCount ?? 0}{c.maxCapacity ? `/${c.maxCapacity}` : ''} alumnos
+                            </p>
+                          )}
+                          {/* Hover actions */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                            <button onClick={() => onEditClass(c)}
+                              className="p-1 bg-white/90 rounded text-gray-800 hover:bg-white transition"
+                              title="Editar">
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => onManageEnrollments(c)}
+                              className="p-1 bg-white/90 rounded text-gray-800 hover:bg-white transition"
+                              title="Alumnos">
+                              <GraduationCap className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => onDeleteClass(c)}
+                              className="p-1 bg-white/90 rounded text-red-600 hover:bg-white transition"
+                              title="Eliminar">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ClassesTab ───────────────────────────────────────────────────────────────
+
+function ClassesTab({ classes, loading, onNewClass, onEditClass, onDeleteClass, onManageEnrollments }) {
+  const [view, setView] = useState('calendar') // 'calendar' | 'list'
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setView('calendar')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition ${view === 'calendar' ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+            <CalendarDays className="w-4 h-4" />Calendario
+          </button>
+          <button onClick={() => setView('list')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition ${view === 'list' ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+            <Users className="w-4 h-4" />Lista
+          </button>
+        </div>
+        <button onClick={onNewClass}
+          className="flex items-center gap-1.5 text-sm px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition whitespace-nowrap">
+          <Plus className="w-4 h-4" />Nueva clase
+        </button>
+      </div>
+
+      {classes.length === 0 ? (
+        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+          <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">No hay clases configuradas</p>
+          <p className="text-sm mt-1">Crea la primera clase semanal del gym</p>
+        </div>
+      ) : view === 'calendar' ? (
+        <WeeklyCalendar
+          classes={classes}
+          onEditClass={onEditClass}
+          onDeleteClass={onDeleteClass}
+          onManageEnrollments={onManageEnrollments}
+          onNewClass={onNewClass}
+        />
+      ) : (
+        // List view grouped by day
+        <div className="space-y-4">
+          {DAY_ORDER.map(day => {
+            const dayClasses = classes.filter(c => c.dayOfWeek === day)
+            if (dayClasses.length === 0) return null
+            return (
+              <div key={day} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-emerald-500" />
+                  {DAY_LABELS[day]}
+                </h3>
+                <div className="space-y-2">
+                  {dayClasses.map(c => (
+                    <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-750 transition">
+                      <div className="w-3 h-10 rounded-sm flex-shrink-0" style={{ backgroundColor: c.color || '#6366f1' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-800 dark:text-white">{c.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {c.startTime}–{c.endTime}
+                          {c.instructorName ? ` · ${c.instructorName}` : ''}
+                          {` · ${c.enrollmentCount ?? 0}${c.maxCapacity ? `/${c.maxCapacity}` : ''} alumnos`}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={() => onManageEnrollments(c)} title="Alumnos"
+                          className="p-1.5 rounded-lg text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 hover:text-emerald-600 transition">
+                          <GraduationCap className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => onEditClass(c)} title="Editar"
+                          className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600 transition">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => onDeleteClass(c)} title="Eliminar"
+                          className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-500 transition">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── DashboardTab ─────────────────────────────────────────────────────────────

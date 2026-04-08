@@ -343,6 +343,15 @@ export const api = {
   deleteGymProgress: (shopId, memberId, progressId) =>
     request(`/gym/shops/${shopId}/members/${memberId}/progress/${progressId}`, { method: 'DELETE' }),
 
+  // ── Clases semanales ───────────────────────────────────────────────────────
+  getGymClasses:           (shopId)                   => request(`/gym/shops/${shopId}/classes`),
+  createGymClass:          (shopId, data)              => request(`/gym/shops/${shopId}/classes`, { method: 'POST', body: JSON.stringify(data) }),
+  updateGymClass:          (shopId, classId, data)     => request(`/gym/shops/${shopId}/classes/${classId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteGymClass:          (shopId, classId)           => request(`/gym/shops/${shopId}/classes/${classId}`, { method: 'DELETE' }),
+  getGymClassEnrollments:  (shopId, classId)           => request(`/gym/shops/${shopId}/classes/${classId}/enrollments`),
+  enrollInGymClass:        (shopId, classId, memberId) => request(`/gym/shops/${shopId}/classes/${classId}/enrollments`, { method: 'POST', body: JSON.stringify({ memberId }) }),
+  unenrollFromGymClass:    (shopId, classId, enrollmentId) => request(`/gym/shops/${shopId}/classes/${classId}/enrollments/${enrollmentId}`, { method: 'DELETE' }),
+
   // Categorías de negocio (público — sin auth)
   getCategories: () => request('/categories'),
 
