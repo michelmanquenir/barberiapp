@@ -31,6 +31,9 @@ import {
   GraduationCap,
   UserPlus,
   UserMinus,
+  ToggleLeft,
+  ToggleRight,
+  Smartphone,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
@@ -73,7 +76,31 @@ const MEMBER_STATUS = {
 const EMPTY_MEMBER = {
   name: '', email: '', phone: '', rut: '', birthDate: '', joinDate: '',
   status: 'active', photoUrl: '', emergencyContactName: '', emergencyContactPhone: '', medicalNotes: '',
-  createAppAccount: false,
+  createAppAccount: true,
+}
+
+// ── RUT helpers ───────────────────────────────────────────────────────────────
+function formatRut(raw) {
+  const clean = raw.replace(/[^0-9kK]/g, '').toUpperCase()
+  if (clean.length < 2) return clean
+  const body = clean.slice(0, -1)
+  const dv   = clean.slice(-1)
+  return body.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv
+}
+
+function validateRut(rut) {
+  const clean = rut.replace(/[^0-9kK]/g, '').toUpperCase()
+  if (clean.length < 2) return false
+  const body = clean.slice(0, -1)
+  const dv   = clean.slice(-1)
+  let sum = 0, mul = 2
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i]) * mul
+    mul = mul === 7 ? 2 : mul + 1
+  }
+  const expected = 11 - (sum % 11)
+  const dvExpected = expected === 11 ? '0' : expected === 10 ? 'K' : String(expected)
+  return dv === dvExpected
 }
 
 const EMPTY_MEMBERSHIP = {
@@ -247,6 +274,12 @@ export default function GymMembers() {
 
   async function saveMember() {
     if (!memberForm.name.trim()) { toast.error('El nombre es obligatorio'); return }
+    if (!editingMemberId && memberForm.createAppAccount && !memberForm.email.trim()) {
+      toast.error('El email es obligatorio para crear la cuenta en la app'); return
+    }
+    if (memberForm.rut && !validateRut(memberForm.rut)) {
+      toast.error('El RUT ingresado no es válido'); return
+    }
     setSavingMember(true)
     try {
       if (editingMemberId) {
@@ -1682,60 +1715,133 @@ function CheckinTab({ members, todayAttendance, onCheckin, onDeleteAttendance })
 
 function MemberForm({ form, setForm, isEditing = false }) {
   const f = (field) => ({ value: form[field], onChange: e => setForm({ ...form, [field]: e.target.value }) })
-  return (
-    <div className="space-y-4">
-      <div className="grid sm:grid-cols-2 gap-4">
-        <FormField label="Nombre *"><Input {...f('name')} placeholder="Nombre completo" /></FormField>
-        <FormField label="RUT"><Input {...f('rut')} placeholder="12.345.678-9" /></FormField>
-        <FormField label="Email"><Input type="email" {...f('email')} placeholder="correo@ejemplo.com" /></FormField>
-        <FormField label="Teléfono"><Input {...f('phone')} placeholder="+56 9 1234 5678" /></FormField>
-        <FormField label="Fecha de nacimiento"><Input type="date" {...f('birthDate')} /></FormField>
-        <FormField label="Fecha de ingreso"><Input type="date" {...f('joinDate')} /></FormField>
-        <FormField label="Estado">
-          <select {...f('status')} className={selectCls}>
-            <option value="active">Activo</option>
-            <option value="inactive">Inactivo</option>
-            <option value="suspended">Suspendido</option>
-          </select>
-        </FormField>
-      </div>
 
-      {/* Crear cuenta en la app — solo al crear (no al editar) */}
+  const rutValid   = form.rut ? validateRut(form.rut) : null   // null = sin ingresar
+  const emailMissing = !isEditing && form.createAppAccount && !form.email.trim()
+
+  const handleRut = (e) => {
+    setForm({ ...form, rut: formatRut(e.target.value) })
+  }
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── Cuenta WeServ (solo al crear) ─────────────────────────── */}
       {!isEditing && (
-        <div className="border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 bg-emerald-50 dark:bg-emerald-950 space-y-3">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.createAppAccount}
-              onChange={e => setForm({ ...form, createAppAccount: e.target.checked })}
-              className="w-4 h-4 mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-            />
-            <div>
-              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                Crear cuenta en la app
-              </p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-                Se enviará un correo al alumno con sus credenciales de acceso y una contraseña provisional que deberá cambiar en su primer ingreso.
-              </p>
+        <div className={`rounded-xl border-2 p-4 transition-colors ${
+          form.createAppAccount
+            ? 'border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50'
+            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40'
+        }`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <Smartphone className={`w-5 h-5 mt-0.5 flex-shrink-0 ${form.createAppAccount ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`} />
+              <div>
+                <p className={`text-sm font-semibold ${form.createAppAccount ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-300'}`}>
+                  Crear cuenta WeServ
+                </p>
+                <p className={`text-xs mt-0.5 ${form.createAppAccount ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                  {form.createAppAccount
+                    ? 'El alumno recibirá un correo con usuario y contraseña provisional. Deberá cambiarla en su primer ingreso.'
+                    : 'Activa esta opción para que el alumno pueda ingresar a la app.'}
+                </p>
+              </div>
             </div>
-          </label>
-          {form.createAppAccount && !form.email && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-              ⚠️ Debes ingresar el email del alumno para enviar las credenciales.
-            </p>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, createAppAccount: !form.createAppAccount })}
+              className="flex-shrink-0 mt-0.5"
+            >
+              {form.createAppAccount
+                ? <ToggleRight className="w-8 h-8 text-emerald-500" />
+                : <ToggleLeft  className="w-8 h-8 text-gray-300 dark:text-gray-600" />}
+            </button>
+          </div>
+
+          {form.createAppAccount && (
+            <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400">
+                <span className="inline-flex w-4 h-4 rounded-full bg-emerald-500 text-white items-center justify-center font-bold text-[10px]">1</span>
+                Registras al alumno con su email
+              </div>
+              <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 mt-1">
+                <span className="inline-flex w-4 h-4 rounded-full bg-emerald-500 text-white items-center justify-center font-bold text-[10px]">2</span>
+                WeServ envía un correo con contraseña provisional
+              </div>
+              <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 mt-1">
+                <span className="inline-flex w-4 h-4 rounded-full bg-emerald-500 text-white items-center justify-center font-bold text-[10px]">3</span>
+                El alumno inicia sesión y crea su contraseña definitiva
+              </div>
+            </div>
           )}
         </div>
       )}
 
+      {/* ── Datos personales ──────────────────────────────────────── */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Datos personales</p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <FormField label="Nombre completo *">
+            <Input {...f('name')} placeholder="Juan Pérez" />
+          </FormField>
+
+          <FormField label={`RUT${form.rut ? (rutValid ? ' ✓' : ' — inválido') : ''}`}>
+            <Input
+              value={form.rut}
+              onChange={handleRut}
+              placeholder="12.345.678-9"
+              className={rutValid === false ? '!border-red-400 dark:!border-red-500' : rutValid === true ? '!border-green-400 dark:!border-green-500' : ''}
+            />
+          </FormField>
+
+          <FormField label={form.createAppAccount && !isEditing ? 'Email *' : 'Email'}>
+            <Input
+              type="email"
+              {...f('email')}
+              placeholder="correo@ejemplo.com"
+              className={emailMissing ? '!border-amber-400 dark:!border-amber-500' : ''}
+            />
+            {emailMissing && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Requerido para enviar las credenciales de acceso
+              </p>
+            )}
+          </FormField>
+
+          <FormField label="Teléfono">
+            <Input {...f('phone')} placeholder="+56 9 1234 5678" />
+          </FormField>
+
+          <FormField label="Fecha de nacimiento">
+            <Input type="date" {...f('birthDate')} />
+          </FormField>
+
+          <FormField label="Fecha de ingreso">
+            <Input type="date" {...f('joinDate')} placeholder={new Date().toISOString().substring(0,10)} />
+          </FormField>
+
+          <FormField label="Estado">
+            <select {...f('status')} className={selectCls}>
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+              <option value="suspended">Suspendido</option>
+            </select>
+          </FormField>
+        </div>
+      </div>
+
+      {/* ── Contacto de emergencia ────────────────────────────────── */}
       <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Contacto de emergencia</p>
+        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Contacto de emergencia</p>
         <div className="grid sm:grid-cols-2 gap-4">
           <FormField label="Nombre"><Input {...f('emergencyContactName')} placeholder="Nombre del contacto" /></FormField>
           <FormField label="Teléfono"><Input {...f('emergencyContactPhone')} placeholder="+56 9 ..." /></FormField>
         </div>
       </div>
+
+      {/* ── Notas médicas ─────────────────────────────────────────── */}
       <FormField label="Notas médicas / observaciones">
-        <textarea {...f('medicalNotes')} rows={3} placeholder="Lesiones, condiciones, alergias..." className={`${inputCls} resize-none`} />
+        <textarea {...f('medicalNotes')} rows={3} placeholder="Lesiones, condiciones médicas, alergias..." className={`${inputCls} resize-none`} />
       </FormField>
     </div>
   )
