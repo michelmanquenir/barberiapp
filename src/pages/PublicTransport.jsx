@@ -684,20 +684,23 @@ function PublicTransport() {
                       <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                         📍 Buscar por comuna de salida
                       </label>
-                      <input
-                        type="text"
-                        list="communes-filter"
+                      <select
                         value={communeQuery}
                         onChange={e => setCommuneQuery(e.target.value)}
-                        placeholder="Ej: Puente Alto, Santiago..."
-                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 transition"
-                      />
-                      <datalist id="communes-filter">
-                        {/* First show communes actually in this event */}
-                        {eventCommunes.map(c => <option key={c} value={c} />)}
-                        {/* Then all Chile communes */}
-                        {CHILEAN_COMMUNES.filter(c => !eventCommunes.includes(c)).map(c => <option key={c} value={c} />)}
-                      </datalist>
+                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-700 transition appearance-none"
+                      >
+                        <option value="">Todas las comunas</option>
+                        {eventCommunes.length > 0 && (
+                          <optgroup label="Comunas del evento">
+                            {eventCommunes.map(c => <option key={c} value={c}>{c}</option>)}
+                          </optgroup>
+                        )}
+                        <optgroup label="Otras comunas">
+                          {CHILEAN_COMMUNES.filter(c => !eventCommunes.includes(c)).map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </optgroup>
+                      </select>
                       {eventCommunes.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {eventCommunes.map(c => (

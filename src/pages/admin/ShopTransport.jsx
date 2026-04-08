@@ -961,17 +961,16 @@ function VehiclesTab({ shopId, vehicles, setVehicles, drivers }) {
               </select>
             </Field>
             <Field label="Comuna de salida">
-              <input
-                type="text"
-                list="communes-list-vehicle"
+              <select
                 value={form.commune}
                 onChange={e => setForm(f => ({ ...f, commune: e.target.value }))}
-                className={inputCls}
-                placeholder="Ej: Santiago"
-              />
-              <datalist id="communes-list-vehicle">
-                {CHILEAN_COMMUNES.map(c => <option key={c} value={c} />)}
-              </datalist>
+                className={inputCls + ' appearance-none'}
+              >
+                <option value="">Selecciona una comuna...</option>
+                {CHILEAN_COMMUNES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </Field>
             <Field label="URL imagen del vehículo">
               <input type="text" value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} className={inputCls} placeholder="https://..." />
