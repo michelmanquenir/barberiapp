@@ -967,9 +967,25 @@ function timeToMinutes(t) {
   return h * 60 + (m || 0)
 }
 
+const JS_TO_DAY = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY']
+
 function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollments, onNewClass }) {
   const totalHours = HOUR_END - HOUR_START
   const gridHeight = totalHours * HOUR_PX
+
+  // ── Current time indicator ────────────────────────────────────────────────
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const nowH   = now.getHours()
+  const nowM   = now.getMinutes()
+  const nowTop = (nowH * 60 + nowM - HOUR_START * 60)   // px desde el inicio del grid
+  const showNow = nowTop >= 0 && nowTop <= gridHeight
+  const todayDay = JS_TO_DAY[now.getDay()]
+  const nowLabel = `${String(nowH).padStart(2,'0')}:${String(nowM).padStart(2,'0')}`
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -985,6 +1001,14 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
                 <span className="text-xs text-gray-400 dark:text-gray-500 -mt-2">{String(HOUR_START + i).padStart(2, '0')}:00</span>
               </div>
             ))}
+            {/* Dot + label en la columna de horas */}
+            {showNow && (
+              <div className="absolute right-0 flex items-center z-20 pointer-events-none"
+                style={{ top: nowTop - 8 }}>
+                <span className="text-[10px] font-bold text-red-500 pr-1 leading-none">{nowLabel}</span>
+                <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+              </div>
+            )}
           </div>
         </div>
 
@@ -993,11 +1017,15 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
           <div className="flex min-w-0" style={{ minWidth: 480 }}>
             {DAY_ORDER.map(day => {
               const dayClasses = classes.filter(c => c.dayOfWeek === day)
+              const isToday    = day === todayDay
               return (
                 <div key={day} className="flex-1 min-w-0 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                  {/* Day header */}
-                  <div className="h-10 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{DAY_LABELS[day].substring(0, 3)}</span>
+                  {/* Day header — hoy resaltado */}
+                  <div className={`h-10 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center ${isToday ? 'bg-red-50 dark:bg-red-950/30' : ''}`}>
+                    <span className={`text-xs font-semibold ${isToday ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                      {DAY_LABELS[day].substring(0, 3)}
+                      {isToday && <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-red-500 mb-0.5" />}
+                    </span>
                   </div>
                   {/* Day body */}
                   <div className="relative" style={{ height: gridHeight }}>
@@ -1006,6 +1034,13 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
                       <div key={i} className="absolute w-full border-t border-gray-100 dark:border-gray-800"
                         style={{ top: i * HOUR_PX }} />
                     ))}
+                    {/* Línea de hora actual — solo en la columna de hoy */}
+                    {showNow && isToday && (
+                      <div className="absolute left-0 right-0 z-10 pointer-events-none flex items-center"
+                        style={{ top: nowTop }}>
+                        <div className="w-full h-0.5 bg-red-500" />
+                      </div>
+                    )}
                     {/* Class blocks */}
                     {dayClasses.map(c => {
                       const startMin = timeToMinutes(c.startTime)
