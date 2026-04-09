@@ -957,9 +957,7 @@ function EnrollmentModal({ gymClass, enrollments, members, enrollSearch, setEnro
 
 // ─── WeeklyCalendar ───────────────────────────────────────────────────────────
 
-const HOUR_START = 6
-const HOUR_END   = 22
-const HOUR_PX    = 60
+const HOUR_PX = 64
 
 function timeToMinutes(t) {
   if (!t) return 0
@@ -969,39 +967,38 @@ function timeToMinutes(t) {
 
 const JS_TO_DAY = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY']
 
-function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollments, onNewClass }) {
-  const totalHours = HOUR_END - HOUR_START
+function CalendarGrid({ classes, visibleDays, hourStart, hourEnd, onEditClass, onDeleteClass, onManageEnrollments }) {
+  const totalHours = hourEnd - hourStart
   const gridHeight = totalHours * HOUR_PX
 
-  // ── Current time indicator ────────────────────────────────────────────────
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
   }, [])
 
-  const nowH   = now.getHours()
-  const nowM   = now.getMinutes()
-  const nowTop = (nowH * 60 + nowM - HOUR_START * 60)   // px desde el inicio del grid
+  const nowH    = now.getHours()
+  const nowM    = now.getMinutes()
+  const nowTop  = (nowH * 60 + nowM - hourStart * 60)
   const showNow = nowTop >= 0 && nowTop <= gridHeight
   const todayDay = JS_TO_DAY[now.getDay()]
   const nowLabel = `${String(nowH).padStart(2,'0')}:${String(nowM).padStart(2,'0')}`
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Hour grid */}
       <div className="flex">
-        {/* Time column */}
+        {/* ── Columna de horas ── */}
         <div className="w-14 flex-shrink-0 border-r border-gray-200 dark:border-gray-700">
           <div className="h-10 border-b border-gray-200 dark:border-gray-700" />
           <div className="relative" style={{ height: gridHeight }}>
-            {Array.from({ length: totalHours }, (_, i) => (
-              <div key={i} className="absolute w-full border-t border-gray-100 dark:border-gray-800 flex items-start justify-end pr-2"
-                style={{ top: i * HOUR_PX, height: HOUR_PX }}>
-                <span className="text-xs text-gray-400 dark:text-gray-500 -mt-2">{String(HOUR_START + i).padStart(2, '0')}:00</span>
+            {Array.from({ length: totalHours + 1 }, (_, i) => (
+              <div key={i} className="absolute w-full flex items-start justify-end pr-2"
+                style={{ top: i * HOUR_PX }}>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500 -mt-2">
+                  {String(hourStart + i).padStart(2, '0')}:00
+                </span>
               </div>
             ))}
-            {/* Dot + label en la columna de horas */}
             {showNow && (
               <div className="absolute right-0 flex items-center z-20 pointer-events-none"
                 style={{ top: nowTop - 8 }}>
@@ -1012,41 +1009,39 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
           </div>
         </div>
 
-        {/* Day columns */}
+        {/* ── Columnas de días ── */}
         <div className="flex-1 overflow-x-auto">
-          <div className="flex min-w-0" style={{ minWidth: 480 }}>
-            {DAY_ORDER.map(day => {
+          <div className="flex" style={{ minWidth: visibleDays.length * 80 }}>
+            {visibleDays.map(day => {
               const dayClasses = classes.filter(c => c.dayOfWeek === day)
               const isToday    = day === todayDay
               return (
                 <div key={day} className="flex-1 min-w-0 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                  {/* Day header — hoy resaltado */}
+                  {/* Header */}
                   <div className={`h-10 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center ${isToday ? 'bg-cyan-50 dark:bg-cyan-950/30' : ''}`}>
                     <span className={`text-xs font-semibold ${isToday ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                      {DAY_LABELS[day].substring(0, 3)}
-                      {isToday && <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-cyan-500 mb-0.5" />}
+                      {visibleDays.length === 1 ? DAY_LABELS[day] : DAY_LABELS[day].substring(0, 3)}
+                      {isToday && <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-cyan-500 align-middle" />}
                     </span>
                   </div>
-                  {/* Day body */}
+                  {/* Body */}
                   <div className="relative" style={{ height: gridHeight }}>
-                    {/* Hour lines */}
                     {Array.from({ length: totalHours }, (_, i) => (
                       <div key={i} className="absolute w-full border-t border-gray-100 dark:border-gray-800"
                         style={{ top: i * HOUR_PX }} />
                     ))}
-                    {/* Línea de hora actual — cruza todas las columnas */}
+                    {/* Línea hora actual */}
                     {showNow && (
-                      <div className="absolute left-0 right-0 z-10 pointer-events-none"
-                        style={{ top: nowTop }}>
+                      <div className="absolute left-0 right-0 z-10 pointer-events-none" style={{ top: nowTop }}>
                         <div className="w-full h-0.5 bg-cyan-500" />
                       </div>
                     )}
-                    {/* Class blocks */}
+                    {/* Clases */}
                     {dayClasses.map(c => {
                       const startMin = timeToMinutes(c.startTime)
                       const endMin   = timeToMinutes(c.endTime)
-                      const top      = (startMin - HOUR_START * 60)
-                      const height   = Math.max(endMin - startMin, 20)
+                      const top      = (startMin - hourStart * 60)
+                      const height   = Math.max(endMin - startMin, 24)
                       return (
                         <div key={c.id}
                           className="absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 overflow-hidden cursor-pointer group transition hover:brightness-90"
@@ -1057,28 +1052,15 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
                           {height >= 36 && c.instructorName && (
                             <p className="text-white/80 text-xs truncate">{c.instructorName}</p>
                           )}
-                          {height >= 50 && (
+                          {height >= 52 && (
                             <p className="text-white/70 text-xs">
                               {c.enrollmentCount ?? 0}{c.maxCapacity ? `/${c.maxCapacity}` : ''} alumnos
                             </p>
                           )}
-                          {/* Hover actions */}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                            <button onClick={() => onEditClass(c)}
-                              className="p-1 bg-white/90 rounded text-gray-800 hover:bg-white transition"
-                              title="Editar">
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                            <button onClick={() => onManageEnrollments(c)}
-                              className="p-1 bg-white/90 rounded text-gray-800 hover:bg-white transition"
-                              title="Alumnos">
-                              <GraduationCap className="w-3 h-3" />
-                            </button>
-                            <button onClick={() => onDeleteClass(c)}
-                              className="p-1 bg-white/90 rounded text-red-600 hover:bg-white transition"
-                              title="Eliminar">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                            <button onClick={() => onEditClass(c)} className="p-1 bg-white/90 rounded text-gray-800 hover:bg-white" title="Editar"><Pencil className="w-3 h-3" /></button>
+                            <button onClick={() => onManageEnrollments(c)} className="p-1 bg-white/90 rounded text-gray-800 hover:bg-white" title="Alumnos"><GraduationCap className="w-3 h-3" /></button>
+                            <button onClick={() => onDeleteClass(c)} className="p-1 bg-white/90 rounded text-red-600 hover:bg-white" title="Eliminar"><Trash2 className="w-3 h-3" /></button>
                           </div>
                         </div>
                       )
@@ -1090,6 +1072,98 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollments, onNewClass }) {
+  const [viewMode, setViewMode] = useState('week')    // 'week' | 'day'
+  const [selectedDay, setSelectedDay] = useState(JS_TO_DAY[new Date().getDay()] || 'MONDAY')
+
+  // ── Rango dinámico basado en clases ──────────────────────────────────────
+  const visibleDays = viewMode === 'week' ? DAY_ORDER : [selectedDay]
+  const relevantClasses = classes.filter(c => visibleDays.includes(c.dayOfWeek))
+
+  let hourStart, hourEnd
+  if (relevantClasses.length === 0) {
+    hourStart = 8; hourEnd = 20
+  } else {
+    const allStarts = relevantClasses.map(c => Math.floor(timeToMinutes(c.startTime) / 60))
+    const allEnds   = relevantClasses.map(c => Math.ceil(timeToMinutes(c.endTime)   / 60))
+    hourStart = Math.max(0,  Math.min(...allStarts) - 1)  // 1h antes de la primera clase
+    hourEnd   = Math.min(24, Math.max(...allEnds)   + 1)  // 1h después de la última
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* ── Controles de vista ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Toggle semana / día */}
+        <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <button
+            onClick={() => setViewMode('week')}
+            className={`px-3 py-1.5 text-xs font-medium transition flex items-center gap-1.5 ${
+              viewMode === 'week'
+                ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <CalendarDays className="w-3.5 h-3.5" /> Semana
+          </button>
+          <button
+            onClick={() => setViewMode('day')}
+            className={`px-3 py-1.5 text-xs font-medium transition flex items-center gap-1.5 border-l border-gray-200 dark:border-gray-700 ${
+              viewMode === 'day'
+                ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" /> Día
+          </button>
+        </div>
+
+        {/* Selector de día (solo en vista día) */}
+        {viewMode === 'day' && (
+          <div className="flex gap-1 flex-wrap">
+            {DAY_ORDER.map(day => {
+              const hasClass = classes.some(c => c.dayOfWeek === day)
+              return (
+                <button key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className={`px-2.5 py-1 text-xs rounded-lg font-medium transition ${
+                    selectedDay === day
+                      ? 'bg-emerald-600 text-white'
+                      : hasClass
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {DAY_LABELS[day].substring(0, 3)}
+                  {hasClass && selectedDay !== day && <span className="ml-1 inline-block w-1 h-1 rounded-full bg-emerald-500 align-middle" />}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Info del rango */}
+        <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
+          {relevantClasses.length === 0
+            ? 'Sin clases — rango por defecto'
+            : `Mostrando ${String(hourStart).padStart(2,'0')}:00 – ${String(hourEnd).padStart(2,'0')}:00`}
+        </span>
+      </div>
+
+      {/* ── Grid ── */}
+      <CalendarGrid
+        classes={classes}
+        visibleDays={visibleDays}
+        hourStart={hourStart}
+        hourEnd={hourEnd}
+        onEditClass={onEditClass}
+        onDeleteClass={onDeleteClass}
+        onManageEnrollments={onManageEnrollments}
+      />
     </div>
   )
 }
