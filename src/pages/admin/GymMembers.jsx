@@ -1005,8 +1005,8 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
             {showNow && (
               <div className="absolute right-0 flex items-center z-20 pointer-events-none"
                 style={{ top: nowTop - 8 }}>
-                <span className="text-[10px] font-bold text-red-500 pr-1 leading-none">{nowLabel}</span>
-                <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                <span className="text-[10px] font-bold text-cyan-500 pr-1 leading-none">{nowLabel}</span>
+                <div className="w-2 h-2 rounded-full bg-cyan-500 flex-shrink-0" />
               </div>
             )}
           </div>
@@ -1021,10 +1021,10 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
               return (
                 <div key={day} className="flex-1 min-w-0 border-r border-gray-200 dark:border-gray-700 last:border-r-0">
                   {/* Day header — hoy resaltado */}
-                  <div className={`h-10 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center ${isToday ? 'bg-red-50 dark:bg-red-950/30' : ''}`}>
-                    <span className={`text-xs font-semibold ${isToday ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                  <div className={`h-10 border-b border-gray-200 dark:border-gray-700 flex items-center justify-center ${isToday ? 'bg-cyan-50 dark:bg-cyan-950/30' : ''}`}>
+                    <span className={`text-xs font-semibold ${isToday ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-gray-400'}`}>
                       {DAY_LABELS[day].substring(0, 3)}
-                      {isToday && <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-red-500 mb-0.5" />}
+                      {isToday && <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-cyan-500 mb-0.5" />}
                     </span>
                   </div>
                   {/* Day body */}
@@ -1034,11 +1034,11 @@ function WeeklyCalendar({ classes, onEditClass, onDeleteClass, onManageEnrollmen
                       <div key={i} className="absolute w-full border-t border-gray-100 dark:border-gray-800"
                         style={{ top: i * HOUR_PX }} />
                     ))}
-                    {/* Línea de hora actual — solo en la columna de hoy */}
-                    {showNow && isToday && (
-                      <div className="absolute left-0 right-0 z-10 pointer-events-none flex items-center"
+                    {/* Línea de hora actual — cruza todas las columnas */}
+                    {showNow && (
+                      <div className="absolute left-0 right-0 z-10 pointer-events-none"
                         style={{ top: nowTop }}>
-                        <div className="w-full h-0.5 bg-red-500" />
+                        <div className="w-full h-0.5 bg-cyan-500" />
                       </div>
                     )}
                     {/* Class blocks */}
