@@ -65,7 +65,6 @@ function DiscoverShops() {
   const [shopReviews, setShopReviews] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
-  const [wakingUp, setWakingUp] = useState(false)
   const [highlightedShopId, setHighlightedShopId] = useState(null)
   const [openInfoId, setOpenInfoId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -76,35 +75,16 @@ function DiscoverShops() {
     mapRef.current = map
   }, [])
 
-  // Retry helper: reintentar con backoff, muestra "despertando" tras primer fallo
-  const fetchWithRetry = useCallback(async (fn, maxRetries = 3) => {
-    let delay = 4000
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await fn()
-      } catch (err) {
-        if (attempt === maxRetries) throw err
-        setWakingUp(true)
-        await new Promise(r => setTimeout(r, delay))
-        delay = Math.min(delay * 2, 15000)
-      }
-    }
-  }, [])
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       setLoadError(null)
-      setWakingUp(false)
       try {
-        // Carga principal con retry
-        const [shopsData, favsData, catsData] = await fetchWithRetry(() =>
-          Promise.all([
-            api.getAllShops(),
-            user ? api.getFavoriteShops(user.userId) : Promise.resolve([]),
-            api.getCategories().catch(() => []),
-          ])
-        )
+        const [shopsData, favsData, catsData] = await Promise.all([
+          api.getAllShops(),
+          user ? api.getFavoriteShops(user.userId) : Promise.resolve([]),
+          api.getCategories().catch(() => []),
+        ])
         const loadedShops = shopsData || []
         setShops(loadedShops)
         const map = {}
@@ -116,7 +96,6 @@ function DiscoverShops() {
 
         // Reviews se cargan en background SIN bloquear el render de shops
         setLoading(false)
-        setWakingUp(false)
 
         Promise.all(
           loadedShops.map(s =>
@@ -133,11 +112,10 @@ function DiscoverShops() {
         console.error('Error loading shops:', err)
         setLoadError('No se pudieron cargar los negocios. Intenta de nuevo.')
         setLoading(false)
-        setWakingUp(false)
       }
     }
     fetchData()
-  }, [user, fetchWithRetry])
+  }, [user])
 
   const toggleFavorite = async (shopId) => {
     if (!user) {
@@ -238,11 +216,6 @@ function DiscoverShops() {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-10 h-10 border-4 border-gray-200 dark:border-gray-700 border-t-primary-600 rounded-full animate-spin" />
-        {wakingUp && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">
-            Despertando el servidor, un momento...
-          </p>
-        )}
       </div>
     )
   }

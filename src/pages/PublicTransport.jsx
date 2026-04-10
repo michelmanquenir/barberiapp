@@ -501,7 +501,6 @@ function PublicTransport() {
   const [events, setEvents]               = useState([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [errorEvents, setErrorEvents]     = useState(null)
-  const [wakingUp, setWakingUp]           = useState(false)
 
   const [selectedEvent, setSelectedEvent]         = useState(null)
   const [assignments, setAssignments]             = useState([])
@@ -512,43 +511,26 @@ function PublicTransport() {
   const [bookingTarget, setBookingTarget] = useState(null)
   const [successBooking, setSuccessBooking] = useState(null)
 
-  // Retry helper: up to maxRetries, doubling delay, shows "waking up" msg after first fail
-  const fetchWithRetry = useCallback(async (fn, maxRetries = 3) => {
-    let delay = 4000
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await fn()
-      } catch (err) {
-        if (attempt === maxRetries) throw err
-        setWakingUp(true)
-        await new Promise(r => setTimeout(r, delay))
-        delay = Math.min(delay * 2, 15000)
-      }
-    }
-  }, [])
-
   // Load shop + events
   useEffect(() => {
     async function load() {
       setLoadingEvents(true)
       setErrorEvents(null)
-      setWakingUp(false)
       try {
-        const [shopData, eventsData] = await fetchWithRetry(() => Promise.all([
+        const [shopData, eventsData] = await Promise.all([
           api.getShopBySlug(slug),
           api.getPublicTransportEvents(slug),
-        ]))
+        ])
         setShop(shopData)
         setEvents(eventsData || [])
       } catch (err) {
         setErrorEvents(err.message || 'Error al cargar el contenido')
       } finally {
         setLoadingEvents(false)
-        setWakingUp(false)
       }
     }
     load()
-  }, [slug, fetchWithRetry])
+  }, [slug])
 
   // Select event → load its assignments + scroll
   const handleSelectEvent = useCallback(async (event) => {
@@ -562,21 +544,19 @@ function PublicTransport() {
     setCommuneQuery('')
     setDriverQuery('')
     setLoadingAssignments(true)
-    setWakingUp(false)
     try {
-      const data = await fetchWithRetry(() => api.getPublicEventAssignments(event.id))
+      const data = await api.getPublicEventAssignments(event.id)
       setAssignments(data || [])
     } catch {
       setAssignments([])
     } finally {
       setLoadingAssignments(false)
-      setWakingUp(false)
     }
     // Auto-scroll to vehicles section
     setTimeout(() => {
       vehiclesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 150)
-  }, [selectedEvent, fetchWithRetry])
+  }, [selectedEvent])
 
   // Filter + sort assignments
   const filteredAssignments = assignments
@@ -644,9 +624,7 @@ function PublicTransport() {
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
 
-        {loadingEvents && (
-          <Spinner text={wakingUp ? '⏳ Despertando el servidor, un momento...' : 'Cargando eventos...'} />
-        )}
+        {loadingEvents && <Spinner text="Cargando eventos..." />}
 
         {errorEvents && !loadingEvents && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm text-center">
@@ -768,7 +746,7 @@ function PublicTransport() {
 
                   {/* Results */}
                   {loadingAssignments ? (
-                    <Spinner text={wakingUp ? '⏳ Despertando el servidor, un momento...' : 'Cargando vehículos...'} />
+                    <Spinner text="Cargando vehículos..." />
                   ) : filteredAssignments.length === 0 ? (
                     <div className="text-center py-10 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700">
                       <div className="text-4xl mb-2">🔍</div>

@@ -15,29 +15,49 @@ function getAuthHeader() {
   }
 }
 
+/**
+ * Wrapper de fetch con retry automático SOLO para errores de red
+ * (Failed to fetch / Load failed / NetworkError).
+ * Errores HTTP (401, 404, 500…) NO se reintentan.
+ */
 async function request(path, options = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeader(),
-    },
-    ...options,
-  })
-  if (!response.ok) {
-    let message = `Error API: ${response.status} ${response.statusText}`
+  const MAX_RETRIES = 2
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let response
     try {
-      const body = await response.json()
-      // El backend puede usar "message" o "error" como clave según el controlador
-      if (body?.message) message = body.message
-      else if (body?.error) message = body.error
-    } catch { /* ignore */ }
-    throw new Error(message)
+      response = await fetch(`${BASE_URL}${path}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        ...options,
+      })
+    } catch (err) {
+      // Error de red (backend dormido, timeout, sin conexión)
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 3000 * (attempt + 1)))
+        continue
+      }
+      throw err // Último intento: propagar error original
+    }
+
+    // Respuesta HTTP recibida — nunca reintentar estos
+    if (!response.ok) {
+      let message = `Error API: ${response.status} ${response.statusText}`
+      try {
+        const body = await response.json()
+        if (body?.message) message = body.message
+        else if (body?.error) message = body.error
+      } catch { /* ignore */ }
+      throw new Error(message)
+    }
+    // DELETE puede retornar vacío
+    if (response.status === 204 || response.headers.get('content-length') === '0') {
+      return null
+    }
+    return response.json()
   }
-  // DELETE puede retornar vacío
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
-    return null
-  }
-  return response.json()
 }
 
 export const api = {
