@@ -64,6 +64,8 @@ function DiscoverShops() {
   const [favoriteShopIds, setFavoriteShopIds] = useState(new Set())
   const [shopReviews, setShopReviews] = useState({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [wakingUp, setWakingUp] = useState(false)
   const [highlightedShopId, setHighlightedShopId] = useState(null)
   const [openInfoId, setOpenInfoId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -74,17 +76,37 @@ function DiscoverShops() {
     mapRef.current = map
   }, [])
 
+  // Retry helper: reintentar con backoff, muestra "despertando" tras primer fallo
+  const fetchWithRetry = useCallback(async (fn, maxRetries = 3) => {
+    let delay = 4000
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn()
+      } catch (err) {
+        if (attempt === maxRetries) throw err
+        setWakingUp(true)
+        await new Promise(r => setTimeout(r, delay))
+        delay = Math.min(delay * 2, 15000)
+      }
+    }
+  }, [])
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
+      setLoadError(null)
+      setWakingUp(false)
       try {
-        const [shopsData, favsData, catsData] = await Promise.all([
-          api.getAllShops(),
-          user ? api.getFavoriteShops(user.userId) : Promise.resolve([]),
-          api.getCategories().catch(() => []),
-        ])
-        const shops = shopsData || []
-        setShops(shops)
+        // Carga principal con retry
+        const [shopsData, favsData, catsData] = await fetchWithRetry(() =>
+          Promise.all([
+            api.getAllShops(),
+            user ? api.getFavoriteShops(user.userId) : Promise.resolve([]),
+            api.getCategories().catch(() => []),
+          ])
+        )
+        const loadedShops = shopsData || []
+        setShops(loadedShops)
         const map = {}
         ;(catsData || []).forEach(c => { map[c.id] = c.slug })
         setCategoryMap(map)
@@ -92,24 +114,30 @@ function DiscoverShops() {
         setFavoriteShops(favs)
         setFavoriteShopIds(new Set(favs.map((f) => f.shop.id)))
 
-        const reviewResults = await Promise.all(
-          shops.map(s =>
+        // Reviews se cargan en background SIN bloquear el render de shops
+        setLoading(false)
+        setWakingUp(false)
+
+        Promise.all(
+          loadedShops.map(s =>
             api.getShopReviews(s.id)
               .then(r => ({ id: s.id, reviews: r || [] }))
               .catch(() => ({ id: s.id, reviews: [] }))
           )
-        )
-        const reviewsMap = {}
-        reviewResults.forEach(({ id, reviews }) => { reviewsMap[id] = reviews })
-        setShopReviews(reviewsMap)
+        ).then(reviewResults => {
+          const reviewsMap = {}
+          reviewResults.forEach(({ id, reviews }) => { reviewsMap[id] = reviews })
+          setShopReviews(reviewsMap)
+        })
       } catch (err) {
         console.error('Error loading shops:', err)
-      } finally {
+        setLoadError('No se pudieron cargar los negocios. Intenta de nuevo.')
         setLoading(false)
+        setWakingUp(false)
       }
     }
     fetchData()
-  }, [user])
+  }, [user, fetchWithRetry])
 
   const toggleFavorite = async (shopId) => {
     if (!user) {
@@ -208,8 +236,28 @@ function DiscoverShops() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-10 h-10 border-4 border-gray-200 dark:border-gray-700 border-t-primary-600 rounded-full animate-spin" />
+        {wakingUp && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">
+            Despertando el servidor, un momento...
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 px-4">
+        <div className="text-4xl">😵</div>
+        <p className="text-gray-600 dark:text-gray-300 text-center font-medium">{loadError}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-6 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition"
+        >
+          Reintentar
+        </button>
       </div>
     )
   }
