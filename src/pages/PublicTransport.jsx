@@ -60,12 +60,13 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const [destinationAddress, setDestinationAddress] = useState('')
   const [distanceKm, setDistanceKm] = useState(null)
   const [fare, setFare]             = useState(null)
+  const [seatCount, setSeatCount]   = useState(1)
+  const [paymentMethod, setPaymentMethod] = useState('EFECTIVO')
   const [notes, setNotes]           = useState('')
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState(null)
   const [vehicleImgError, setVehicleImgError] = useState(false)
 
-  // Coordenadas del origen: las del evento directo, o geocodificadas como fallback
   const [originLat, setOriginLat] = useState(event?.latitude ?? null)
   const [originLng, setOriginLng] = useState(event?.longitude ?? null)
   const [destLat, setDestLat]     = useState(null)
@@ -75,7 +76,12 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
   const available    = assignment.availableSeats ?? 0
   const eventAddress = event?.address
 
-  // Fallback: si el evento NO tiene coordenadas pero SÍ tiene dirección, geocodificar
+  // Tarifa por asiento × cantidad
+  const totalFare = fare != null ? fare * seatCount : null
+  const isCash    = paymentMethod === 'EFECTIVO'
+  const deposit   = totalFare != null && !isCash ? Math.ceil(totalFare / 2) : 0
+  const remaining = totalFare != null ? totalFare - deposit : null
+
   useEffect(() => {
     if (originLat != null || !eventAddress || !window.google?.maps) return
     const geocoder = new window.google.maps.Geocoder()
@@ -87,7 +93,6 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
     })
   }, [eventAddress, originLat])
 
-  // Recalcular distancia + tarifa cada vez que cambian las coordenadas
   const calcFare = useCallback((oLat, oLng, dLat, dLng) => {
     if (oLat == null || dLat == null) return
     const km = haversineKm(oLat, oLng, dLat, dLng)
@@ -95,12 +100,10 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
     setFare(pricePerKm != null ? Math.ceil(km * pricePerKm) : null)
   }, [pricePerKm])
 
-  // Cuando el geocoding del origen termina y ya hay destino seleccionado
   useEffect(() => {
     if (originLat != null && destLat != null) calcFare(originLat, originLng, destLat, destLng)
   }, [originLat, originLng, destLat, destLng, calcFare])
 
-  // Al seleccionar una sugerencia de Google
   const handlePlaceChanged = useCallback(() => {
     const place = autocompleteRef.current?.getPlace()
     if (!place?.geometry) return
@@ -109,7 +112,6 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
     setDestinationAddress(place.formatted_address || place.name || '')
     setDestLat(lat)
     setDestLng(lng)
-    // Cálculo directo si el origen ya está listo
     if (originLat != null) calcFare(originLat, originLng, lat, lng)
   }, [originLat, originLng, calcFare])
 
@@ -128,12 +130,16 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
     try {
       const result = await api.bookPassengerSeat({
         assignmentId: assignment.id,
+        seatsBooked: seatCount,
         clientCommune: destinationAddress.trim(),
+        paymentMethod,
+        totalFare: totalFare,
         notes: [
           eventAddress ? `Origen: ${eventAddress}` : '',
           destinationAddress.trim() ? `Destino: ${destinationAddress.trim()}` : '',
           distanceKm ? `Distancia: ${distanceKm.toFixed(1)} km` : '',
-          fare ? `Tarifa estimada: ${formatCLP(fare)}` : '',
+          totalFare ? `Total: ${formatCLP(totalFare)} (${seatCount} asiento${seatCount > 1 ? 's' : ''})` : '',
+          !isCash && deposit ? `Abono 50%: ${formatCLP(deposit)}` : '',
           notes.trim(),
         ].filter(Boolean).join(' | ') || null,
       })
@@ -144,6 +150,12 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
       setSaving(false)
     }
   }
+
+  const PAYMENT_OPTIONS = [
+    { value: 'EFECTIVO',       label: 'Efectivo',       icon: '💵', desc: 'Pago completo al conductor' },
+    { value: 'TRANSFERENCIA',  label: 'Transferencia',  icon: '🏦', desc: 'Abono 50% por transferencia' },
+    { value: 'TARJETA',        label: 'Tarjeta',        icon: '💳', desc: 'Abono 50% con tarjeta' },
+  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -159,30 +171,54 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
           {/* Vehicle info */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl mb-5">
             {assignment.vehicle?.imageUrl && !vehicleImgError
-              ? <img
-                  src={assignment.vehicle.imageUrl}
-                  alt=""
-                  className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
-                  onError={() => setVehicleImgError(true)}
-                />
+              ? <img src={assignment.vehicle.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" onError={() => setVehicleImgError(true)} />
               : <div className="w-14 h-14 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-2xl flex-shrink-0">🚌</div>
             }
             <div className="min-w-0">
               <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{assignment.vehicle?.brand} {assignment.vehicle?.model} {assignment.vehicle?.year && `(${assignment.vehicle.year})`}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Conductor: <span className="font-medium">{assignment.driver?.name ?? 'Por confirmar'}</span></p>
               {assignment.vehicle?.commune && (
-                <p className="text-xs text-indigo-600 font-medium">📍 Sale desde: {assignment.vehicle.commune}</p>
+                <p className="text-xs text-indigo-600 font-medium">Sale desde: {assignment.vehicle.commune}</p>
               )}
-              <p className="text-xs text-green-600 font-medium">{available} asientos disponibles</p>
+              <p className="text-xs text-green-600 font-medium">{available} asiento{available !== 1 ? 's' : ''} disponible{available !== 1 ? 's' : ''}</p>
             </div>
           </div>
 
           <form onSubmit={handleConfirm} className="space-y-4">
 
+            {/* ── Cantidad de asientos ── */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Cantidad de asientos
+              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSeatCount(c => Math.max(1, c - 1))}
+                  disabled={seatCount <= 1}
+                  className="w-10 h-10 rounded-xl border border-gray-300 dark:border-gray-600 flex items-center justify-center text-lg font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  -
+                </button>
+                <div className="flex-1 text-center">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-gray-50">{seatCount}</span>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">asiento{seatCount > 1 ? 's' : ''}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSeatCount(c => Math.min(available, c + 1))}
+                  disabled={seatCount >= available}
+                  className="w-10 h-10 rounded-xl border border-gray-300 dark:border-gray-600 flex items-center justify-center text-lg font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             {/* ── Dirección de destino ── */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">
-                📍 Tu dirección de destino
+                Tu dirección de destino
               </label>
               <Autocomplete
                 onLoad={ac => { autocompleteRef.current = ac }}
@@ -201,23 +237,52 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                   required
                 />
               </Autocomplete>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Selecciona una sugerencia para calcular la tarifa automáticamente.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Selecciona una sugerencia para calcular la tarifa.</p>
             </div>
 
-            {/* ── Resumen de tarifa (mismo patrón que el bazar) ── */}
+            {/* ── Método de pago ── */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Método de pago
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {PAYMENT_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setPaymentMethod(opt.value)}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${
+                      paymentMethod === opt.value
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 ring-1 ring-blue-200 dark:ring-blue-800'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <span className="text-xl block mb-1">{opt.icon}</span>
+                    <span className={`text-xs font-semibold block ${paymentMethod === opt.value ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {opt.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                {isCash ? 'Pagas el total al conductor el día del viaje.' : 'Debes abonar el 50% para confirmar tu reserva.'}
+              </p>
+            </div>
+
+            {/* ── Resumen de tarifa ── */}
             <div className={`rounded-xl border p-4 ${distanceKm != null ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
-              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Resumen de tarifa</p>
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Resumen</p>
               <div className="space-y-2">
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">🚌 Origen</span>
+                  <span className="text-gray-500 dark:text-gray-400">Origen</span>
                   <span className="font-medium text-gray-800 dark:text-gray-100 text-right max-w-[65%] leading-tight">
                     {eventAddress || '—'}
                   </span>
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">📍 Destino</span>
+                  <span className="text-gray-500 dark:text-gray-400">Destino</span>
                   <span className={`text-right max-w-[65%] truncate ${destinationAddress ? 'font-medium text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 italic'}`}>
                     {destinationAddress || 'Ingresa tu dirección'}
                   </span>
@@ -225,43 +290,59 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
 
                 {distanceKm != null && (
                   <>
-                    <div className="border-t border-blue-200 dark:border-blue-800 my-1" />
-
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        📏 Distancia
-                        <span className="text-xs text-gray-400 dark:text-gray-500">(línea recta)</span>
-                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">Distancia <span className="text-xs">(línea recta)</span></span>
                       <span className="font-medium text-gray-800 dark:text-gray-100">{distanceKm.toFixed(1)} km</span>
                     </div>
 
-                    {pricePerKm != null && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">
-                          💲 Tarifa
-                          <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
-                            ({distanceKm.toFixed(1)} km × {formatCLP(pricePerKm)}/km)
+                    {fare != null && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Tarifa x asiento
                           </span>
-                        </span>
-                        <span className="font-medium text-gray-800 dark:text-gray-100">{formatCLP(fare)}</span>
-                      </div>
+                          <span className="font-medium text-gray-800 dark:text-gray-100">{formatCLP(fare)}</span>
+                        </div>
+
+                        {seatCount > 1 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500 dark:text-gray-400">Asientos</span>
+                            <span className="font-medium text-gray-800 dark:text-gray-100">x{seatCount}</span>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     <div className="border-t border-blue-200 dark:border-blue-800 my-1" />
 
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-blue-700 dark:text-blue-400 text-base">Total estimado</span>
+                      <span className="font-bold text-blue-700 dark:text-blue-400 text-base">Total</span>
                       <span className="font-bold text-blue-700 dark:text-blue-400 text-lg">
-                        {fare != null ? formatCLP(fare) : 'A convenir'}
+                        {totalFare != null ? formatCLP(totalFare) : 'A convenir'}
                       </span>
                     </div>
+
+                    {/* Desglose abono / restante */}
+                    {totalFare != null && !isCash && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">Abono ahora (50%)</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-bold">{formatCLP(deposit)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400 dark:text-gray-500">Restante al conductor</span>
+                          <span className="text-gray-500 dark:text-gray-400">{formatCLP(remaining)}</span>
+                        </div>
+                      </>
+                    )}
+
                     <p className="text-xs text-gray-400 dark:text-gray-500">* Tarifa referencial en línea recta.</p>
                   </>
                 )}
 
                 {originLat == null && distanceKm == null && (
                   <p className="text-xs text-amber-600 pt-1">
-                    💬 El conductor definirá el precio según la dirección ingresada.
+                    El conductor definirá el precio según la dirección ingresada.
                   </p>
                 )}
               </div>
@@ -282,7 +363,7 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">{error}</p>
             )}
 
             <div className="flex gap-3 pt-1">
@@ -295,7 +376,11 @@ function BookingModal({ event, assignment, onClose, onSuccess }) {
                 className="flex-1 py-3 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                {fare != null ? `Reservar · ${formatCLP(fare)}` : 'Confirmar reserva'}
+                {totalFare != null && !isCash
+                  ? `Abonar ${formatCLP(deposit)}`
+                  : totalFare != null
+                    ? `Reservar · ${formatCLP(totalFare)}`
+                    : 'Confirmar reserva'}
               </button>
             </div>
           </form>
