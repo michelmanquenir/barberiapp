@@ -42,6 +42,7 @@ import Wallet from './pages/Wallet'
 import Favorites from './pages/Favorites'
 import MyBarbers from './pages/MyBarbers'
 import EditProfile from './pages/EditProfile'
+import EmployeeDashboard from './pages/employee/EmployeeDashboard'
 
 function App() {
   return (
@@ -259,6 +260,7 @@ function App() {
                       <Route path="/favorites" element={<Favorites />} />
                       <Route path="/my-barbers" element={<MyBarbers />} />
                       <Route path="/edit-profile" element={<EditProfile />} />
+                      <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>

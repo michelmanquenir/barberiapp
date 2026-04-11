@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   User,
@@ -7,20 +8,45 @@ import {
   Settings,
   Compass,
   Briefcase,
+  Scissors,
 } from 'lucide-react'
+import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 
 function Sidebar({ isOpen }) {
   const location = useLocation()
+  const { user } = useAuth()
 
-  const menuItems = [
-    { path: '/booking', icon: Compass, label: 'Explorar' },
-    { path: '/profile', icon: User, label: 'Perfil' },
-    { path: '/appointments', icon: Calendar, label: 'Mis Citas' },
-    { path: '/my-barbers', icon: Briefcase, label: 'Mis Profesionales' },
-    { path: '/wallet', icon: Wallet, label: 'Wallet' },
-    { path: '/favorites', icon: Heart, label: 'Favoritos' },
-    { path: '/edit-profile', icon: Settings, label: 'Editar Perfil' },
+  // Detectamos si el usuario autenticado tiene perfil de barbero
+  // (lo guardamos en state para no bloquear el render principal)
+  const [hasBarberProfile, setHasBarberProfile] = useState(false)
+
+  useEffect(() => {
+    if (!user) { setHasBarberProfile(false); return }
+    api.getMyBarberProfile()
+      .then(() => setHasBarberProfile(true))
+      .catch(() => setHasBarberProfile(false))
+  }, [user])
+
+  const baseItems = [
+    { path: '/booking',       icon: Compass,   label: 'Explorar'          },
+    { path: '/profile',       icon: User,      label: 'Perfil'            },
+    { path: '/appointments',  icon: Calendar,  label: 'Mis Citas'         },
+    { path: '/my-barbers',    icon: Briefcase, label: 'Mis Profesionales' },
+    { path: '/wallet',        icon: Wallet,    label: 'Wallet'            },
+    { path: '/favorites',     icon: Heart,     label: 'Favoritos'         },
+    { path: '/edit-profile',  icon: Settings,  label: 'Editar Perfil'     },
   ]
+
+  const employeeItem = {
+    path: '/employee/dashboard',
+    icon: Scissors,
+    label: 'Mi trabajo',
+  }
+
+  const menuItems = hasBarberProfile
+    ? [...baseItems, employeeItem]
+    : baseItems
 
   return (
     <>
@@ -39,7 +65,7 @@ function Sidebar({ isOpen }) {
           w-64
         `}
       >
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100%-5rem)]">
           {menuItems.map((item) => {
             const Icon = item.icon
             const isActive = location.pathname === item.path
@@ -50,14 +76,23 @@ function Sidebar({ isOpen }) {
                 to={item.path}
                 className={`
                   flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200
-                  ${isActive
-                    ? 'bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300 font-medium'
-                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  ${item.path === '/employee/dashboard'
+                    ? isActive
+                      ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium'
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    : isActive
+                      ? 'bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300 font-medium'
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }
                 `}
               >
                 <Icon className="h-5 w-5" />
                 <span>{item.label}</span>
+                {item.path === '/employee/dashboard' && !isActive && (
+                  <span className="ml-auto text-xs bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-1.5 py-0.5 rounded-full">
+                    Pro
+                  </span>
+                )}
               </Link>
             )
           })}

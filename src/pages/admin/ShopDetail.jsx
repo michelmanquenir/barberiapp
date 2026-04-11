@@ -39,6 +39,9 @@ import {
   Camera,
   Images,
   ImagePlus,
+  Mail,
+  UserCheck,
+  KeyRound,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -85,6 +88,12 @@ function ShopDetail() {
   const [searching, setSearching] = useState(false)
   const [addingId, setAddingId] = useState(null)
   const [myBarberProfile, setMyBarberProfile] = useState(null)
+
+  // Cuentas de empleados
+  const [accountModal, setAccountModal]     = useState(null)   // { barber } | null
+  const [accountEmail, setAccountEmail]     = useState('')
+  const [creatingAccount, setCreatingAccount] = useState(false)
+  const [unlinkingId, setUnlinkingId]       = useState(null)
 
   // Panel de horarios expandido por barbero
   const [expandedSchedule, setExpandedSchedule] = useState(null) // barberId | null
@@ -345,6 +354,51 @@ function ShopDetail() {
       await loadShop()
     } catch {
       toast.error('No se pudo quitar el profesional')
+    }
+  }
+
+  // ── Cuentas de empleados ─────────────────────────────────────────────────────
+
+  const openAccountModal = (barber) => {
+    setAccountModal({ barber })
+    setAccountEmail('')
+  }
+
+  const closeAccountModal = () => {
+    setAccountModal(null)
+    setAccountEmail('')
+  }
+
+  const handleCreateBarberAccount = async () => {
+    if (!accountEmail.trim()) {
+      toast.error('Ingresa el email del profesional')
+      return
+    }
+    setCreatingAccount(true)
+    try {
+      const updated = await api.createBarberAccount(shopId, accountModal.barber.id, accountEmail.trim())
+      // Refrescar el shop para que el barber tenga userId actualizado
+      await loadShop()
+      closeAccountModal()
+      toast.success(`Cuenta creada y vinculada para ${updated.name}. Se envió un email con la contraseña provisional.`)
+    } catch (e) {
+      toast.error(e.message || 'No se pudo crear la cuenta')
+    } finally {
+      setCreatingAccount(false)
+    }
+  }
+
+  const handleUnlinkBarberAccount = async (barberId, barberName) => {
+    if (!(await confirm('Desvincular cuenta', `¿Desvincular la cuenta de app de ${barberName}? El profesional perderá acceso a su panel de empleado, pero su cuenta de usuario no será eliminada.`, { confirmText: 'Sí, desvincular', icon: 'warning' }))) return
+    setUnlinkingId(barberId)
+    try {
+      await api.unlinkBarberAccount(shopId, barberId)
+      await loadShop()
+      toast.success('Cuenta desvinculada correctamente')
+    } catch (e) {
+      toast.error(e.message || 'No se pudo desvincular la cuenta')
+    } finally {
+      setUnlinkingId(null)
     }
   }
 
@@ -1928,19 +1982,47 @@ function ShopDetail() {
                               ? <img src={barber.imageUrl} alt={barber.name} className="w-10 h-10 rounded-full object-cover" />
                               : <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Users className="w-4 h-4 text-gray-500 dark:text-gray-400" /></div>}
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-sm font-medium text-gray-900 dark:text-gray-50">{barber.name}</p>
                                 {myBarberProfile && barber.id === myBarberProfile.id && (
                                   <span className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded-full font-medium">Tú</span>
                                 )}
-                                {barber.userId && barber.id !== myBarberProfile?.id && (
-                                  <span className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium">Registrado</span>
+                                {barber.userId ? (
+                                  <span className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+                                    <UserCheck className="w-3 h-3" />Cuenta vinculada
+                                  </span>
+                                ) : (
+                                  <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
+                                    Sin cuenta
+                                  </span>
                                 )}
                               </div>
                               {barber.bio && <p className="text-xs text-gray-400 dark:text-gray-500 line-clamp-1">{barber.bio}</p>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+                            {/* Botón crear/desvincular cuenta */}
+                            {!barber.userId ? (
+                              <button
+                                onClick={() => openAccountModal(barber)}
+                                className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition px-2 py-1 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950"
+                                title="Crear cuenta de app para este profesional"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" />Crear cuenta
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleUnlinkBarberAccount(barber.id, barber.name)}
+                                disabled={unlinkingId === barber.id}
+                                className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition px-2 py-1 rounded hover:bg-orange-50 dark:hover:bg-orange-950 disabled:opacity-50"
+                                title="Desvincular cuenta de app"
+                              >
+                                {unlinkingId === barber.id
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <Unlink className="w-3.5 h-3.5" />}
+                                Desvincular
+                              </button>
+                            )}
                             {/* Botón horarios */}
                             <button
                               onClick={() => toggleSchedule(barber.id)}
@@ -1985,6 +2067,73 @@ function ShopDetail() {
           )}
         </div>
       </main>
+
+      {/* ── Modal: crear cuenta para profesional ── */}
+      {accountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 bg-indigo-50 dark:bg-indigo-950 border-b border-indigo-100 dark:border-indigo-800">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                  Crear cuenta para {accountModal.barber.name}
+                </h3>
+              </div>
+              <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-1">
+                Se generará una contraseña temporal y se enviará por email al profesional.
+              </p>
+            </div>
+
+            {/* Cuerpo */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">
+                  Email del profesional *
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <input
+                    type="email"
+                    value={accountEmail}
+                    onChange={(e) => setAccountEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateBarberAccount()}
+                    placeholder="email@ejemplo.com"
+                    autoFocus
+                    className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  ⚠️ El profesional recibirá un email con sus credenciales provisionales y deberá cambiar la contraseña al primer inicio de sesión.
+                </p>
+              </div>
+            </div>
+
+            {/* Acciones */}
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-2">
+              <button
+                onClick={closeAccountModal}
+                disabled={creatingAccount}
+                className="text-sm px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateBarberAccount}
+                disabled={creatingAccount || !accountEmail.trim()}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              >
+                {creatingAccount
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Creando...</>
+                  : <><KeyRound className="w-4 h-4" />Crear cuenta</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

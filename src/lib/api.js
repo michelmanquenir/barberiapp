@@ -88,9 +88,21 @@ export const api = {
   // Barberos
   getBarbers: (shopId) => request(shopId ? `/barbers?shopId=${shopId}` : '/barbers'),
   getMyBarberProfile: () => request('/barbers/me'),
+  getMyBarberShops: () => request('/barbers/me/shops'),
   searchBarbers: (q) => request(`/barbers/search?q=${encodeURIComponent(q ?? '')}`),
   createBarberProfile: (data) =>
     request('/barbers', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Admin: cuentas de empleados/barberos
+  createBarberAccount: (shopId, barberId, email) =>
+    request(`/barbers/admin/shops/${shopId}/barbers/${barberId}/account`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  unlinkBarberAccount: (shopId, barberId) =>
+    request(`/barbers/admin/shops/${shopId}/barbers/${barberId}/account`, {
+      method: 'DELETE',
+    }),
 
   // Horarios de barberos
   getBarberSchedules: ({ barberId, shopId } = {}) => {
@@ -126,6 +138,7 @@ export const api = {
   // Citas
   getAppointments: (userId) => request(`/appointments?userId=${userId}`),
   getShopAppointments: (shopId) => request(`/appointments/shop/${shopId}`),
+  getMyBarberAppointments: () => request('/appointments/me/barber'),
   getBookedBarbers: (shopId, date, time, durationMinutes = 30) =>
     request(`/appointments/booked-barbers?shopId=${shopId}&date=${date}&time=${encodeURIComponent(time)}&durationMinutes=${durationMinutes}`),
   createAppointment: (data) =>
