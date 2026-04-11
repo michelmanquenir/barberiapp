@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus, MapPin, ImagePlus, X } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Bus, MapPin, ImagePlus, X, Users, DollarSign, TrendingUp, Clock, CheckCircle, XCircle, Search, RefreshCw, ChevronRight } from 'lucide-react'
 import { Autocomplete, GoogleMap, Marker } from '@react-google-maps/api'
 import { api } from '../../lib/api'
 import AdminNavbar from '../../components/AdminNavbar'
@@ -1012,10 +1012,407 @@ function VehiclesTab({ shopId, vehicles, setVehicles, drivers }) {
 // PÁGINA PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB RESERVAS
+// ══════════════════════════════════════════════════════════════════════════════
+
+function formatCLP(n) {
+  if (n == null) return '—'
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
+}
+
+const STATUS_META = {
+  PENDING:   { label: 'Pendiente',  color: 'bg-amber-100  text-amber-700  border-amber-200  dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800' },
+  CONFIRMED: { label: 'Confirmado', color: 'bg-blue-100   text-blue-700   border-blue-200   dark:bg-blue-950/40  dark:text-blue-400  dark:border-blue-800' },
+  COMPLETED: { label: 'Completado', color: 'bg-green-100  text-green-700  border-green-200  dark:bg-green-950/40 dark:text-green-400 dark:border-green-800' },
+  CANCELLED: { label: 'Cancelado',  color: 'bg-red-100    text-red-700    border-red-200    dark:bg-red-950/40   dark:text-red-400   dark:border-red-800' },
+}
+const PAYMENT_ICON = { EFECTIVO: '💵', TRANSFERENCIA: '🏦', TARJETA: '💳' }
+
+function StatusBadge({ status }) {
+  const m = STATUS_META[status] || STATUS_META.PENDING
+  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${m.color}`}>{m.label}</span>
+}
+
+function StatCard({ icon, label, value, sub, color = 'bg-white dark:bg-gray-900' }) {
+  return (
+    <div className={`${color} rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-start gap-3`}>
+      <div className="text-2xl">{icon}</div>
+      <div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">{label}</p>
+        <p className="text-xl font-bold text-gray-900 dark:text-gray-50 mt-0.5">{value}</p>
+        {sub && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  )
+}
+
+function BookingsTab({ shopId }) {
+  const [events, setEvents]             = useState([])
+  const [selectedEventId, setSelectedEventId] = useState(null)
+  const [bookings, setBookings]         = useState([])
+  const [loading, setLoading]           = useState(false)
+  const [loadingEvents, setLoadingEvents] = useState(true)
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [search, setSearch]             = useState('')
+  const [updatingId, setUpdatingId]     = useState(null)
+
+  // Cargar eventos al montar
+  useEffect(() => {
+    if (!shopId) return
+    setLoadingEvents(true)
+    api.getTransportEvents(shopId)
+      .then(d => {
+        const sorted = (d || []).sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate))
+        setEvents(sorted)
+        if (sorted.length > 0) setSelectedEventId(sorted[0].id)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEvents(false))
+  }, [shopId])
+
+  // Cargar reservas cuando cambia el evento seleccionado
+  const loadBookings = useCallback(() => {
+    if (!selectedEventId) return
+    setLoading(true)
+    api.getEventPassengers(selectedEventId)
+      .then(d => setBookings(d || []))
+      .catch(() => setBookings([]))
+      .finally(() => setLoading(false))
+  }, [selectedEventId])
+
+  useEffect(() => { loadBookings() }, [loadBookings])
+
+  const selectedEvent = events.find(e => e.id === selectedEventId)
+
+  // Agrupar reservas por vehículo/assignment
+  const bookingsByAssignment = useMemo(() => {
+    const map = {}
+    bookings.forEach(b => {
+      const aId = b.assignment?.id
+      if (!map[aId]) map[aId] = { assignment: b.assignment, bookings: [] }
+      map[aId].bookings.push(b)
+    })
+    return Object.values(map)
+  }, [bookings])
+
+  // Stats globales del evento
+  const stats = useMemo(() => {
+    const active = bookings.filter(b => b.status !== 'CANCELLED')
+    const totalSeats    = active.reduce((s, b) => s + (b.seatsBooked ?? 1), 0)
+    const totalRevenue  = active.reduce((s, b) => s + (b.totalFare ?? 0), 0)
+    const totalDeposits = active.reduce((s, b) => s + (b.amountPaid ?? 0), 0)
+    const pending   = bookings.filter(b => b.status === 'PENDING').length
+    const confirmed = bookings.filter(b => b.status === 'CONFIRMED').length
+    const completed = bookings.filter(b => b.status === 'COMPLETED').length
+    const cancelled = bookings.filter(b => b.status === 'CANCELLED').length
+
+    // Por método de pago
+    const byMethod = {}
+    active.forEach(b => {
+      const m = b.paymentMethod || 'EFECTIVO'
+      if (!byMethod[m]) byMethod[m] = { count: 0, revenue: 0 }
+      byMethod[m].count   += b.seatsBooked ?? 1
+      byMethod[m].revenue += b.totalFare ?? 0
+    })
+    return { totalSeats, totalRevenue, totalDeposits, pending, confirmed, completed, cancelled, byMethod }
+  }, [bookings])
+
+  // Filtrado
+  const filteredGroups = useMemo(() => {
+    return bookingsByAssignment.map(group => ({
+      ...group,
+      bookings: group.bookings.filter(b => {
+        const matchStatus = statusFilter === 'ALL' || b.status === statusFilter
+        const q = search.toLowerCase()
+        const matchSearch = !q ||
+          b.passengerName?.toLowerCase().includes(q) ||
+          b.clientCommune?.toLowerCase().includes(q) ||
+          String(b.id).includes(q)
+        return matchStatus && matchSearch
+      }),
+    })).filter(g => g.bookings.length > 0)
+  }, [bookingsByAssignment, statusFilter, search])
+
+  const changeStatus = async (bookingId, newStatus) => {
+    setUpdatingId(bookingId)
+    try {
+      await api.updatePassengerStatus(bookingId, newStatus)
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: newStatus } : b))
+    } catch (e) {
+      alert(e.message || 'Error al actualizar estado')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Selector de evento ── */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Evento</label>
+        {loadingEvents ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Cargando eventos...</div>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-gray-400">No hay eventos creados.</p>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {events.map(ev => (
+              <button
+                key={ev.id}
+                onClick={() => setSelectedEventId(ev.id)}
+                className={`text-left p-3 rounded-xl border-2 transition-all ${
+                  selectedEventId === ev.id
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <p className={`font-semibold text-sm truncate ${selectedEventId === ev.id ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-gray-50'}`}>
+                  {ev.title}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatDate(ev.eventDate)}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {ev.vehicleCount ?? '?'} vehículo{ev.vehicleCount !== 1 ? 's' : ''}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedEvent && (
+        <>
+          {/* ── Stats cards ── */}
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard icon="🎟️" label="Asientos reservados" value={stats.totalSeats}
+                  sub={`${bookings.filter(b => b.status !== 'CANCELLED').length} reserva${bookings.filter(b => b.status !== 'CANCELLED').length !== 1 ? 's' : ''}`} />
+                <StatCard icon="💰" label="Ingresos estimados" value={formatCLP(stats.totalRevenue)}
+                  sub="Suma tarifas activas" />
+                <StatCard icon="💸" label="Abonos recibidos" value={formatCLP(stats.totalDeposits)}
+                  sub="50% no-efectivo" />
+                <StatCard icon="⏳" label="Estados"
+                  value={`${stats.confirmed}✓ ${stats.pending}⌛`}
+                  sub={`${stats.completed} completados · ${stats.cancelled} cancelados`} />
+              </div>
+
+              {/* Breakdown por método de pago */}
+              {Object.keys(stats.byMethod).length > 0 && (
+                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Desglose por método de pago</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {Object.entries(stats.byMethod).map(([method, data]) => (
+                      <div key={method} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <span className="text-lg">{PAYMENT_ICON[method] ?? '💳'}</span>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{method}</p>
+                          <p className="text-xs text-gray-400">{data.count} asiento{data.count !== 1 ? 's' : ''} · {formatCLP(data.revenue)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Filtros ── */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar pasajero o comuna…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 w-56"
+                  />
+                </div>
+                <div className="flex gap-1">
+                  {['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setStatusFilter(s)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                        statusFilter === s
+                          ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-transparent'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      {s === 'ALL' ? 'Todos' : STATUS_META[s]?.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={loadBookings}
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  title="Actualizar"
+                >
+                  <RefreshCw className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                </button>
+              </div>
+
+              {/* ── Lista por vehículo ── */}
+              {filteredGroups.length === 0 ? (
+                <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+                  <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                  <p className="font-medium">Sin reservas{statusFilter !== 'ALL' ? ' con este filtro' : ''}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredGroups.map(({ assignment, bookings: grpBookings }) => {
+                    const v = assignment?.vehicle
+                    const d = assignment?.driver
+                    const totalSeatsV = grpBookings.filter(b => b.status !== 'CANCELLED').reduce((s, b) => s + (b.seatsBooked ?? 1), 0)
+                    const capacity    = v?.passengerCapacity ?? 0
+                    const revenueV    = grpBookings.filter(b => b.status !== 'CANCELLED').reduce((s, b) => s + (b.totalFare ?? 0), 0)
+                    const depositsV   = grpBookings.filter(b => b.status !== 'CANCELLED').reduce((s, b) => s + (b.amountPaid ?? 0), 0)
+
+                    return (
+                      <div key={assignment?.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        {/* Vehicle header */}
+                        <div className="flex flex-wrap items-center gap-4 px-5 py-4 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {v?.imageUrl
+                              ? <img src={v.imageUrl} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" alt="" />
+                              : <div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xl flex-shrink-0">🚌</div>
+                            }
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 dark:text-gray-50 truncate">{v?.brand} {v?.model} {v?.year && `(${v.year})`}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Conductor: <span className="font-medium">{d?.name ?? 'Sin asignar'}</span>
+                                {v?.licensePlate && <> · <span className="font-mono">{v.licensePlate}</span></>}
+                              </p>
+                            </div>
+                          </div>
+                          {/* Mini stats del vehículo */}
+                          <div className="flex gap-4 text-center flex-shrink-0">
+                            <div>
+                              <p className="text-lg font-bold text-gray-900 dark:text-gray-50">{totalSeatsV}/{capacity}</p>
+                              <p className="text-xs text-gray-400">asientos</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCLP(revenueV)}</p>
+                              <p className="text-xs text-gray-400">ingresos</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{formatCLP(depositsV)}</p>
+                              <p className="text-xs text-gray-400">abonado</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress bar capacidad */}
+                        <div className="h-1.5 bg-gray-100 dark:bg-gray-800">
+                          <div
+                            className={`h-full transition-all rounded-full ${totalSeatsV >= capacity ? 'bg-red-500' : totalSeatsV > capacity * 0.7 ? 'bg-amber-500' : 'bg-green-500'}`}
+                            style={{ width: `${capacity > 0 ? Math.min(100, (totalSeatsV / capacity) * 100) : 0}%` }}
+                          />
+                        </div>
+
+                        {/* Tabla de reservas */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-100 dark:border-gray-800">
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide w-16">#</th>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Pasajero</th>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide hidden sm:table-cell">Destino</th>
+                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Asientos</th>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide hidden md:table-cell">Pago</th>
+                                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide hidden md:table-cell">Total / Abono</th>
+                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Estado</th>
+                                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60">
+                              {grpBookings.map(b => (
+                                <tr key={b.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${b.status === 'CANCELLED' ? 'opacity-50' : ''}`}>
+                                  {/* Código */}
+                                  <td className="px-4 py-3">
+                                    <span className="font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                                      #{b.id}
+                                    </span>
+                                  </td>
+                                  {/* Pasajero */}
+                                  <td className="px-4 py-3">
+                                    <p className="font-semibold text-gray-900 dark:text-gray-50 truncate max-w-[140px]">{b.passengerName}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[140px]">{b.clientCommune}</p>
+                                  </td>
+                                  {/* Destino (notas) */}
+                                  <td className="px-4 py-3 hidden sm:table-cell">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[160px] line-clamp-2">{b.notes || '—'}</p>
+                                  </td>
+                                  {/* Asientos */}
+                                  <td className="px-4 py-3 text-center">
+                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-sm font-bold">
+                                      {b.seatsBooked ?? 1}
+                                    </span>
+                                  </td>
+                                  {/* Método de pago */}
+                                  <td className="px-4 py-3 hidden md:table-cell">
+                                    <span className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                                      <span>{PAYMENT_ICON[b.paymentMethod] ?? '💵'}</span>
+                                      {b.paymentMethod ?? 'EFECTIVO'}
+                                    </span>
+                                  </td>
+                                  {/* Tarifa */}
+                                  <td className="px-4 py-3 text-right hidden md:table-cell">
+                                    <p className="font-semibold text-gray-900 dark:text-gray-50">{formatCLP(b.totalFare)}</p>
+                                    {b.amountPaid > 0 && (
+                                      <p className="text-xs text-amber-600 dark:text-amber-400">Abono: {formatCLP(b.amountPaid)}</p>
+                                    )}
+                                  </td>
+                                  {/* Estado */}
+                                  <td className="px-4 py-3 text-center">
+                                    <StatusBadge status={b.status} />
+                                  </td>
+                                  {/* Acciones */}
+                                  <td className="px-4 py-3 text-center">
+                                    {updatingId === b.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin mx-auto text-gray-400" />
+                                    ) : b.status === 'CANCELLED' ? (
+                                      <span className="text-xs text-gray-400">—</span>
+                                    ) : (
+                                      <select
+                                        value={b.status}
+                                        onChange={e => changeStatus(b.id, e.target.value)}
+                                        className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 cursor-pointer"
+                                      >
+                                        <option value="PENDING">Pendiente</option>
+                                        <option value="CONFIRMED">Confirmar</option>
+                                        <option value="COMPLETED">Completar</option>
+                                        <option value="CANCELLED">Cancelar</option>
+                                      </select>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 const TABS = [
   { key: 'events',   label: 'Eventos' },
   { key: 'drivers',  label: 'Conductores' },
   { key: 'vehicles', label: 'Vehículos' },
+  { key: 'bookings', label: 'Reservas' },
 ]
 
 function ShopTransport() {
@@ -1082,6 +1479,9 @@ function ShopTransport() {
         )}
         {tab === 'vehicles' && (
           <VehiclesTab shopId={shopId} vehicles={vehicles} setVehicles={setVehicles} drivers={drivers} />
+        )}
+        {tab === 'bookings' && (
+          <BookingsTab shopId={shopId} />
         )}
       </div>
     </div>
