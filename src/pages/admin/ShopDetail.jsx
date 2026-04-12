@@ -92,6 +92,7 @@ function ShopDetail() {
   // Cuentas de empleados
   const [accountModal, setAccountModal]     = useState(null)   // { barber } | null
   const [accountEmail, setAccountEmail]     = useState('')
+  const [accountRut, setAccountRut]         = useState('')
   const [creatingAccount, setCreatingAccount] = useState(false)
   const [unlinkingId, setUnlinkingId]       = useState(null)
 
@@ -362,11 +363,13 @@ function ShopDetail() {
   const openAccountModal = (barber) => {
     setAccountModal({ barber })
     setAccountEmail('')
+    setAccountRut('')
   }
 
   const closeAccountModal = () => {
     setAccountModal(null)
     setAccountEmail('')
+    setAccountRut('')
   }
 
   const handleCreateBarberAccount = async () => {
@@ -376,8 +379,7 @@ function ShopDetail() {
     }
     setCreatingAccount(true)
     try {
-      const updated = await api.createBarberAccount(shopId, accountModal.barber.id, accountEmail.trim())
-      // Refrescar el shop para que el barber tenga userId actualizado
+      const updated = await api.createBarberAccount(shopId, accountModal.barber.id, accountEmail.trim(), accountRut.trim() || null)
       await loadShop()
       closeAccountModal()
       toast.success(`Cuenta creada y vinculada para ${updated.name}. Se envió un email con la contraseña provisional.`)
@@ -2103,6 +2105,19 @@ function ShopDetail() {
                     className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">
+                  RUT <span className="text-gray-400 dark:text-gray-500">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={accountRut}
+                  onChange={(e) => setAccountRut(e.target.value)}
+                  placeholder="12345678-9"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
               </div>
 
               <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">

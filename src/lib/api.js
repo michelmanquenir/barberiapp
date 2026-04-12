@@ -94,10 +94,10 @@ export const api = {
     request('/barbers', { method: 'POST', body: JSON.stringify(data) }),
 
   // Admin: cuentas de empleados/barberos
-  createBarberAccount: (shopId, barberId, email) =>
+  createBarberAccount: (shopId, barberId, email, rut = null) =>
     request(`/barbers/admin/shops/${shopId}/barbers/${barberId}/account`, {
       method: 'POST',
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, rut }),
     }),
   unlinkBarberAccount: (shopId, barberId) =>
     request(`/barbers/admin/shops/${shopId}/barbers/${barberId}/account`, {

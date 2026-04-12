@@ -651,7 +651,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
 // CONDUCTORES TAB
 // ══════════════════════════════════════════════════════════════════════════════
 
-const EMPTY_DRIVER = { name: '', phone: '', licenseNumber: '', licenseImageUrl: '', notes: '', active: true, email: '' }
+const EMPTY_DRIVER = { name: '', phone: '', licenseNumber: '', licenseImageUrl: '', notes: '', active: true, email: '', rut: '' }
 
 function DriversTab({ shopId, drivers, setDrivers }) {
   const [loading, setLoading] = useState(true)
@@ -676,7 +676,7 @@ function DriversTab({ shopId, drivers, setDrivers }) {
 
   const openCreate = () => { setForm(EMPTY_DRIVER); setEditId(null); setModal(true) }
   const openEdit = (d) => {
-    setForm({ name: d.name ?? '', phone: d.phone ?? '', licenseNumber: d.licenseNumber ?? '', licenseImageUrl: d.licenseImageUrl ?? '', notes: d.notes ?? '', active: d.active ?? true, email: d.email ?? '' })
+    setForm({ name: d.name ?? '', phone: d.phone ?? '', licenseNumber: d.licenseNumber ?? '', licenseImageUrl: d.licenseImageUrl ?? '', notes: d.notes ?? '', active: d.active ?? true, email: d.email ?? '', rut: '' })
     setEditId(d.id)
     setModal(true)
   }
@@ -787,8 +787,8 @@ function DriversTab({ shopId, drivers, setDrivers }) {
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={inputCls} placeholder="Observaciones opcionales..." />
             </Field>
 
-            {/* Email / cuenta de app */}
-            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+            {/* Email + RUT / cuenta de app */}
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-4 space-y-3">
               <Field label={editId ? 'Email' : 'Email (crea cuenta de app)'}>
                 <input
                   type="email"
@@ -800,13 +800,24 @@ function DriversTab({ shopId, drivers, setDrivers }) {
                 />
               </Field>
               {!editId && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5 flex items-start gap-1">
+                <Field label="RUT">
+                  <input
+                    type="text"
+                    value={form.rut}
+                    onChange={e => setForm(f => ({ ...f, rut: e.target.value }))}
+                    className={inputCls}
+                    placeholder="12345678-9"
+                  />
+                </Field>
+              )}
+              {!editId && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-1">
                   <span className="mt-0.5">ℹ️</span>
                   <span>Si ingresas un email, se creará automáticamente una cuenta en la app y se enviará la contraseña provisional al conductor.</span>
                 </p>
               )}
               {editId && form.email && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-xs text-gray-400 dark:text-gray-500">
                   El email no se puede cambiar desde aquí una vez creado el conductor.
                 </p>
               )}
