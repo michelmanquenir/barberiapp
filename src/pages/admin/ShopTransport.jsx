@@ -651,7 +651,7 @@ function EventsTab({ shopId, vehicles, drivers }) {
 // CONDUCTORES TAB
 // ══════════════════════════════════════════════════════════════════════════════
 
-const EMPTY_DRIVER = { name: '', phone: '', licenseNumber: '', licenseImageUrl: '', notes: '', active: true }
+const EMPTY_DRIVER = { name: '', phone: '', licenseNumber: '', licenseImageUrl: '', notes: '', active: true, email: '' }
 
 function DriversTab({ shopId, drivers, setDrivers }) {
   const [loading, setLoading] = useState(true)
@@ -676,7 +676,7 @@ function DriversTab({ shopId, drivers, setDrivers }) {
 
   const openCreate = () => { setForm(EMPTY_DRIVER); setEditId(null); setModal(true) }
   const openEdit = (d) => {
-    setForm({ name: d.name ?? '', phone: d.phone ?? '', licenseNumber: d.licenseNumber ?? '', licenseImageUrl: d.licenseImageUrl ?? '', notes: d.notes ?? '', active: d.active ?? true })
+    setForm({ name: d.name ?? '', phone: d.phone ?? '', licenseNumber: d.licenseNumber ?? '', licenseImageUrl: d.licenseImageUrl ?? '', notes: d.notes ?? '', active: d.active ?? true, email: d.email ?? '' })
     setEditId(d.id)
     setModal(true)
   }
@@ -735,6 +735,7 @@ function DriversTab({ shopId, drivers, setDrivers }) {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Nombre</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Teléfono</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Licencia</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden lg:table-cell">Cuenta</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -742,9 +743,17 @@ function DriversTab({ shopId, drivers, setDrivers }) {
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {drivers.map(d => (
                 <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{d.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                    <div>{d.name}</div>
+                    {d.email && <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{d.email}</div>}
+                  </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{d.phone || '—'}</td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs hidden md:table-cell">{d.licenseNumber || '—'}</td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    {d.hasAccount
+                      ? <span className="inline-flex items-center gap-1 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">✓ Vinculada</span>
+                      : <span className="text-xs text-gray-400 dark:text-gray-500">Sin cuenta</span>}
+                  </td>
                   <td className="px-4 py-3"><Badge active={d.active} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
@@ -777,6 +786,32 @@ function DriversTab({ shopId, drivers, setDrivers }) {
             <Field label="Notas">
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={inputCls} placeholder="Observaciones opcionales..." />
             </Field>
+
+            {/* Email / cuenta de app */}
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+              <Field label={editId ? 'Email' : 'Email (crea cuenta de app)'}>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  className={inputCls}
+                  placeholder="conductor@email.com"
+                  disabled={!!editId}
+                />
+              </Field>
+              {!editId && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5 flex items-start gap-1">
+                  <span className="mt-0.5">ℹ️</span>
+                  <span>Si ingresas un email, se creará automáticamente una cuenta en la app y se enviará la contraseña provisional al conductor.</span>
+                </p>
+              )}
+              {editId && form.email && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  El email no se puede cambiar desde aquí una vez creado el conductor.
+                </p>
+              )}
+            </div>
+
             <div className="flex items-center gap-2">
               <input type="checkbox" id="drv-active" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} className="w-4 h-4 rounded" />
               <label htmlFor="drv-active" className="text-sm text-gray-700 dark:text-gray-300">Conductor activo</label>
@@ -785,7 +820,7 @@ function DriversTab({ shopId, drivers, setDrivers }) {
               <button type="button" onClick={() => setModal(false)} className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition">Cancelar</button>
               <button type="submit" disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-300 transition disabled:opacity-50 flex items-center gap-2">
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {editId ? 'Guardar cambios' : 'Crear conductor'}
+                {editId ? 'Guardar cambios' : (form.email ? 'Crear conductor + cuenta' : 'Crear conductor')}
               </button>
             </div>
           </form>
