@@ -73,6 +73,11 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
             <h3 className="font-semibold text-gray-900 dark:text-gray-50">
               {isEditing ? 'Editar producto del catálogo' : 'Nuevo producto en el catálogo'}
             </h3>
+            {isEditing && initial?.id && (
+              <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                ID: {initial.id}
+              </span>
+            )}
           </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">
             <X className="w-5 h-5 text-gray-500" />
@@ -197,7 +202,7 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
               Código de barras
-              {!isEditing && <span className="text-gray-400 ml-1">(debe ser único)</span>}
+              <span className="text-gray-400 ml-1">(debe ser único)</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -205,23 +210,17 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
                 value={form.barcode}
                 onChange={e => set('barcode', e.target.value)}
                 placeholder="7501234567890"
-                disabled={isEditing}
-                className="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+                className="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 font-mono"
               />
-              {!isEditing && (
-                <button
-                  type="button"
-                  onClick={() => setScannerOpen(true)}
-                  title="Escanear código de barras"
-                  className="flex-shrink-0 px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
-                >
-                  <ScanLine className="w-4 h-4" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                title="Escanear código de barras"
+                className="flex-shrink-0 px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
+              >
+                <ScanLine className="w-4 h-4" />
+              </button>
             </div>
-            {isEditing && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">El código de barras no se puede modificar una vez creado</p>
-            )}
           </div>
 
           {/* Activo toggle */}
@@ -457,6 +456,7 @@ function SuperAdminCatalog() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-16">ID</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Producto</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Categoría</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Barcode / SKU</th>
@@ -469,6 +469,13 @@ function SuperAdminCatalog() {
                   const isActing = actionId === p.id
                   return (
                     <tr key={p.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/30 transition ${!p.active ? 'opacity-50' : ''}`}>
+                      {/* ID */}
+                      <td className="px-3 py-3">
+                        <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                          {p.id}
+                        </span>
+                      </td>
+
                       {/* Producto */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
