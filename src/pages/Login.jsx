@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Store, Eye, EyeOff } from 'lucide-react'
+import { Store, Eye, EyeOff, Clock } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -12,6 +12,15 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  // Detectar si venimos de un logout por sesión expirada
+  useEffect(() => {
+    if (sessionStorage.getItem('session_expired')) {
+      setSessionExpired(true)
+      sessionStorage.removeItem('session_expired')
+    }
+  }, [])
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -56,6 +65,12 @@ function Login() {
         {/* Card */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 transition-colors">
           <form onSubmit={handleSubmit} className="space-y-5">
+            {sessionExpired && (
+              <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-sm rounded-lg px-4 py-3">
+                <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>Tu sesión expiró por inactividad. Inicia sesión nuevamente para continuar.</span>
+              </div>
+            )}
             {error && (
               <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">
                 {error}

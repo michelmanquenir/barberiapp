@@ -44,6 +44,23 @@ async function request(path, options = {}) {
 
     // Respuesta HTTP recibida — nunca reintentar estos
     if (!response.ok) {
+      // 401 / 403 con token guardado → sesión expirada
+      if (response.status === 401 || response.status === 403) {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY)
+          if (stored) {
+            const { token } = JSON.parse(stored)
+            if (token) {
+              window.dispatchEvent(new CustomEvent('auth:expired'))
+              throw new Error('Sesión expirada')
+            }
+          }
+        } catch (innerErr) {
+          if (innerErr.message === 'Sesión expirada') throw innerErr
+          // Si falla el parse, continuar con el error normal
+        }
+      }
+
       let message = `Error API: ${response.status} ${response.statusText}`
       try {
         const body = await response.json()
