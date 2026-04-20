@@ -163,6 +163,12 @@ function ShopDetail() {
   const [selectedGlobalProduct, setSelectedGlobalProduct] = useState(null) // objeto del catálogo vinculado
   const [productScannerOpen, setProductScannerOpen] = useState(false)
 
+  // ── Consulta de precios por código de barras ─────────────────────────────────
+  const [priceLookupOpen, setPriceLookupOpen] = useState(false)
+  const [priceLookupResult, setPriceLookupResult] = useState(null)
+  const [priceLookupFeedback, setPriceLookupFeedback] = useState(null)
+  const [priceLookupProcessing, setPriceLookupProcessing] = useState(false)
+
   // ── Categorías de negocio (para detectar tipo de negocio) ────────────────────
   const [categories, setCategories] = useState([])
 
@@ -785,6 +791,28 @@ function ShopDetail() {
     }
   }
 
+  // ── Consulta de precios por barcode ─────────────────────────────────────────
+  const handlePriceLookup = async (barcode) => {
+    if (priceLookupProcessing) return
+    setPriceLookupProcessing(true)
+    setPriceLookupResult(null)
+    setPriceLookupFeedback(null)
+    try {
+      const product = await api.getProductByBarcode(shopId, barcode)
+      setPriceLookupResult(product)
+      const price = product.salePrice != null
+        ? `$${Number(product.salePrice).toLocaleString('es-CL')}`
+        : 'Sin precio'
+      setPriceLookupFeedback({ type: 'success', message: `${product.name} — ${price}` })
+    } catch {
+      setPriceLookupFeedback({ type: 'error', message: 'Producto no encontrado en este negocio' })
+      setPriceLookupResult(null)
+    } finally {
+      setPriceLookupProcessing(false)
+      setTimeout(() => setPriceLookupFeedback(null), 3500)
+    }
+  }
+
   // ── Tipo de negocio ─────────────────────────────────────────────────────────
   const shopCategory = categories.find(c => c.id === shop?.categoryId)
   const isProductShop = shopCategory?.slug?.includes('bazar') ?? false
@@ -887,6 +915,11 @@ function ShopDetail() {
                         <button onClick={() => navigate(`/admin/shops/${shopId}/orders`)}
                           className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                           <ShoppingBag className="w-3.5 h-3.5" />Ver pedidos
+                        </button>
+                        <button
+                          onClick={() => { primeBeepAudio(); setPriceLookupOpen(true); setPriceLookupResult(null); setPriceLookupFeedback(null) }}
+                          className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
+                          <Tag className="w-3.5 h-3.5" />Consultar precios
                         </button>
                       </div>
                     ) : (
@@ -1383,6 +1416,80 @@ function ShopDetail() {
                     }}
                     onClose={() => setProductScannerOpen(false)}
                   />
+                )}
+
+                {/* Scanner de consulta de precios */}
+                {priceLookupOpen && (
+                  <>
+                    <BarcodeScanner
+                      onDetected={handlePriceLookup}
+                      onClose={() => { setPriceLookupOpen(false); setPriceLookupResult(null); setPriceLookupFeedback(null) }}
+                      feedback={priceLookupFeedback}
+                      processing={priceLookupProcessing}
+                    />
+                    {/* Panel de resultado — se muestra encima del scanner */}
+                    {priceLookupResult && (
+                      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] w-full max-w-sm px-4">
+                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                          {/* Header verde */}
+                          <div className="bg-emerald-600 px-4 py-2.5 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-white uppercase tracking-wide">Resultado</span>
+                            <button
+                              onClick={() => setPriceLookupResult(null)}
+                              className="text-white/80 hover:text-white transition"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="p-4 flex items-start gap-3">
+                            {/* Imagen */}
+                            {priceLookupResult.imageUrl
+                              ? <img src={priceLookupResult.imageUrl} alt={priceLookupResult.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700" />
+                              : <div className="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"><Package className="w-7 h-7 text-gray-400" /></div>
+                            }
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm leading-tight truncate">{priceLookupResult.name}</p>
+                              {priceLookupResult.category && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{priceLookupResult.category}</p>
+                              )}
+                              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Precio venta</span>
+                                  <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                                    {priceLookupResult.salePrice != null
+                                      ? `$${Number(priceLookupResult.salePrice).toLocaleString('es-CL')}`
+                                      : '—'}
+                                  </span>
+                                </div>
+                                {priceLookupResult.purchasePrice != null && (
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">Precio costo</span>
+                                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                                      ${Number(priceLookupResult.purchasePrice).toLocaleString('es-CL')}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Stock</span>
+                                  <span className={`text-sm font-medium ${(priceLookupResult.stock ?? 0) < 5 ? 'text-orange-500' : 'text-gray-700 dark:text-gray-200'}`}>
+                                    {priceLookupResult.stock ?? 0} uds.
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="px-4 pb-4">
+                            <button
+                              onClick={() => setPriceLookupResult(null)}
+                              className="w-full text-sm py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium"
+                            >
+                              Escanear otro
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Formulario nuevo/editar producto */}
