@@ -1461,14 +1461,6 @@ function ShopDetail() {
                                       : '—'}
                                   </span>
                                 </div>
-                                {priceLookupResult.purchasePrice != null && (
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">Precio costo</span>
-                                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                                      ${Number(priceLookupResult.purchasePrice).toLocaleString('es-CL')}
-                                    </span>
-                                  </div>
-                                )}
                                 <div className="flex flex-col">
                                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">Stock</span>
                                   <span className={`text-sm font-medium ${(priceLookupResult.stock ?? 0) < 5 ? 'text-orange-500' : 'text-gray-700 dark:text-gray-200'}`}>
