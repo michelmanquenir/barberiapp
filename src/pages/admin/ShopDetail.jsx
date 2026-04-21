@@ -279,7 +279,6 @@ function ShopDetail() {
   useEffect(() => { loadPlans() }, [loadPlans])
   useEffect(() => { loadProducts() }, [loadProducts])
   useEffect(() => { loadShopGallery() }, [loadShopGallery])
-  useEffect(() => { if (isProductShop) loadShelves() }, [loadShelves, isProductShop])
   useEffect(() => {
     api.getCategories().then(setCategories).catch(() => setCategories([]))
     api.getProductCategories().then(setProductCategories).catch(() => setProductCategories([]))
@@ -953,6 +952,8 @@ function ShopDetail() {
     if (slug.includes('salon') || slug.includes('spa'))  return 'sesiones'
     return 'cortes' // barbería por defecto
   })()
+
+  useEffect(() => { if (isProductShop) loadShelves() }, [loadShelves, isProductShop])
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
