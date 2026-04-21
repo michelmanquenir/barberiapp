@@ -221,6 +221,18 @@ export const api = {
   getProductByBarcode: (shopId, barcode) =>
     request(`/admin/shops/${shopId}/products/barcode/${encodeURIComponent(barcode)}`),
 
+  // Asignar / quitar slot de bodega a un producto
+  assignProductSlot: (productId, slotId) =>
+    request(`/admin/products/${productId}/slot`, { method: 'PATCH', body: JSON.stringify({ slotId }) }),
+
+  // ── Bodega / Estanterías ──────────────────────────────────────────────────
+  getShelves:      (shopId)                  => request(`/admin/shops/${shopId}/shelves`),
+  getShelfGrid:    (shopId, shelfId)         => request(`/admin/shops/${shopId}/shelves/${shelfId}/grid`),
+  createShelf:     (shopId, data)            => request(`/admin/shops/${shopId}/shelves`, { method: 'POST', body: JSON.stringify(data) }),
+  updateShelf:     (shopId, shelfId, data)   => request(`/admin/shops/${shopId}/shelves/${shelfId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteShelf:     (shopId, shelfId)         => request(`/admin/shops/${shopId}/shelves/${shelfId}`, { method: 'DELETE' }),
+  updateSlotLabel: (shopId, slotId, label)   => request(`/admin/shops/${shopId}/shelf-slots/${slotId}/label`, { method: 'PATCH', body: JSON.stringify({ label }) }),
+
   // Catálogo global de productos
   searchGlobalProducts: (q = '', limit = 20) =>
     request(`/admin/global-products?q=${encodeURIComponent(q)}&limit=${limit}`),

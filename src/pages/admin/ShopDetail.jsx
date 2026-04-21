@@ -42,6 +42,10 @@ import {
   Mail,
   UserCheck,
   KeyRound,
+  Archive,
+  MapPin,
+  LayoutGrid,
+  ChevronRight,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -53,7 +57,7 @@ import BarcodeScanner, { primeBeepAudio } from '../../components/BarcodeScanner'
 
 const EMPTY_SERVICE_FORM = { name: '', description: '', price: '', durationMinutes: '' }
 const EMPTY_PLAN_FORM    = { name: '', description: '', price: '', cutsPerPeriod: '', active: true }
-const EMPTY_PRODUCT_FORM = { name: '', description: '', category: '', purchasePrice: '', salePrice: '', stock: '0', imageUrl: '', active: true, barcode: '', sku: '' }
+const EMPTY_PRODUCT_FORM = { name: '', description: '', category: '', purchasePrice: '', salePrice: '', stock: '0', imageUrl: '', active: true, barcode: '', sku: '', shelfSlotId: null }
 
 const DAYS = [
   { key: 'MONDAY',    label: 'Lunes'     },
@@ -169,6 +173,20 @@ function ShopDetail() {
   const [priceLookupFeedback, setPriceLookupFeedback] = useState(null)
   const [priceLookupProcessing, setPriceLookupProcessing] = useState(false)
 
+  // ── Bodega / Estanterías ──────────────────────────────────────────────────────
+  const [shelves, setShelves] = useState([])
+  const [shelvesLoading, setShelvesLoading] = useState(false)
+  const [expandedShelfId, setExpandedShelfId] = useState(null)
+  const [shelfGrids, setShelfGrids] = useState({}) // { [shelfId]: ShelfGridResponse }
+  const [shelfGridLoading, setShelfGridLoading] = useState(null)
+  const [showShelfForm, setShowShelfForm] = useState(false)
+  const [editingShelf, setEditingShelf] = useState(null)
+  const [shelfForm, setShelfForm] = useState({ name: '', description: '', rows: 4, columns: 5 })
+  const [shelfFormSaving, setShelfFormSaving] = useState(false)
+  const [editingLabelSlotId, setEditingLabelSlotId] = useState(null)
+  const [labelDraft, setLabelDraft] = useState('')
+  const [slotPickerShelfId, setSlotPickerShelfId] = useState(null) // shelf seleccionada en picker del form
+
   // ── Categorías de negocio (para detectar tipo de negocio) ────────────────────
   const [categories, setCategories] = useState([])
 
@@ -261,6 +279,7 @@ function ShopDetail() {
   useEffect(() => { loadPlans() }, [loadPlans])
   useEffect(() => { loadProducts() }, [loadProducts])
   useEffect(() => { loadShopGallery() }, [loadShopGallery])
+  useEffect(() => { if (isProductShop) loadShelves() }, [loadShelves, isProductShop])
   useEffect(() => {
     api.getCategories().then(setCategories).catch(() => setCategories([]))
     api.getProductCategories().then(setProductCategories).catch(() => setProductCategories([]))
@@ -693,7 +712,10 @@ function ShopDetail() {
       active: p.active,
       barcode: p.globalProductId ? '' : (p.barcode ?? ''),
       sku: p.globalProductId ? '' : (p.sku ?? ''),
+      shelfSlotId: p.shelfSlotId ?? null,
     })
+    setSlotPickerShelfId(p.shelfId ?? null)
+    if (p.shelfId && !shelfGrids[p.shelfId]) loadShelfGrid(p.shelfId)
     setProductError(null)
     setProductImagePreview(p.globalProductId ? null : (p.imageUrl ?? null))
     setCatalogQuery('')
@@ -710,6 +732,7 @@ function ShopDetail() {
     setSelectedGlobalProduct(null)
     setCatalogQuery('')
     setCatalogResults([])
+    setSlotPickerShelfId(null)
   }
 
   const handleSaveProduct = async (e) => {
@@ -740,6 +763,7 @@ function ShopDetail() {
           salePrice: parseInt(productForm.salePrice, 10),
           stock: parseInt(productForm.stock, 10) || 0,
           active: productForm.active,
+          shelfSlotId: productForm.shelfSlotId ?? null,
         }
       : {
           // Producto local: todos los campos
@@ -753,6 +777,7 @@ function ShopDetail() {
           salePrice: parseInt(productForm.salePrice, 10),
           stock: parseInt(productForm.stock, 10) || 0,
           active: productForm.active,
+          shelfSlotId: productForm.shelfSlotId ?? null,
         }
     try {
       if (editingProductId) {
@@ -810,6 +835,106 @@ function ShopDetail() {
     } finally {
       setPriceLookupProcessing(false)
       setTimeout(() => setPriceLookupFeedback(null), 3500)
+    }
+  }
+
+  // ── Bodega / Estanterías ─────────────────────────────────────────────────────
+  const loadShelves = useCallback(async () => {
+    setShelvesLoading(true)
+    try {
+      const data = await api.getShelves(shopId)
+      setShelves(data)
+    } catch { /* ignore */ } finally {
+      setShelvesLoading(false)
+    }
+  }, [shopId])
+
+  const loadShelfGrid = async (shelfId) => {
+    setShelfGridLoading(shelfId)
+    try {
+      const grid = await api.getShelfGrid(shopId, shelfId)
+      setShelfGrids(prev => ({ ...prev, [shelfId]: grid }))
+    } catch {
+      toast.error('No se pudo cargar la grilla')
+    } finally {
+      setShelfGridLoading(null)
+    }
+  }
+
+  const toggleShelfExpand = (shelfId) => {
+    if (expandedShelfId === shelfId) {
+      setExpandedShelfId(null)
+    } else {
+      setExpandedShelfId(shelfId)
+      if (!shelfGrids[shelfId]) loadShelfGrid(shelfId)
+    }
+  }
+
+  const openCreateShelf = () => {
+    setEditingShelf(null)
+    setShelfForm({ name: '', description: '', rows: 4, columns: 5 })
+    setShowShelfForm(true)
+  }
+
+  const openEditShelf = (shelf) => {
+    setEditingShelf(shelf)
+    setShelfForm({ name: shelf.name, description: shelf.description || '', rows: shelf.rows, columns: shelf.columns })
+    setShowShelfForm(true)
+  }
+
+  const handleSaveShelf = async (e) => {
+    e.preventDefault()
+    if (!shelfForm.name.trim()) { toast.error('El nombre es obligatorio'); return }
+    setShelfFormSaving(true)
+    try {
+      if (editingShelf) {
+        const updated = await api.updateShelf(shopId, editingShelf.id, { name: shelfForm.name, description: shelfForm.description })
+        setShelves(prev => prev.map(s => s.id === updated.id ? updated : s))
+        toast.success('Estantería actualizada')
+      } else {
+        const created = await api.createShelf(shopId, shelfForm)
+        setShelves(prev => [...prev, created])
+        toast.success('Estantería creada')
+      }
+      setShowShelfForm(false)
+    } catch {
+      toast.error('Error al guardar la estantería')
+    } finally {
+      setShelfFormSaving(false)
+    }
+  }
+
+  const handleDeleteShelf = async (shelf) => {
+    if (!(await confirm('Eliminar estantería', `¿Eliminar "${shelf.name}"? Los productos asignados quedarán sin ubicación.`, { confirmText: 'Sí, eliminar', icon: 'warning' }))) return
+    try {
+      await api.deleteShelf(shopId, shelf.id)
+      setShelves(prev => prev.filter(s => s.id !== shelf.id))
+      setShelfGrids(prev => { const n = { ...prev }; delete n[shelf.id]; return n })
+      if (expandedShelfId === shelf.id) setExpandedShelfId(null)
+      // Limpiar referencias en la lista de productos
+      setProducts(prev => prev.map(p => p.shelfId === shelf.id ? { ...p, shelfSlotId: null, shelfSlotCode: null, shelfId: null, shelfName: null } : p))
+      toast.success('Estantería eliminada')
+    } catch {
+      toast.error('No se pudo eliminar la estantería')
+    }
+  }
+
+  const handleSaveSlotLabel = async (slotId) => {
+    try {
+      await api.updateSlotLabel(shopId, slotId, labelDraft)
+      setShelfGrids(prev => {
+        const updated = {}
+        for (const sid in prev) {
+          const grid = prev[sid]
+          updated[sid] = grid?.slots?.some(s => s.id === slotId)
+            ? { ...grid, slots: grid.slots.map(s => s.id === slotId ? { ...s, label: labelDraft.trim() || null } : s) }
+            : grid
+        }
+        return updated
+      })
+      setEditingLabelSlotId(null)
+    } catch {
+      toast.error('No se pudo actualizar la etiqueta')
     }
   }
 
@@ -1749,6 +1874,60 @@ function ShopDetail() {
                         </div>
                       </div>}
 
+                      {/* ── Ubicación en bodega (opcional) ── */}
+                      {shelves.length > 0 && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            Ubicación en bodega <span className="text-gray-400">(opcional)</span>
+                          </label>
+                          <div className="flex items-center gap-2">
+                            {/* Selector de estantería */}
+                            <select
+                              value={slotPickerShelfId ?? ''}
+                              onChange={e => {
+                                const val = e.target.value ? Number(e.target.value) : null
+                                setSlotPickerShelfId(val)
+                                setProductForm(f => ({ ...f, shelfSlotId: null }))
+                                if (val && !shelfGrids[val]) loadShelfGrid(val)
+                              }}
+                              className="flex-1 text-xs px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600"
+                            >
+                              <option value="">Sin estantería</option>
+                              {shelves.map(s => (
+                                <option key={s.id} value={s.id}>{s.name} ({s.rows > 0 ? String.fromCharCode(65, s.rows - 1) : 'A'}{s.columns})</option>
+                              ))}
+                            </select>
+                            {/* Selector de posición */}
+                            {slotPickerShelfId && (
+                              <select
+                                value={productForm.shelfSlotId ?? ''}
+                                onChange={e => setProductForm(f => ({ ...f, shelfSlotId: e.target.value ? Number(e.target.value) : null }))}
+                                className="flex-1 text-xs px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600"
+                              >
+                                <option value="">Sin posición</option>
+                                {shelfGridLoading === slotPickerShelfId
+                                  ? <option disabled>Cargando...</option>
+                                  : (shelfGrids[slotPickerShelfId]?.slots ?? []).map(slot => (
+                                      <option key={slot.id} value={slot.id}>
+                                        {slot.code}{slot.label ? ` — ${slot.label}` : ''}{slot.productId && slot.productId !== editingProductId ? ` (ocupado: ${slot.productName})` : ''}
+                                      </option>
+                                    ))
+                                }
+                              </select>
+                            )}
+                            {/* Quitar ubicación */}
+                            {(slotPickerShelfId || productForm.shelfSlotId) && (
+                              <button type="button"
+                                onClick={() => { setSlotPickerShelfId(null); setProductForm(f => ({ ...f, shelfSlotId: -1 })) }}
+                                className="text-xs text-gray-400 hover:text-red-500 transition px-1">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => setProductForm(f => ({ ...f, active: !f.active }))}
                           className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition ${productForm.active ? 'border-green-400 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
@@ -1888,6 +2067,11 @@ function ShopDetail() {
                                         {product.sku && <span>SKU {product.sku}</span>}
                                       </p>
                                     )}
+                                    {product.shelfSlotCode && (
+                                      <span className="inline-flex items-center gap-0.5 mt-0.5 text-[10px] font-mono bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">
+                                        <MapPin className="w-2.5 h-2.5" />{product.shelfName} {product.shelfSlotCode}
+                                      </span>
+                                    )}
                                   </td>
                                   {/* Categoría */}
                                   <td className="px-3 py-2.5 hidden sm:table-cell">
@@ -2003,6 +2187,249 @@ function ShopDetail() {
                   )
                 })()}
               </div>
+
+              {/* ── Bodega / Estanterías ── */}
+              {isProductShop && (
+                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                  {/* Encabezado */}
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-2">
+                      <Archive className="w-5 h-5 text-indigo-500" />
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Bodega / Estanterías</h3>
+                      {shelves.length > 0 && (
+                        <span className="text-xs bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                          {shelves.length} {shelves.length === 1 ? 'estantería' : 'estanterías'}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={openCreateShelf}
+                      className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                      <Plus className="w-3.5 h-3.5" />Nueva estantería
+                    </button>
+                  </div>
+
+                  {/* Formulario nueva / editar estantería */}
+                  {showShelfForm && (
+                    <form onSubmit={handleSaveShelf} className="mb-5 border border-indigo-200 dark:border-indigo-800 rounded-xl overflow-hidden">
+                      <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-950 border-b border-indigo-100 dark:border-indigo-900">
+                        <p className="text-sm font-medium text-indigo-800 dark:text-indigo-300">
+                          {editingShelf ? 'Editar estantería' : 'Nueva estantería'}
+                        </p>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre *</label>
+                          <input
+                            type="text"
+                            value={shelfForm.name}
+                            onChange={e => setShelfForm(f => ({ ...f, name: e.target.value }))}
+                            placeholder="Ej: Estantería Principal, Bodega B"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descripción <span className="text-gray-400">(opcional)</span></label>
+                          <input
+                            type="text"
+                            value={shelfForm.description}
+                            onChange={e => setShelfForm(f => ({ ...f, description: e.target.value }))}
+                            placeholder="Ej: Cerca de la entrada, segundo piso"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          />
+                        </div>
+                        {!editingShelf && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                                Filas (A → {String.fromCharCode(64 + Math.min(26, Math.max(1, shelfForm.rows)))})
+                              </label>
+                              <input
+                                type="number" min={1} max={26}
+                                value={shelfForm.rows}
+                                onChange={e => setShelfForm(f => ({ ...f, rows: Math.min(26, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                                Columnas (1 → {Math.min(50, Math.max(1, shelfForm.columns))})
+                              </label>
+                              <input
+                                type="number" min={1} max={50}
+                                value={shelfForm.columns}
+                                onChange={e => setShelfForm(f => ({ ...f, columns: Math.min(50, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {!editingShelf && (
+                          <p className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 rounded-lg px-3 py-2">
+                            Se crearán <strong>{shelfForm.rows * shelfForm.columns}</strong> posiciones: {String.fromCharCode(65)}1 → {String.fromCharCode(64 + Math.min(26, shelfForm.rows))}{shelfForm.columns}
+                          </p>
+                        )}
+                      </div>
+                      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-2">
+                        <button type="button" onClick={() => setShowShelfForm(false)}
+                          className="text-sm px-4 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                          Cancelar
+                        </button>
+                        <button type="submit" disabled={shelfFormSaving}
+                          className="flex items-center gap-1.5 text-sm px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50">
+                          {shelfFormSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Guardando...</> : <><Check className="w-3.5 h-3.5" />{editingShelf ? 'Guardar cambios' : 'Crear estantería'}</>}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Lista vacía */}
+                  {!shelvesLoading && shelves.length === 0 && (
+                    <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+                      <Archive className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      Sin estanterías configuradas.
+                      <br /><span className="text-xs">Crea una estantería para organizar tu bodega.</span>
+                    </div>
+                  )}
+
+                  {/* Estanterías */}
+                  <div className="space-y-3">
+                    {shelves.map(shelf => {
+                      const isExpanded = expandedShelfId === shelf.id
+                      const grid = shelfGrids[shelf.id]
+                      const isLoadingGrid = shelfGridLoading === shelf.id
+                      // Generar encabezados de columnas: 1..columns
+                      const colHeaders = Array.from({ length: shelf.columns }, (_, i) => i + 1)
+                      // Generar filas: A, B, C...
+                      const rowLetters = Array.from({ length: shelf.rows }, (_, i) => String.fromCharCode(65 + i))
+
+                      return (
+                        <div key={shelf.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                          {/* Cabecera de la estantería */}
+                          <div
+                            className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-750 transition"
+                            onClick={() => toggleShelfExpand(shelf.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <LayoutGrid className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                              <div>
+                                <p className="font-semibold text-sm text-gray-900 dark:text-gray-50">{shelf.name}</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500">
+                                  {shelf.rows} filas × {shelf.columns} col · {shelf.occupiedSlots}/{shelf.totalSlots} ocupadas
+                                  {shelf.description && ` · ${shelf.description}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {/* Barra de ocupación */}
+                              <div className="hidden sm:flex items-center gap-2">
+                                <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-indigo-500 rounded-full transition-all"
+                                    style={{ width: `${shelf.totalSlots > 0 ? Math.round((shelf.occupiedSlots / shelf.totalSlots) * 100) : 0}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-gray-400">{shelf.totalSlots > 0 ? Math.round((shelf.occupiedSlots / shelf.totalSlots) * 100) : 0}%</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); openEditShelf(shelf) }}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); handleDeleteShelf(shelf) }}
+                                className="text-gray-400 hover:text-red-500 transition p-1 rounded hover:bg-red-50 dark:hover:bg-red-950">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                              <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                            </div>
+                          </div>
+
+                          {/* Grilla expandida */}
+                          {isExpanded && (
+                            <div className="p-4 overflow-x-auto">
+                              {isLoadingGrid ? (
+                                <div className="flex justify-center py-6">
+                                  <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                                </div>
+                              ) : grid ? (
+                                <table className="border-collapse text-xs">
+                                  <thead>
+                                    <tr>
+                                      <th className="w-8" />
+                                      {colHeaders.map(c => (
+                                        <th key={c} className="w-28 px-1 pb-1 text-center text-gray-400 dark:text-gray-500 font-medium">{c}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {rowLetters.map(rowLetter => (
+                                      <tr key={rowLetter}>
+                                        <td className="pr-2 text-center text-gray-400 dark:text-gray-500 font-bold text-xs">{rowLetter}</td>
+                                        {colHeaders.map(c => {
+                                          const code = `${rowLetter}${c}`
+                                          const slot = grid.slots.find(s => s.code === code)
+                                          if (!slot) return <td key={c} />
+                                          const isEmpty = !slot.productId
+                                          return (
+                                            <td key={c} className="p-0.5">
+                                              <div className={`rounded-lg border p-1.5 min-h-[60px] flex flex-col gap-0.5 transition ${isEmpty ? 'border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800' : 'border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950'}`}>
+                                                {/* Código del slot */}
+                                                <span className={`font-mono font-bold text-[10px] ${isEmpty ? 'text-gray-300 dark:text-gray-600' : 'text-indigo-600 dark:text-indigo-400'}`}>{code}</span>
+                                                {isEmpty ? (
+                                                  <span className="text-[9px] text-gray-300 dark:text-gray-600 leading-tight">Vacío</span>
+                                                ) : (
+                                                  <>
+                                                    {slot.productImageUrl
+                                                      ? <img src={slot.productImageUrl} alt={slot.productName} className="w-7 h-7 rounded object-cover border border-indigo-200 dark:border-indigo-700" />
+                                                      : <div className="w-7 h-7 rounded bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center"><Package className="w-3 h-3 text-indigo-400" /></div>
+                                                    }
+                                                    <p className="text-[9px] font-medium text-gray-700 dark:text-gray-200 leading-tight line-clamp-2">{slot.productName}</p>
+                                                    <p className="text-[9px] text-gray-400">{slot.productStock} uds.</p>
+                                                  </>
+                                                )}
+                                                {/* Etiqueta editable */}
+                                                {editingLabelSlotId === slot.id ? (
+                                                  <div className="flex gap-0.5 mt-0.5" onClick={e => e.stopPropagation()}>
+                                                    <input
+                                                      autoFocus
+                                                      type="text"
+                                                      value={labelDraft}
+                                                      onChange={e => setLabelDraft(e.target.value)}
+                                                      onKeyDown={e => { if (e.key === 'Enter') handleSaveSlotLabel(slot.id); if (e.key === 'Escape') setEditingLabelSlotId(null) }}
+                                                      placeholder="Etiqueta..."
+                                                      className="flex-1 text-[9px] px-1 py-0.5 border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none min-w-0"
+                                                    />
+                                                    <button onClick={() => handleSaveSlotLabel(slot.id)} className="text-green-600 hover:text-green-700 transition"><Check className="w-3 h-3" /></button>
+                                                    <button onClick={() => setEditingLabelSlotId(null)} className="text-gray-400 hover:text-gray-600 transition"><X className="w-3 h-3" /></button>
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => { setEditingLabelSlotId(slot.id); setLabelDraft(slot.label || '') }}
+                                                    className="text-left text-[9px] text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition truncate leading-tight mt-auto"
+                                                  >
+                                                    {slot.label || <span className="italic">+ etiqueta</span>}
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </td>
+                                          )
+                                        })}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* ── Barberos ── */}
               <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
