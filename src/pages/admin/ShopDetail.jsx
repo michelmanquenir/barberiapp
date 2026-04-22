@@ -186,6 +186,10 @@ function ShopDetail() {
   const [editingLabelSlotId, setEditingLabelSlotId] = useState(null)
   const [labelDraft, setLabelDraft] = useState('')
   const [slotPickerShelfId, setSlotPickerShelfId] = useState(null) // shelf seleccionada en picker del form
+  // Asignación de producto a slot desde la grilla
+  const [assigningSlotId, setAssigningSlotId] = useState(null)    // slot que está siendo asignado
+  const [slotAssignSearch, setSlotAssignSearch] = useState('')     // filtro búsqueda en dropdown
+  const [slotAssigning, setSlotAssigning] = useState(false)        // spinner de guardado
 
   // ── Categorías de negocio (para detectar tipo de negocio) ────────────────────
   const [categories, setCategories] = useState([])
@@ -934,6 +938,34 @@ function ShopDetail() {
       setEditingLabelSlotId(null)
     } catch {
       toast.error('No se pudo actualizar la etiqueta')
+    }
+  }
+
+  /** Asigna un producto a un slot desde la grilla de bodega */
+  const handleAssignToSlot = async (slotId, productId, shelfId) => {
+    setSlotAssigning(true)
+    try {
+      await api.assignProductSlot(productId, slotId)
+      await Promise.all([loadShelfGrid(shelfId), loadProducts()])
+      setAssigningSlotId(null)
+      setSlotAssignSearch('')
+    } catch {
+      toast.error('No se pudo asignar el producto')
+    } finally {
+      setSlotAssigning(false)
+    }
+  }
+
+  /** Quita el producto de un slot desde la grilla */
+  const handleRemoveFromSlot = async (productId, shelfId) => {
+    setSlotAssigning(true)
+    try {
+      await api.assignProductSlot(productId, -1)
+      await Promise.all([loadShelfGrid(shelfId), loadProducts()])
+    } catch {
+      toast.error('No se pudo quitar el producto')
+    } finally {
+      setSlotAssigning(false)
     }
   }
 
@@ -1896,7 +1928,7 @@ function ShopDetail() {
                             >
                               <option value="">Sin estantería</option>
                               {shelves.map(s => (
-                                <option key={s.id} value={s.id}>{s.name} ({s.rows > 0 ? String.fromCharCode(65, s.rows - 1) : 'A'}{s.columns})</option>
+                                <option key={s.id} value={s.id}>{s.name} (A–{String.fromCharCode(64 + s.rows)}{s.columns})</option>
                               ))}
                             </select>
                             {/* Selector de posición */}
@@ -2266,7 +2298,7 @@ function ShopDetail() {
                         )}
                         {!editingShelf && (
                           <p className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 rounded-lg px-3 py-2">
-                            Se crearán <strong>{shelfForm.rows * shelfForm.columns}</strong> posiciones: {String.fromCharCode(65)}1 → {String.fromCharCode(64 + Math.min(26, shelfForm.rows))}{shelfForm.columns}
+                            Se crearán <strong>{shelfForm.rows * shelfForm.columns}</strong> posiciones: A1 → {String.fromCharCode(64 + Math.min(26, shelfForm.rows))}{shelfForm.columns}
                           </p>
                         )}
                       </div>
@@ -2360,7 +2392,7 @@ function ShopDetail() {
                                     <tr>
                                       <th className="w-8" />
                                       {colHeaders.map(c => (
-                                        <th key={c} className="w-28 px-1 pb-1 text-center text-gray-400 dark:text-gray-500 font-medium">{c}</th>
+                                        <th key={c} className="w-32 px-1 pb-1 text-center text-gray-400 dark:text-gray-500 font-medium">{c}</th>
                                       ))}
                                     </tr>
                                   </thead>
@@ -2373,25 +2405,94 @@ function ShopDetail() {
                                           const slot = grid.slots.find(s => s.code === code)
                                           if (!slot) return <td key={c} />
                                           const isEmpty = !slot.productId
+                                          const isAssigning = assigningSlotId === slot.id
+                                          // Productos activos filtrados por búsqueda (excluir los ya asignados a otro slot)
+                                          const availableProducts = products.filter(p =>
+                                            p.active &&
+                                            (!slotAssignSearch || p.name?.toLowerCase().includes(slotAssignSearch.toLowerCase())) &&
+                                            (p.shelfSlotId == null || p.shelfSlotId === slot.id || !slot.productId)
+                                          )
                                           return (
-                                            <td key={c} className="p-0.5">
-                                              <div className={`rounded-lg border p-1.5 min-h-[60px] flex flex-col gap-0.5 transition ${isEmpty ? 'border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800' : 'border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950'}`}>
-                                                {/* Código del slot */}
-                                                <span className={`font-mono font-bold text-[10px] ${isEmpty ? 'text-gray-300 dark:text-gray-600' : 'text-indigo-600 dark:text-indigo-400'}`}>{code}</span>
-                                                {isEmpty ? (
-                                                  <span className="text-[9px] text-gray-300 dark:text-gray-600 leading-tight">Vacío</span>
+                                            <td key={c} className="p-0.5 align-top">
+                                              <div className={`rounded-lg border p-1.5 min-h-[72px] flex flex-col gap-0.5 transition ${isEmpty ? 'border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800' : 'border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950'}`}>
+                                                {/* Código + quitar */}
+                                                <div className="flex items-center justify-between">
+                                                  <span className={`font-mono font-bold text-[10px] ${isEmpty ? 'text-gray-300 dark:text-gray-600' : 'text-indigo-600 dark:text-indigo-400'}`}>{code}</span>
+                                                  {!isEmpty && !isAssigning && (
+                                                    <button
+                                                      type="button"
+                                                      disabled={slotAssigning}
+                                                      onClick={() => handleRemoveFromSlot(slot.productId, shelf.id)}
+                                                      className="text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition"
+                                                      title="Quitar producto">
+                                                      <X className="w-2.5 h-2.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
+
+                                                {/* Contenido del slot */}
+                                                {isAssigning ? (
+                                                  /* Panel de asignación */
+                                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                                    <input
+                                                      autoFocus
+                                                      type="text"
+                                                      value={slotAssignSearch}
+                                                      onChange={e => setSlotAssignSearch(e.target.value)}
+                                                      placeholder="Buscar..."
+                                                      className="text-[9px] px-1 py-0.5 border border-indigo-300 dark:border-indigo-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none w-full"
+                                                    />
+                                                    <div className="max-h-24 overflow-y-auto flex flex-col gap-0.5">
+                                                      {availableProducts.slice(0, 12).map(prod => (
+                                                        <button
+                                                          key={prod.id}
+                                                          type="button"
+                                                          disabled={slotAssigning}
+                                                          onClick={() => handleAssignToSlot(slot.id, prod.id, shelf.id)}
+                                                          className="text-left text-[9px] px-1 py-0.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-700 dark:text-gray-200 transition truncate flex items-center gap-1">
+                                                          {prod.imageUrl
+                                                            ? <img src={prod.imageUrl} alt="" className="w-4 h-4 rounded object-cover flex-shrink-0" />
+                                                            : <Package className="w-3 h-3 text-gray-400 flex-shrink-0" />}
+                                                          {prod.name}
+                                                        </button>
+                                                      ))}
+                                                      {availableProducts.length === 0 && (
+                                                        <p className="text-[9px] text-gray-400 italic px-1">Sin resultados</p>
+                                                      )}
+                                                    </div>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => { setAssigningSlotId(null); setSlotAssignSearch('') }}
+                                                      className="text-[9px] text-gray-400 hover:text-gray-600 transition text-center mt-0.5">
+                                                      Cancelar
+                                                    </button>
+                                                  </div>
+                                                ) : isEmpty ? (
+                                                  /* Slot vacío → botón asignar */
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => { setAssigningSlotId(slot.id); setSlotAssignSearch('') }}
+                                                    className="flex-1 flex items-center justify-center gap-0.5 text-[9px] text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition border border-dashed border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 rounded p-1 mt-0.5">
+                                                    <Plus className="w-2.5 h-2.5" />Asignar
+                                                  </button>
                                                 ) : (
-                                                  <>
+                                                  /* Slot ocupado → info del producto */
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => { setAssigningSlotId(slot.id); setSlotAssignSearch('') }}
+                                                    className="flex-1 flex flex-col gap-0.5 text-left hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded p-0.5 transition"
+                                                    title="Cambiar producto">
                                                     {slot.productImageUrl
-                                                      ? <img src={slot.productImageUrl} alt={slot.productName} className="w-7 h-7 rounded object-cover border border-indigo-200 dark:border-indigo-700" />
-                                                      : <div className="w-7 h-7 rounded bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center"><Package className="w-3 h-3 text-indigo-400" /></div>
+                                                      ? <img src={slot.productImageUrl} alt={slot.productName} className="w-8 h-8 rounded object-cover border border-indigo-200 dark:border-indigo-700" />
+                                                      : <div className="w-8 h-8 rounded bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center"><Package className="w-3.5 h-3.5 text-indigo-400" /></div>
                                                     }
                                                     <p className="text-[9px] font-medium text-gray-700 dark:text-gray-200 leading-tight line-clamp-2">{slot.productName}</p>
                                                     <p className="text-[9px] text-gray-400">{slot.productStock} uds.</p>
-                                                  </>
+                                                  </button>
                                                 )}
+
                                                 {/* Etiqueta editable */}
-                                                {editingLabelSlotId === slot.id ? (
+                                                {!isAssigning && (editingLabelSlotId === slot.id ? (
                                                   <div className="flex gap-0.5 mt-0.5" onClick={e => e.stopPropagation()}>
                                                     <input
                                                       autoFocus
@@ -2409,11 +2510,11 @@ function ShopDetail() {
                                                   <button
                                                     type="button"
                                                     onClick={() => { setEditingLabelSlotId(slot.id); setLabelDraft(slot.label || '') }}
-                                                    className="text-left text-[9px] text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition truncate leading-tight mt-auto"
+                                                    className="text-left text-[9px] text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition truncate leading-tight"
                                                   >
-                                                    {slot.label || <span className="italic">+ etiqueta</span>}
+                                                    {slot.label || <span className="italic opacity-50">+ etiqueta</span>}
                                                   </button>
-                                                )}
+                                                ))}
                                               </div>
                                             </td>
                                           )
