@@ -1043,6 +1043,20 @@ function ShopDetail() {
 
   useEffect(() => { if (isProductShop) loadShelves() }, [loadShelves, isProductShop])
 
+  // ── Variables del modal de slot (calculadas aquí para evitar IIFE en JSX) ──
+  const modalSlot = slotModal
+    ? (shelfGrids[slotModal.shelfId]?.slots?.find(s => s.id === slotModal.slotId) ?? null)
+    : null
+  const modalProducts = modalSlot?.products ?? []
+  const modalSlotProductIds = new Set(modalProducts.map(sp => sp.productId))
+  const modalAvailable = slotModal
+    ? products.filter(p =>
+        p.active &&
+        !modalSlotProductIds.has(p.id) &&
+        (!slotModalSearch || p.name?.toLowerCase().includes(slotModalSearch.toLowerCase()))
+      )
+    : []
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
@@ -2886,20 +2900,11 @@ function SchedulePanel({ schedules, loading, schedForm, setSchedForm, saving, de
     </div>
 
     {/* ── Modal de detalle de slot ── */}
-    {slotModal && (() => {
-      const modalSlot = shelfGrids[slotModal.shelfId]?.slots?.find(s => s.id === slotModal.slotId) ?? null
-      const modalProducts = modalSlot?.products ?? []
-      const slotProductIds = new Set(modalProducts.map(sp => sp.productId))
-      const modalAvailable = products.filter(p =>
-        p.active &&
-        !slotProductIds.has(p.id) &&
-        (!slotModalSearch || p.name?.toLowerCase().includes(slotModalSearch.toLowerCase()))
-      )
-      return (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={closeSlotModal}
-        >
+    {slotModal && (
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={closeSlotModal}
+      >
           <div
             className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col"
             onClick={e => e.stopPropagation()}
@@ -3021,8 +3026,7 @@ function SchedulePanel({ schedules, loading, schedForm, setSchedForm, saving, de
             </div>
           </div>
         </div>
-      )
-    })()}
+    )}
     </>
   )
 }
