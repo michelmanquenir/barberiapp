@@ -944,11 +944,15 @@ function ShopDetail() {
   /** Asigna un producto a un slot desde la grilla de bodega */
   const handleAssignToSlot = async (slotId, productId, shelfId) => {
     setSlotAssigning(true)
+    // Capturar info antes del reload para el mensaje
+    const slotCode = shelfGrids[shelfId]?.slots?.find(s => s.id === slotId)?.code ?? ''
+    const productName = products.find(p => p.id === productId)?.name ?? 'Producto'
     try {
       await api.assignProductSlot(productId, slotId)
       await Promise.all([loadShelfGrid(shelfId), loadProducts()])
       setAssigningSlotId(null)
       setSlotAssignSearch('')
+      toast.success(`"${productName}" guardado en ${slotCode}`)
     } catch {
       toast.error('No se pudo asignar el producto')
     } finally {
@@ -962,6 +966,7 @@ function ShopDetail() {
     try {
       await api.assignProductSlot(productId, -1)
       await Promise.all([loadShelfGrid(shelfId), loadProducts()])
+      toast.success('Producto removido de la posición')
     } catch {
       toast.error('No se pudo quitar el producto')
     } finally {
@@ -2381,89 +2386,94 @@ function ShopDetail() {
 
                           {/* Grilla expandida */}
                           {isExpanded && (
-                            <div className="p-4 overflow-x-auto">
+                            <div className="p-5">
                               {isLoadingGrid ? (
-                                <div className="flex justify-center py-6">
-                                  <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                                <div className="flex justify-center py-10">
+                                  <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
                                 </div>
                               ) : grid ? (
-                                <table className="border-collapse text-xs">
-                                  <thead>
-                                    <tr>
-                                      <th className="w-8" />
-                                      {colHeaders.map(c => (
-                                        <th key={c} className="w-32 px-1 pb-1 text-center text-gray-400 dark:text-gray-500 font-medium">{c}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {rowLetters.map(rowLetter => (
-                                      <tr key={rowLetter}>
-                                        <td className="pr-2 text-center text-gray-400 dark:text-gray-500 font-bold text-xs">{rowLetter}</td>
+                                <div className="space-y-7">
+                                  {rowLetters.map(rowLetter => (
+                                    <div key={rowLetter}>
+                                      {/* Encabezado de fila */}
+                                      <div className="flex items-center gap-3 mb-3">
+                                        <span className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center font-bold text-sm text-indigo-700 dark:text-indigo-300 flex-shrink-0 shadow-sm">
+                                          {rowLetter}
+                                        </span>
+                                        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                                      </div>
+
+                                      {/* Tarjetas de slots */}
+                                      <div className="flex flex-wrap gap-3">
                                         {colHeaders.map(c => {
                                           const code = `${rowLetter}${c}`
                                           const slot = grid.slots.find(s => s.code === code)
-                                          if (!slot) return <td key={c} />
-                                          const isEmpty = !slot.productId
+                                          if (!slot) return null
+                                          const slotProducts = slot.products ?? []
+                                          const isEmpty = slotProducts.length === 0
                                           const isAssigning = assigningSlotId === slot.id
-                                          // Productos activos filtrados por búsqueda (excluir los ya asignados a otro slot)
+                                          // Excluir productos ya en este slot; todos los demás activos son elegibles
+                                          const slotProductIds = new Set(slotProducts.map(sp => sp.productId))
                                           const availableProducts = products.filter(p =>
                                             p.active &&
-                                            (!slotAssignSearch || p.name?.toLowerCase().includes(slotAssignSearch.toLowerCase())) &&
-                                            (p.shelfSlotId == null || p.shelfSlotId === slot.id || !slot.productId)
+                                            !slotProductIds.has(p.id) &&
+                                            (!slotAssignSearch || p.name?.toLowerCase().includes(slotAssignSearch.toLowerCase()))
                                           )
                                           return (
-                                            <td key={c} className="p-0.5 align-top">
-                                              <div className={`rounded-lg border p-1.5 min-h-[72px] flex flex-col gap-0.5 transition ${isEmpty ? 'border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800' : 'border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950'}`}>
-                                                {/* Código + quitar */}
-                                                <div className="flex items-center justify-between">
-                                                  <span className={`font-mono font-bold text-[10px] ${isEmpty ? 'text-gray-300 dark:text-gray-600' : 'text-indigo-600 dark:text-indigo-400'}`}>{code}</span>
-                                                  {!isEmpty && !isAssigning && (
-                                                    <button
-                                                      type="button"
-                                                      disabled={slotAssigning}
-                                                      onClick={() => handleRemoveFromSlot(slot.productId, shelf.id)}
-                                                      className="text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition"
-                                                      title="Quitar producto">
-                                                      <X className="w-2.5 h-2.5" />
-                                                    </button>
-                                                  )}
-                                                </div>
+                                            <div
+                                              key={c}
+                                              className={`relative rounded-xl border-2 flex flex-col transition-all duration-200 ${
+                                                isAssigning
+                                                  ? 'border-indigo-400 dark:border-indigo-500 bg-white dark:bg-gray-900 shadow-xl w-56'
+                                                  : isEmpty
+                                                    ? 'border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 w-44 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md'
+                                                    : 'border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/60 w-44 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md'
+                                              }`}
+                                              style={{ minHeight: '140px' }}
+                                            >
+                                              {/* Cabecera de la tarjeta */}
+                                              <div className={`flex items-center justify-between px-3 py-2 rounded-t-[10px] ${isEmpty ? 'bg-gray-100 dark:bg-gray-800' : 'bg-indigo-100 dark:bg-indigo-900/70'}`}>
+                                                <span className={`font-mono font-bold text-xs tracking-wide ${isEmpty ? 'text-gray-400 dark:text-gray-500' : 'text-indigo-700 dark:text-indigo-300'}`}>{code}</span>
+                                                {!isEmpty && (
+                                                  <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium">{slotProducts.length} producto{slotProducts.length !== 1 ? 's' : ''}</span>
+                                                )}
+                                              </div>
 
-                                                {/* Contenido del slot */}
+                                              {/* Cuerpo de la tarjeta */}
+                                              <div className="flex-1 flex flex-col p-3">
                                                 {isAssigning ? (
                                                   /* Panel de asignación */
-                                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                                  <div className="flex flex-col gap-2">
                                                     <input
                                                       autoFocus
                                                       type="text"
                                                       value={slotAssignSearch}
                                                       onChange={e => setSlotAssignSearch(e.target.value)}
-                                                      placeholder="Buscar..."
-                                                      className="text-[9px] px-1 py-0.5 border border-indigo-300 dark:border-indigo-600 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none w-full"
+                                                      placeholder="Buscar producto..."
+                                                      className="text-xs px-2.5 py-1.5 border border-indigo-300 dark:border-indigo-600 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none w-full focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-700"
                                                     />
-                                                    <div className="max-h-24 overflow-y-auto flex flex-col gap-0.5">
-                                                      {availableProducts.slice(0, 12).map(prod => (
+                                                    <div className="max-h-44 overflow-y-auto flex flex-col gap-0.5 -mx-1 px-1">
+                                                      {availableProducts.slice(0, 20).map(prod => (
                                                         <button
                                                           key={prod.id}
                                                           type="button"
                                                           disabled={slotAssigning}
                                                           onClick={() => handleAssignToSlot(slot.id, prod.id, shelf.id)}
-                                                          className="text-left text-[9px] px-1 py-0.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-700 dark:text-gray-200 transition truncate flex items-center gap-1">
+                                                          className="text-left text-xs px-2 py-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/60 text-gray-700 dark:text-gray-200 transition flex items-center gap-2">
                                                           {prod.imageUrl
-                                                            ? <img src={prod.imageUrl} alt="" className="w-4 h-4 rounded object-cover flex-shrink-0" />
-                                                            : <Package className="w-3 h-3 text-gray-400 flex-shrink-0" />}
-                                                          {prod.name}
+                                                            ? <img src={prod.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700" />
+                                                            : <div className="w-7 h-7 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"><Package className="w-4 h-4 text-gray-400" /></div>}
+                                                          <span className="truncate font-medium">{prod.name}</span>
                                                         </button>
                                                       ))}
                                                       {availableProducts.length === 0 && (
-                                                        <p className="text-[9px] text-gray-400 italic px-1">Sin resultados</p>
+                                                        <p className="text-xs text-gray-400 italic px-2 py-2 text-center">Sin resultados</p>
                                                       )}
                                                     </div>
                                                     <button
                                                       type="button"
                                                       onClick={() => { setAssigningSlotId(null); setSlotAssignSearch('') }}
-                                                      className="text-[9px] text-gray-400 hover:text-gray-600 transition text-center mt-0.5">
+                                                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition text-center py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
                                                       Cancelar
                                                     </button>
                                                   </div>
@@ -2472,57 +2482,80 @@ function ShopDetail() {
                                                   <button
                                                     type="button"
                                                     onClick={() => { setAssigningSlotId(slot.id); setSlotAssignSearch('') }}
-                                                    className="flex-1 flex items-center justify-center gap-0.5 text-[9px] text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition border border-dashed border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 rounded p-1 mt-0.5">
-                                                    <Plus className="w-2.5 h-2.5" />Asignar
+                                                    className="flex-1 flex flex-col items-center justify-center gap-2 text-gray-300 dark:text-gray-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950 p-3">
+                                                    <Plus className="w-7 h-7" />
+                                                    <span className="text-xs font-semibold leading-tight text-center">Agregar<br/>producto</span>
                                                   </button>
                                                 ) : (
-                                                  /* Slot ocupado → info del producto */
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => { setAssigningSlotId(slot.id); setSlotAssignSearch('') }}
-                                                    className="flex-1 flex flex-col gap-0.5 text-left hover:bg-indigo-100 dark:hover:bg-indigo-900 rounded p-0.5 transition"
-                                                    title="Cambiar producto">
-                                                    {slot.productImageUrl
-                                                      ? <img src={slot.productImageUrl} alt={slot.productName} className="w-8 h-8 rounded object-cover border border-indigo-200 dark:border-indigo-700" />
-                                                      : <div className="w-8 h-8 rounded bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center"><Package className="w-3.5 h-3.5 text-indigo-400" /></div>
-                                                    }
-                                                    <p className="text-[9px] font-medium text-gray-700 dark:text-gray-200 leading-tight line-clamp-2">{slot.productName}</p>
-                                                    <p className="text-[9px] text-gray-400">{slot.productStock} uds.</p>
-                                                  </button>
-                                                )}
-
-                                                {/* Etiqueta editable */}
-                                                {!isAssigning && (editingLabelSlotId === slot.id ? (
-                                                  <div className="flex gap-0.5 mt-0.5" onClick={e => e.stopPropagation()}>
-                                                    <input
-                                                      autoFocus
-                                                      type="text"
-                                                      value={labelDraft}
-                                                      onChange={e => setLabelDraft(e.target.value)}
-                                                      onKeyDown={e => { if (e.key === 'Enter') handleSaveSlotLabel(slot.id); if (e.key === 'Escape') setEditingLabelSlotId(null) }}
-                                                      placeholder="Etiqueta..."
-                                                      className="flex-1 text-[9px] px-1 py-0.5 border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none min-w-0"
-                                                    />
-                                                    <button onClick={() => handleSaveSlotLabel(slot.id)} className="text-green-600 hover:text-green-700 transition"><Check className="w-3 h-3" /></button>
-                                                    <button onClick={() => setEditingLabelSlotId(null)} className="text-gray-400 hover:text-gray-600 transition"><X className="w-3 h-3" /></button>
+                                                  /* Slot ocupado → lista de productos */
+                                                  <div className="flex flex-col gap-1.5">
+                                                    {slotProducts.map(sp => (
+                                                      <div key={sp.productId} className="flex items-center gap-2 group">
+                                                        {sp.productImageUrl
+                                                          ? <img src={sp.productImageUrl} alt={sp.productName} className="w-8 h-8 rounded-lg object-cover border border-indigo-200 dark:border-indigo-700 flex-shrink-0" />
+                                                          : <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center border border-indigo-200 dark:border-indigo-700 flex-shrink-0"><Package className="w-4 h-4 text-indigo-400" /></div>
+                                                        }
+                                                        <div className="flex-1 min-w-0">
+                                                          <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">{sp.productName}</p>
+                                                          <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">{sp.productStock} uds.</p>
+                                                        </div>
+                                                        <button
+                                                          type="button"
+                                                          disabled={slotAssigning}
+                                                          onClick={() => handleRemoveFromSlot(sp.productId, shelf.id)}
+                                                          className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                                          title="Quitar del slot">
+                                                          <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                      </div>
+                                                    ))}
+                                                    {/* Botón agregar otro producto */}
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => { setAssigningSlotId(slot.id); setSlotAssignSearch('') }}
+                                                      className="flex items-center justify-center gap-1 mt-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition py-1 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-dashed border-indigo-200 dark:border-indigo-700 hover:border-indigo-400 font-medium w-full">
+                                                      <Plus className="w-3 h-3" />
+                                                      Agregar
+                                                    </button>
                                                   </div>
-                                                ) : (
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => { setEditingLabelSlotId(slot.id); setLabelDraft(slot.label || '') }}
-                                                    className="text-left text-[9px] text-gray-400 dark:text-gray-500 hover:text-indigo-500 transition truncate leading-tight"
-                                                  >
-                                                    {slot.label || <span className="italic opacity-50">+ etiqueta</span>}
-                                                  </button>
-                                                ))}
+                                                )}
                                               </div>
-                                            </td>
+
+                                              {/* Etiqueta editable */}
+                                              {!isAssigning && (
+                                                <div className="px-3 pb-2.5">
+                                                  {editingLabelSlotId === slot.id ? (
+                                                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                                                      <input
+                                                        autoFocus
+                                                        type="text"
+                                                        value={labelDraft}
+                                                        onChange={e => setLabelDraft(e.target.value)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveSlotLabel(slot.id); if (e.key === 'Escape') setEditingLabelSlotId(null) }}
+                                                        placeholder="Etiqueta..."
+                                                        className="flex-1 text-xs px-2 py-1 border border-indigo-300 dark:border-indigo-700 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 outline-none min-w-0"
+                                                      />
+                                                      <button onClick={() => handleSaveSlotLabel(slot.id)} className="text-green-600 hover:text-green-700 transition p-1"><Check className="w-3.5 h-3.5" /></button>
+                                                      <button onClick={() => setEditingLabelSlotId(null)} className="text-gray-400 hover:text-gray-600 transition p-1"><X className="w-3.5 h-3.5" /></button>
+                                                    </div>
+                                                  ) : (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => { setEditingLabelSlotId(slot.id); setLabelDraft(slot.label || '') }}
+                                                      className="w-full text-left text-[10px] text-gray-400 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition truncate border-t border-gray-100 dark:border-gray-800 pt-2 mt-0.5"
+                                                    >
+                                                      {slot.label ? slot.label : <span className="italic opacity-60">+ etiqueta</span>}
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
                                           )
                                         })}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               ) : null}
                             </div>
                           )}
