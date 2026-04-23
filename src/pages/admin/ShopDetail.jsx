@@ -874,7 +874,11 @@ function ShopDetail() {
     try {
       await api.adjustStock(existing.id, newStock)
       if (weightedAvgCost !== null && weightedAvgCost !== existing.purchasePrice) {
-        await api.updateProduct(existing.id, { purchasePrice: weightedAvgCost })
+        // Si el producto está vinculado al catálogo global, incluir globalProductId para
+        // que el backend NO lo desvinculey NO borre imagen/categoría/nombre del catálogo
+        const updatePayload = { purchasePrice: weightedAvgCost }
+        if (existing.globalProductId != null) updatePayload.globalProductId = existing.globalProductId
+        await api.updateProduct(existing.id, updatePayload)
       }
       const shelvesToRefresh = new Set()
       if (prevShelfId) shelvesToRefresh.add(prevShelfId)
