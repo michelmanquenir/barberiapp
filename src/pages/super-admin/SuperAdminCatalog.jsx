@@ -3,6 +3,7 @@ import {
   BookOpen, Plus, Pencil, Search, X,
   ToggleLeft, ToggleRight, ShoppingBag,
   Barcode, Tag, ChevronLeft, ChevronRight,
+  ChevronsLeft, ChevronsRight,
   Image as ImageIcon, Loader2, ScanLine, Trash2,
 } from 'lucide-react'
 import SuperAdminLayout from './SuperAdminLayout'
@@ -265,12 +266,14 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 function SuperAdminCatalog() {
-  const [data, setData]             = useState({ content: [], totalElements: 0, totalPages: 0, page: 0 })
-  const [loading, setLoading]       = useState(true)
-  const [search, setSearch]         = useState('')
-  const [page, setPage]             = useState(0)
-  const [modal, setModal]           = useState(null)   // null | 'create' | { ...product }
-  const [actionId, setActionId]     = useState(null)
+  const [data, setData]               = useState({ content: [], totalElements: 0, totalPages: 0, page: 0 })
+  const [loading, setLoading]         = useState(true)
+  const [search, setSearch]           = useState('')
+  const [page, setPage]               = useState(0)
+  const [pageBeforeSearch, setPageBeforeSearch] = useState(0)  // página a restaurar al limpiar búsqueda
+  const [goToInput, setGoToInput]     = useState('')
+  const [modal, setModal]             = useState(null)   // null | 'create' | { ...product }
+  const [actionId, setActionId]       = useState(null)
   const [productCategories, setProductCategories] = useState([])
   const searchTimer = useRef(null)
 
@@ -292,17 +295,37 @@ function SuperAdminCatalog() {
 
   useEffect(() => { load() }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced search
+  // Debounced search — guarda la página actual al empezar a buscar y la restaura al limpiar
   const handleSearch = (val) => {
+    const startingSearch = search === '' && val !== ''
+    const clearingSearch = search !== '' && val === ''
+
+    if (startingSearch) setPageBeforeSearch(page)
+
+    const targetPage = clearingSearch ? pageBeforeSearch : 0
     setSearch(val)
-    setPage(0)
+    if (!clearingSearch) setPage(0)
     clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => load(val, 0), 300)
+    searchTimer.current = setTimeout(() => {
+      if (clearingSearch) setPage(pageBeforeSearch)
+      load(val, targetPage)
+    }, 300)
   }
 
   const goToPage = (p) => {
     setPage(p)
+    setGoToInput('')
     load(search, p)
+  }
+
+  const handleGoToSubmit = (e) => {
+    e.preventDefault()
+    const n = parseInt(goToInput, 10)
+    if (!isNaN(n)) {
+      const clamped = Math.min(Math.max(n - 1, 0), (data.totalPages ?? 1) - 1)
+      goToPage(clamped)
+    }
+    setGoToInput('')
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -606,29 +629,55 @@ function SuperAdminCatalog() {
           </div>
 
           {/* Paginador */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Página {page + 1} de {totalPages} · {totalItems} productos
+          {totalPages > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+              {/* Info de rango */}
+              <p className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                {totalItems === 0 ? 'Sin resultados' : (
+                  <>
+                    Mostrando{' '}
+                    <span className="font-semibold text-gray-700 dark:text-gray-200">
+                      {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalItems)}
+                    </span>{' '}
+                    de{' '}
+                    <span className="font-semibold text-gray-700 dark:text-gray-200">{totalItems}</span>
+                    {search && <span className="text-gray-400"> (filtrado)</span>}
+                  </>
+                )}
               </p>
-              <div className="flex items-center gap-1">
+
+              <div className="flex items-center gap-1 flex-wrap">
+                {/* Primera página */}
+                <button
+                  onClick={() => goToPage(0)}
+                  disabled={page === 0}
+                  title="Primera página"
+                  className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronsLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                </button>
+
+                {/* Anterior */}
                 <button
                   onClick={() => goToPage(page - 1)}
                   disabled={page === 0}
+                  title="Página anterior"
                   className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
+
+                {/* Números de página */}
                 {Array.from({ length: totalPages }, (_, i) => i)
-                  .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1)
+                  .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 2)
                   .reduce((acc, i, idx, arr) => {
-                    if (idx > 0 && i - arr[idx - 1] > 1) acc.push('...')
+                    if (idx > 0 && i - arr[idx - 1] > 1) acc.push('...' + i)
                     acc.push(i)
                     return acc
                   }, [])
                   .map((item, idx) =>
-                    item === '...' ? (
-                      <span key={`ellipsis-${idx}`} className="px-1 text-gray-400 text-xs">…</span>
+                    typeof item === 'string' ? (
+                      <span key={`ellipsis-${idx}`} className="w-7 text-center text-gray-400 text-xs select-none">…</span>
                     ) : (
                       <button
                         key={item}
@@ -643,13 +692,48 @@ function SuperAdminCatalog() {
                       </button>
                     )
                   )}
+
+                {/* Siguiente */}
                 <button
                   onClick={() => goToPage(page + 1)}
                   disabled={page >= totalPages - 1}
+                  title="Página siguiente"
                   className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
+
+                {/* Última página */}
+                <button
+                  onClick={() => goToPage(totalPages - 1)}
+                  disabled={page >= totalPages - 1}
+                  title="Última página"
+                  className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronsRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                </button>
+
+                {/* Ir a página */}
+                {totalPages > 5 && (
+                  <form onSubmit={handleGoToSubmit} className="flex items-center gap-1.5 ml-2 border-l border-gray-200 dark:border-gray-700 pl-2">
+                    <label className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">Ir a</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={goToInput}
+                      onChange={e => setGoToInput(e.target.value)}
+                      placeholder={page + 1}
+                      className="w-14 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-xs text-center bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                    />
+                    <button
+                      type="submit"
+                      className="px-2 py-1 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition"
+                    >
+                      Ir
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           )}
