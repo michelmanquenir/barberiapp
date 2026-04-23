@@ -453,6 +453,10 @@ export const api = {
     // Catálogo global (super admin)
     listGlobalProducts: (q = '', page = 0, size = 20) =>
       request(`/super-admin/global-products?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
+    getGlobalProductUsage: (id) =>
+      request(`/super-admin/global-products/${id}/usage`),
+    deleteGlobalProduct: (id) =>
+      request(`/super-admin/global-products/${id}`, { method: 'DELETE' }),
 
     // Categorías de producto
     listProductCategories: () => request('/super-admin/product-categories'),

@@ -3,7 +3,7 @@ import {
   BookOpen, Plus, Pencil, Search, X,
   ToggleLeft, ToggleRight, ShoppingBag,
   Barcode, Tag, ChevronLeft, ChevronRight,
-  Image as ImageIcon, Loader2, ScanLine,
+  Image as ImageIcon, Loader2, ScanLine, Trash2,
 } from 'lucide-react'
 import SuperAdminLayout from './SuperAdminLayout'
 import { api } from '../../lib/api'
@@ -364,6 +364,46 @@ function SuperAdminCatalog() {
     active: product.active,
   })
 
+  const handleDelete = async (product) => {
+    setActionId(product.id)
+    let linkedProducts = 0
+    try {
+      const usage = await api.superAdmin.getGlobalProductUsage(product.id)
+      linkedProducts = usage.linkedProducts ?? 0
+    } catch {
+      toast.error('No se pudo verificar el uso del producto')
+      setActionId(null)
+      return
+    } finally {
+      setActionId(null)
+    }
+
+    const hasUsage = linkedProducts > 0
+    const ok = await confirm(
+      `¿Eliminar "${product.name}" del catálogo?`,
+      hasUsage
+        ? `Este producto está vinculado en ${linkedProducts} ${linkedProducts === 1 ? 'negocio' : 'negocios'}. Al eliminarlo se desvinculará de todos ellos (los negocios conservarán su propio stock e historial).`
+        : 'Esta acción no se puede deshacer.',
+      {
+        confirmText: 'Sí, eliminar',
+        icon: hasUsage ? 'warning' : 'question',
+        confirmButtonColor: '#dc2626',
+      }
+    )
+    if (!ok) return
+
+    setActionId(product.id)
+    try {
+      await api.superAdmin.deleteGlobalProduct(product.id)
+      toast.success(`"${product.name}" eliminado del catálogo`)
+      load(search, page)
+    } catch {
+      toast.error('No se pudo eliminar el producto')
+    } finally {
+      setActionId(null)
+    }
+  }
+
   const products    = data.content ?? []
   const totalPages  = data.totalPages ?? 0
   const totalItems  = data.totalElements ?? 0
@@ -547,6 +587,14 @@ function SuperAdminCatalog() {
                             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                           >
                             <Pencil className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p)}
+                            disabled={isActing}
+                            title="Eliminar del catálogo"
+                            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
                           </button>
                         </div>
                       </td>
