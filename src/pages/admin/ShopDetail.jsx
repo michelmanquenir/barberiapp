@@ -851,17 +851,25 @@ function ShopDetail() {
 
   // ── Resolución de duplicado ───────────────────────────────────────────────────
 
-  /** Suma el stock al producto existente y actualiza el precio de costo si cambió */
+  /** Suma el stock al producto existente usando costo promedio ponderado */
   const handleMergeDuplicate = async () => {
     if (!dupWarning) return
     const { existing, pendingPayload, prevShelfId } = dupWarning
-    const newStock = pendingPayload.stock ?? 0
+    const newStock        = pendingPayload.stock ?? 0
     const newPurchasePrice = pendingPayload.purchasePrice ?? null
+    const existingStock   = existing.stock ?? 0
+
+    // Costo promedio ponderado: (stock_actual × costo_actual + nuevas × costo_nuevo) / total
+    const weightedAvgCost =
+      newPurchasePrice != null && existing.purchasePrice != null && (existingStock + newStock) > 0
+        ? Math.round((existingStock * existing.purchasePrice + newStock * newPurchasePrice) / (existingStock + newStock))
+        : newPurchasePrice
+
     setSavingProduct(true)
     try {
       await api.adjustStock(existing.id, newStock)
-      if (newPurchasePrice !== null && newPurchasePrice !== existing.purchasePrice) {
-        await api.updateProduct(existing.id, { purchasePrice: newPurchasePrice })
+      if (weightedAvgCost !== null && weightedAvgCost !== existing.purchasePrice) {
+        await api.updateProduct(existing.id, { purchasePrice: weightedAvgCost })
       }
       const shelvesToRefresh = new Set()
       if (prevShelfId) shelvesToRefresh.add(prevShelfId)
@@ -2941,15 +2949,35 @@ function ShopDetail() {
               </div>
             </div>
 
-            {/* Nota si el costo cambió */}
-            {dupWarning.pendingPayload.purchasePrice != null &&
-             dupWarning.existing.purchasePrice != null &&
-             dupWarning.pendingPayload.purchasePrice !== dupWarning.existing.purchasePrice && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                El precio de costo es diferente. Si sumas al stock existente, el costo se actualizará a <strong>${dupWarning.pendingPayload.purchasePrice.toLocaleString()}</strong>.
-              </p>
-            )}
+            {/* Cálculo de costo promedio ponderado */}
+            {(() => {
+              const existingCost = dupWarning.existing.purchasePrice
+              const newCost      = dupWarning.pendingPayload.purchasePrice
+              const existingQty  = dupWarning.existing.stock ?? 0
+              const newQty       = dupWarning.pendingPayload.stock ?? 0
+              const totalQty     = existingQty + newQty
+              if (existingCost == null || newCost == null || totalQty === 0) return null
+              const avg = Math.round((existingQty * existingCost + newQty * newCost) / totalQty)
+              const margin = dupWarning.pendingPayload.salePrice - avg
+              const costsMatch = avg === existingCost
+              return (
+                <div className={`rounded-xl p-3 text-xs border ${costsMatch ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50' : 'border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20'}`}>
+                  <p className={`font-semibold mb-1.5 ${costsMatch ? 'text-gray-500 dark:text-gray-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                    {costsMatch ? 'Resultado si sumas al stock' : 'Costo promedio ponderado resultante'}
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-600 dark:text-gray-300">
+                    <span>Stock total: <strong>{totalQty}</strong> unidades</span>
+                    <span>Costo promedio: <strong className={newCost !== existingCost ? 'text-amber-700 dark:text-amber-300' : ''}>${avg.toLocaleString()}</strong></span>
+                    <span>Ganancia por unidad: <strong className="text-green-600 dark:text-green-400">${margin.toLocaleString()}</strong></span>
+                  </div>
+                  {newCost !== existingCost && (
+                    <p className="mt-1.5 text-amber-600 dark:text-amber-400">
+                      El costo unitario pasará de <strong>${existingCost.toLocaleString()}</strong> a <strong>${avg.toLocaleString()}</strong> (promedio ponderado).
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* Acciones */}
@@ -2966,7 +2994,11 @@ function ShopDetail() {
               disabled={savingProduct}
               className="w-full py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50"
             >
-              Registrar como lote separado
+              Registrar como lote separado (costo ${ dupWarning.pendingPayload.purchasePrice?.toLocaleString() ?? '—'}, ganancia ${
+                dupWarning.pendingPayload.purchasePrice != null
+                  ? (dupWarning.pendingPayload.salePrice - dupWarning.pendingPayload.purchasePrice).toLocaleString()
+                  : '—'
+              }/u)
             </button>
             <button
               onClick={() => setDupWarning(null)}
