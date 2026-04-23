@@ -786,13 +786,24 @@ function ShopDetail() {
           active: productForm.active,
           shelfSlotId: productForm.shelfSlotId ?? null,
         }
+    // Shelf anterior (solo relevante al editar — para refrescar el shelf de origen si cambió)
+    const prevShelfId = editingProductId
+      ? (products.find(p => p.id === editingProductId)?.shelfId ?? null)
+      : null
+
     try {
       if (editingProductId) {
         await api.updateProduct(editingProductId, payload)
       } else {
         await api.createProduct(shopId, payload)
       }
-      await loadProducts()
+      const shelvesToRefresh = new Set()
+      if (slotPickerShelfId) shelvesToRefresh.add(slotPickerShelfId)
+      if (prevShelfId && prevShelfId !== slotPickerShelfId) shelvesToRefresh.add(prevShelfId)
+      await Promise.all([
+        loadProducts(),
+        ...[...shelvesToRefresh].map(id => loadShelfGrid(id)),
+      ])
       closeProductForm()
     } catch {
       setProductError('No se pudo guardar el producto. Intenta de nuevo.')
