@@ -3,7 +3,7 @@ import {
   ShoppingBag, CheckCircle, XCircle, Clock, Search,
   Store, Tag, Barcode, Package, DollarSign, TrendingUp,
   ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Hash,
-  Calendar, ExternalLink,
+  Calendar, ExternalLink, CheckCheck,
 } from 'lucide-react'
 import SuperAdminLayout from './SuperAdminLayout'
 import { api } from '../../lib/api'
@@ -272,6 +272,41 @@ function SuperAdminProducts() {
     }
   }
 
+  const [approvingAll, setApprovingAll] = useState(false)
+
+  const handleApproveAllPending = async () => {
+    // Obtener el shopId real del primer producto pendiente del filtro actual
+    const pendingInView = products.filter(p => {
+      const status = p.approvalStatus ?? 'ACTIVE'
+      if (status !== 'PENDING') return false
+      if (shopFilter && p.shopName !== shopFilter) return false
+      return true
+    })
+    if (pendingInView.length === 0) return
+    const shopId = pendingInView[0].shopId
+    const shopName = pendingInView[0].shopName ?? shopId
+    const ok = await confirm(
+      `Aprobar ${pendingInView.length} producto${pendingInView.length !== 1 ? 's' : ''} pendiente${pendingInView.length !== 1 ? 's' : ''}`,
+      `Se aprobarán todos los productos pendientes de "${shopName}" y serán visibles en su tienda pública.`,
+      { confirmText: 'Sí, aprobar todos', icon: 'question' }
+    )
+    if (!ok) return
+    setApprovingAll(true)
+    try {
+      const result = await api.superAdmin.approvePendingByShop(shopId)
+      setProducts(prev => prev.map(p =>
+        p.shopId === shopId && (p.approvalStatus ?? 'ACTIVE') === 'PENDING'
+          ? { ...p, approvalStatus: 'ACTIVE' }
+          : p
+      ))
+      toast.success(`${result.approved} producto${result.approved !== 1 ? 's' : ''} aprobado${result.approved !== 1 ? 's' : ''} correctamente`)
+    } catch {
+      toast.error('No se pudieron aprobar los productos')
+    } finally {
+      setApprovingAll(false)
+    }
+  }
+
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort()
   const shops      = [...new Set(products.map(p => p.shopName).filter(Boolean))].sort()
 
@@ -329,6 +364,27 @@ function SuperAdminProducts() {
           </button>
         ))}
       </div>
+
+      {/* Botón aprobar pendientes (visible solo cuando hay productos PENDING) */}
+      {counts.PENDING > 0 && (
+        <div className="flex items-center justify-between mb-4 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              <span className="font-semibold">{counts.PENDING}</span> producto{counts.PENDING !== 1 ? 's' : ''} pendiente{counts.PENDING !== 1 ? 's' : ''} de aprobación
+              {shopFilter && <span className="text-amber-600 dark:text-amber-400"> en "{shopFilter}"</span>}
+            </p>
+          </div>
+          <button
+            onClick={handleApproveAllPending}
+            disabled={approvingAll}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition flex-shrink-0"
+          >
+            <CheckCheck className="w-3.5 h-3.5" />
+            {approvingAll ? 'Aprobando...' : `Aprobar ${shopFilter ? 'del negocio' : 'todos'}`}
+          </button>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">

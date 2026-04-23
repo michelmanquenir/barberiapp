@@ -440,6 +440,7 @@ export const api = {
     listProductsByStatus: (status) => request(`/super-admin/products/status/${status}`),
     approveProduct: (productId) => request(`/super-admin/products/${productId}/approve`, { method: 'PUT' }),
     rejectProduct: (productId) => request(`/super-admin/products/${productId}/reject`, { method: 'PUT' }),
+    approvePendingByShop: (shopId) => request(`/super-admin/products/approve-pending/${shopId}`, { method: 'PUT' }),
 
     // Categorías de negocio
     listCategories: () => request('/super-admin/categories'),
