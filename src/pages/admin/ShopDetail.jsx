@@ -153,6 +153,7 @@ function ShopDetail() {
       sku:     sku     ? others.some(p => (p.sku     || '') === sku)                   : false,
     }
   }, [productForm.name, productForm.barcode, productForm.sku, products, editingProductId])
+  const [dupWarning, setDupWarning] = useState(null) // { existing, pendingPayload, prevShelfId } | null
   const [adjustingStockId, setAdjustingStockId] = useState(null)
   // búsqueda / filtros / paginación
   const [productSearch, setProductSearch] = useState('')
@@ -791,6 +792,20 @@ function ShopDetail() {
       ? (products.find(p => p.id === editingProductId)?.shelfId ?? null)
       : null
 
+    // Detección de duplicado solo al crear (no al editar)
+    if (!editingProductId) {
+      const globalId = selectedGlobalProduct?.id ?? null
+      const nameLC   = (selectedGlobalProduct?.name ?? productForm.name).trim().toLowerCase()
+      const existing = products.find(p =>
+        globalId ? p.globalProductId === globalId : (p.name ?? '').trim().toLowerCase() === nameLC
+      )
+      if (existing) {
+        setSavingProduct(false)
+        setDupWarning({ existing, pendingPayload: payload, prevShelfId })
+        return
+      }
+    }
+
     try {
       if (editingProductId) {
         await api.updateProduct(editingProductId, payload)
@@ -831,6 +846,61 @@ function ShopDetail() {
       await loadProducts()
     } catch {
       toast.error('No se pudo desactivar el producto')
+    }
+  }
+
+  // ── Resolución de duplicado ───────────────────────────────────────────────────
+
+  /** Suma el stock al producto existente y actualiza el precio de costo si cambió */
+  const handleMergeDuplicate = async () => {
+    if (!dupWarning) return
+    const { existing, pendingPayload, prevShelfId } = dupWarning
+    const newStock = pendingPayload.stock ?? 0
+    const newPurchasePrice = pendingPayload.purchasePrice ?? null
+    setSavingProduct(true)
+    try {
+      await api.adjustStock(existing.id, newStock)
+      if (newPurchasePrice !== null && newPurchasePrice !== existing.purchasePrice) {
+        await api.updateProduct(existing.id, { purchasePrice: newPurchasePrice })
+      }
+      const shelvesToRefresh = new Set()
+      if (prevShelfId) shelvesToRefresh.add(prevShelfId)
+      if (existing.shelfId) shelvesToRefresh.add(existing.shelfId)
+      await Promise.all([
+        loadProducts(),
+        ...[...shelvesToRefresh].map(id => loadShelfGrid(id)),
+      ])
+      toast.success(`Stock actualizado: +${newStock} unidades a "${existing.name}"`)
+      setDupWarning(null)
+      closeProductForm()
+    } catch {
+      toast.error('No se pudo actualizar el stock')
+    } finally {
+      setSavingProduct(false)
+    }
+  }
+
+  /** Crea el producto como registro nuevo ignorando el duplicado */
+  const handleForceCreate = async () => {
+    if (!dupWarning) return
+    const { pendingPayload, prevShelfId } = dupWarning
+    setSavingProduct(true)
+    try {
+      await api.createProduct(shopId, pendingPayload)
+      const shelvesToRefresh = new Set()
+      if (slotPickerShelfId) shelvesToRefresh.add(slotPickerShelfId)
+      if (prevShelfId && prevShelfId !== slotPickerShelfId) shelvesToRefresh.add(prevShelfId)
+      await Promise.all([
+        loadProducts(),
+        ...[...shelvesToRefresh].map(id => loadShelfGrid(id)),
+      ])
+      toast.success('Lote nuevo registrado en el inventario')
+      setDupWarning(null)
+      closeProductForm()
+    } catch {
+      toast.error('No se pudo guardar el producto')
+    } finally {
+      setSavingProduct(false)
     }
   }
 
@@ -2823,6 +2893,93 @@ function ShopDetail() {
     </div>
 
     {/* ── Modal de detalle de slot ── */}
+    {/* ── Modal duplicado de producto ───────────────────────────────────────── */}
+    {dupWarning && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+            <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-sm">Producto duplicado</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Este producto ya existe en tu inventario</p>
+            </div>
+          </div>
+
+          {/* Comparación */}
+          <div className="px-6 py-4 space-y-3">
+            {/* Existente */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Registro actual</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">{dupWarning.existing.name}</p>
+              <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <span>Stock: <span className="font-semibold text-gray-700 dark:text-gray-200">{dupWarning.existing.stock ?? 0}</span></span>
+                {dupWarning.existing.purchasePrice != null && (
+                  <span>Costo: <span className="font-semibold text-gray-700 dark:text-gray-200">${dupWarning.existing.purchasePrice.toLocaleString()}</span></span>
+                )}
+                <span>Venta: <span className="font-semibold text-gray-700 dark:text-gray-200">${dupWarning.existing.salePrice?.toLocaleString()}</span></span>
+              </div>
+            </div>
+
+            {/* Nuevo */}
+            <div className="rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 p-3">
+              <p className="text-xs font-semibold text-blue-400 dark:text-blue-500 uppercase tracking-wide mb-2">Lo que estás agregando</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
+                {selectedGlobalProduct?.name ?? productForm.name}
+              </p>
+              <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <span>Unidades: <span className="font-semibold text-gray-700 dark:text-gray-200">{dupWarning.pendingPayload.stock ?? 0}</span></span>
+                {dupWarning.pendingPayload.purchasePrice != null && (
+                  <span>Costo: <span className={`font-semibold ${dupWarning.pendingPayload.purchasePrice !== dupWarning.existing.purchasePrice ? 'text-amber-600 dark:text-amber-400' : 'text-gray-700 dark:text-gray-200'}`}>
+                    ${dupWarning.pendingPayload.purchasePrice.toLocaleString()}
+                    {dupWarning.pendingPayload.purchasePrice !== dupWarning.existing.purchasePrice && ' ⚠'}
+                  </span></span>
+                )}
+                <span>Venta: <span className="font-semibold text-gray-700 dark:text-gray-200">${dupWarning.pendingPayload.salePrice?.toLocaleString()}</span></span>
+              </div>
+            </div>
+
+            {/* Nota si el costo cambió */}
+            {dupWarning.pendingPayload.purchasePrice != null &&
+             dupWarning.existing.purchasePrice != null &&
+             dupWarning.pendingPayload.purchasePrice !== dupWarning.existing.purchasePrice && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                El precio de costo es diferente. Si sumas al stock existente, el costo se actualizará a <strong>${dupWarning.pendingPayload.purchasePrice.toLocaleString()}</strong>.
+              </p>
+            )}
+          </div>
+
+          {/* Acciones */}
+          <div className="px-6 pb-5 flex flex-col gap-2">
+            <button
+              onClick={handleMergeDuplicate}
+              disabled={savingProduct}
+              className="w-full py-2.5 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition disabled:opacity-50"
+            >
+              {savingProduct ? 'Guardando...' : `Sumar al stock existente (+${dupWarning.pendingPayload.stock ?? 0} unidades)`}
+            </button>
+            <button
+              onClick={handleForceCreate}
+              disabled={savingProduct}
+              className="w-full py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50"
+            >
+              Registrar como lote separado
+            </button>
+            <button
+              onClick={() => setDupWarning(null)}
+              disabled={savingProduct}
+              className="w-full py-2 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition"
+            >
+              Cancelar, volver al formulario
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {slotModal && (
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
