@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Users, CheckCircle, XCircle, Clock, Search,
   FileText, Image as ImageIcon, ExternalLink,
+  Wallet, Plus, ChevronDown, ChevronUp, Loader2,
 } from 'lucide-react'
 import SuperAdminLayout from './SuperAdminLayout'
 import { api } from '../../lib/api'
@@ -36,6 +37,48 @@ function SuperAdminUsers() {
   const [activeTab, setActiveTab] = useState('ALL')
   const [search, setSearch]     = useState('')
   const [actionId, setActionId] = useState(null)
+  // Wallet
+  const [walletOpen, setWalletOpen]     = useState({})   // { [userId]: true }
+  const [balances, setBalances]         = useState({})   // { [userId]: number }
+  const [balanceLoading, setBalanceLoading] = useState({})
+  const [rechargeAmount, setRechargeAmount] = useState({})  // { [userId]: string }
+  const [rechargeDesc, setRechargeDesc]     = useState({})
+  const [rechargeSaving, setRechargeSaving] = useState({})
+
+  const toggleWallet = async (userId) => {
+    const next = !walletOpen[userId]
+    setWalletOpen(p => ({ ...p, [userId]: next }))
+    if (next && balances[userId] === undefined) {
+      setBalanceLoading(p => ({ ...p, [userId]: true }))
+      try {
+        const res = await api.superAdmin.getWalletBalance(userId)
+        setBalances(p => ({ ...p, [userId]: res.balance }))
+      } catch {
+        toast.error('No se pudo obtener el saldo')
+      } finally {
+        setBalanceLoading(p => ({ ...p, [userId]: false }))
+      }
+    }
+  }
+
+  const handleRecharge = async (u) => {
+    const amount = parseInt(rechargeAmount[u.id] || '0', 10)
+    if (!amount || amount <= 0) { toast.error('Ingresa un monto válido'); return }
+    setRechargeSaving(p => ({ ...p, [u.id]: true }))
+    try {
+      const res = await api.superAdmin.addFundsToUser(
+        u.id, amount, rechargeDesc[u.id]?.trim() || 'Recarga manual por super admin'
+      )
+      setBalances(p => ({ ...p, [u.id]: res.newBalance }))
+      setRechargeAmount(p => ({ ...p, [u.id]: '' }))
+      setRechargeDesc(p => ({ ...p, [u.id]: '' }))
+      toast.success(`+$${amount.toLocaleString()} agregados a ${u.fullName || u.email}`)
+    } catch {
+      toast.error('No se pudo recargar la wallet')
+    } finally {
+      setRechargeSaving(p => ({ ...p, [u.id]: false }))
+    }
+  }
 
   const loadUsers = async () => {
     setLoading(true)
@@ -246,8 +289,73 @@ function SuperAdminUsers() {
                         Rechazar
                       </button>
                     )}
+                    <button
+                      onClick={() => toggleWallet(u.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition"
+                    >
+                      <Wallet className="w-3.5 h-3.5" />
+                      Wallet
+                      {walletOpen[u.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
                   </div>
                 </div>
+
+                {/* Panel wallet */}
+                {walletOpen[u.id] && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    {balanceLoading[u.id] ? (
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando saldo...
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {/* Saldo actual */}
+                        <div className="flex items-center gap-2">
+                          <Wallet className="w-4 h-4 text-indigo-500" />
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Saldo actual:</span>
+                          <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                            ${(balances[u.id] ?? 0).toLocaleString('es-CL')}
+                          </span>
+                        </div>
+
+                        {/* Form recarga */}
+                        <div className="flex flex-wrap gap-2 items-end">
+                          <div>
+                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Monto</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={rechargeAmount[u.id] || ''}
+                              onChange={e => setRechargeAmount(p => ({ ...p, [u.id]: e.target.value }))}
+                              placeholder="Ej: 5000"
+                              className="w-28 px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-32">
+                            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Descripción <span className="text-gray-400">(opcional)</span></label>
+                            <input
+                              type="text"
+                              value={rechargeDesc[u.id] || ''}
+                              onChange={e => setRechargeDesc(p => ({ ...p, [u.id]: e.target.value }))}
+                              placeholder="Ej: Recarga de prueba"
+                              className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleRecharge(u)}
+                            disabled={rechargeSaving[u.id]}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition disabled:opacity-50"
+                          >
+                            {rechargeSaving[u.id]
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Plus className="w-3.5 h-3.5" />}
+                            Recargar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}

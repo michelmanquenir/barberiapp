@@ -451,6 +451,15 @@ export const api = {
     deleteCategory: (id) =>
       request(`/super-admin/categories/${id}`, { method: 'DELETE' }),
 
+    // Wallet (super admin)
+    getWalletBalance: (userId) =>
+      request(`/super-admin/wallet/balance/${userId}`),
+    addFundsToUser: (userId, amount, description) =>
+      request(`/super-admin/wallet/add-funds/${userId}`, {
+        method: 'POST',
+        body: JSON.stringify({ amount, description }),
+      }),
+
     // Catálogo global (super admin)
     listGlobalProducts: (q = '', page = 0, size = 20) =>
       request(`/super-admin/global-products?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
