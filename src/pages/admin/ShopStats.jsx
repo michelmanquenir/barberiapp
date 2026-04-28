@@ -14,6 +14,7 @@ import {
   Banknote,
   BadgePercent,
   ChevronRight,
+  ShoppingBag,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 
@@ -183,14 +184,24 @@ export default function ShopStats() {
                 icon={<TrendingUp className="w-5 h-5" />}
                 label="Ingresos totales"
                 value={fmt(stats.revenue.total)}
-                sub={`${stats.appointments.completed} citas completadas`}
+                sub={[
+                  stats.appointments.completed > 0 && `${stats.appointments.completed} citas`,
+                  stats.orders?.delivered > 0 && `${stats.orders.delivered} pedidos`,
+                ].filter(Boolean).join(' · ') || 'Sin ventas en el período'}
                 color="blue"
+              />
+              <StatCard
+                icon={<ShoppingBag className="w-5 h-5" />}
+                label="Pedidos totales"
+                value={stats.orders?.total ?? 0}
+                sub={`${stats.orders?.delivered ?? 0} entregados · ${stats.orders?.cancelled ?? 0} cancelados`}
+                color="orange"
               />
               <StatCard
                 icon={<CalendarCheck className="w-5 h-5" />}
                 label="Citas totales"
                 value={stats.appointments.total}
-                sub={`${stats.appointments.cancelled} canceladas`}
+                sub={`${stats.appointments.completed} completadas · ${stats.appointments.cancelled} canceladas`}
                 color="green"
               />
               <StatCard
@@ -200,14 +211,57 @@ export default function ShopStats() {
                 sub={`+${stats.subscriptions.newThisPeriod} nuevas`}
                 color="purple"
               />
-              <StatCard
-                icon={<Home className="w-5 h-5" />}
-                label="Servicios a domicilio"
-                value={stats.appointments.atHome}
-                sub={`${stats.appointments.atShop} en local`}
-                color="orange"
-              />
             </div>
+
+            {/* ── Orders section (bazar) ───────────────────────────────── */}
+            {stats.orders?.total > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Section title="Estado de pedidos" icon={<ShoppingBag className="w-4 h-4 text-orange-500" />}>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Entregados', value: stats.orders.delivered, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
+                      { label: 'Cancelados', value: stats.orders.cancelled, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
+                      { label: 'Pendientes', value: stats.orders.pending, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
+                      { label: 'Confirmados', value: stats.orders.confirmed, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                      { label: 'Listos', value: stats.orders.ready, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+                      { label: 'Ingresos', value: fmt(stats.orders.revenue), color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
+                    ].map((s) => (
+                      <div key={s.label} className={`${s.bg} rounded-lg p-3 text-center`}>
+                        <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+
+                <Section title="Métodos de pago (pedidos)" icon={<Wallet className="w-4 h-4 text-orange-500" />}>
+                  <div className="space-y-4">
+                    {[
+                      { label: 'Efectivo', value: stats.revenue.byCash, icon: <Banknote className="w-4 h-4 text-green-500" />, color: 'bg-green-500' },
+                      { label: 'Transferencia', value: stats.revenue.byTransfer, icon: <CreditCard className="w-4 h-4 text-blue-500" />, color: 'bg-blue-500' },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {item.icon}
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-24 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`${item.color} h-1.5 rounded-full`}
+                              style={{ width: `${pct(item.value, stats.revenue.total)}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white w-20 text-right">
+                            {fmt(item.value)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              </div>
+            )}
 
             {/* ── Revenue breakdown + Appointment status ───────────────── */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
