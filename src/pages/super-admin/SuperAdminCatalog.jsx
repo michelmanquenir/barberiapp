@@ -5,6 +5,7 @@ import {
   Barcode, Tag, ChevronLeft, ChevronRight,
   ChevronsLeft, ChevronsRight,
   Image as ImageIcon, Loader2, ScanLine, Trash2,
+  ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import SuperAdminLayout from './SuperAdminLayout'
 import { api } from '../../lib/api'
@@ -14,7 +15,6 @@ import BarcodeScanner from '../../components/BarcodeScanner'
 
 const PAGE_SIZE = 20
 
-// ─── Empty form ───────────────────────────────────────────────────────────────
 const EMPTY = {
   name: '', description: '', category: '',
   imageUrl: '', barcode: '', sku: '', active: true,
@@ -25,6 +25,14 @@ function StatusPill({ active }) {
   return active
     ? <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 font-medium">Activo</span>
     : <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 font-medium">Inactivo</span>
+}
+
+// ─── Ícono de orden en header de columna ─────────────────────────────────────
+function SortIcon({ field, sortBy, sortDir }) {
+  if (sortBy !== field) return <ArrowUpDown className="w-3 h-3 text-gray-400 ml-1 inline-block" />
+  return sortDir === 'asc'
+    ? <ArrowUp   className="w-3 h-3 text-gray-700 dark:text-gray-200 ml-1 inline-block" />
+    : <ArrowDown className="w-3 h-3 text-gray-700 dark:text-gray-200 ml-1 inline-block" />
 }
 
 // ─── Modal crear / editar ─────────────────────────────────────────────────────
@@ -67,7 +75,6 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-lg max-h-[90vh] flex flex-col">
 
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
@@ -85,10 +92,8 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
 
-          {/* Imagen */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Imagen</label>
             <div className="flex items-center gap-3">
@@ -118,7 +123,6 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
             </div>
           </div>
 
-          {/* Nombre */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
               Nombre <span className="text-red-500">*</span>
@@ -133,7 +137,6 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
             />
           </div>
 
-          {/* Descripción */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descripción</label>
             <textarea
@@ -145,7 +148,6 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
             />
           </div>
 
-          {/* Categoría + SKU */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Categoría</label>
@@ -193,7 +195,6 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
             </div>
           </div>
 
-          {/* Código de barras */}
           {scannerOpen && (
             <BarcodeScanner
               onDetected={(code) => { set('barcode', code); setScannerOpen(false) }}
@@ -224,7 +225,6 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
             </div>
           </div>
 
-          {/* Activo toggle */}
           <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
             <div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Activo en el catálogo</p>
@@ -242,7 +242,6 @@ function CatalogModal({ initial, onSave, onClose, productCategories = [] }) {
           </div>
         </form>
 
-        {/* Footer */}
         <div className="flex gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex-shrink-0">
           <button
             type="button"
@@ -270,9 +269,12 @@ function SuperAdminCatalog() {
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
   const [page, setPage]               = useState(0)
-  const [pageBeforeSearch, setPageBeforeSearch] = useState(0)  // página a restaurar al limpiar búsqueda
+  const [pageBeforeSearch, setPageBeforeSearch] = useState(0)
   const [goToInput, setGoToInput]     = useState('')
-  const [modal, setModal]             = useState(null)   // null | 'create' | { ...product }
+  const [activeFilter, setActiveFilter] = useState('all')   // 'all' | 'active' | 'inactive'
+  const [sortBy, setSortBy]           = useState('name')    // 'name' | 'id' | 'category'
+  const [sortDir, setSortDir]         = useState('asc')     // 'asc' | 'desc'
+  const [modal, setModal]             = useState(null)
   const [actionId, setActionId]       = useState(null)
   const [productCategories, setProductCategories] = useState([])
   const searchTimer = useRef(null)
@@ -281,10 +283,10 @@ function SuperAdminCatalog() {
     api.getProductCategories().then(setProductCategories).catch(() => setProductCategories([]))
   }, [])
 
-  const load = async (q = search, p = page) => {
+  const load = async (q = search, p = page, af = activeFilter, sb = sortBy, sd = sortDir) => {
     setLoading(true)
     try {
-      const result = await api.superAdmin.listGlobalProducts(q, p, PAGE_SIZE)
+      const result = await api.superAdmin.listGlobalProducts(q, p, PAGE_SIZE, af, sb, sd)
       setData(result)
     } catch {
       toast.error('No se pudo cargar el catálogo')
@@ -295,7 +297,7 @@ function SuperAdminCatalog() {
 
   useEffect(() => { load() }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced search — guarda la página actual al empezar a buscar y la restaura al limpiar
+  // Debounced search — guarda la página al empezar y la restaura al limpiar
   const handleSearch = (val) => {
     const startingSearch = search === '' && val !== ''
     const clearingSearch = search !== '' && val === ''
@@ -308,14 +310,28 @@ function SuperAdminCatalog() {
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
       if (clearingSearch) setPage(pageBeforeSearch)
-      load(val, targetPage)
+      load(val, targetPage, activeFilter, sortBy, sortDir)
     }, 300)
+  }
+
+  const handleActiveFilter = (val) => {
+    setActiveFilter(val)
+    setPage(0)
+    load(search, 0, val, sortBy, sortDir)
+  }
+
+  const handleSortChange = (field) => {
+    const newDir = sortBy === field && sortDir === 'asc' ? 'desc' : 'asc'
+    setSortBy(field)
+    setSortDir(newDir)
+    setPage(0)
+    load(search, 0, activeFilter, field, newDir)
   }
 
   const goToPage = (p) => {
     setPage(p)
     setGoToInput('')
-    load(search, p)
+    load(search, p, activeFilter, sortBy, sortDir)
   }
 
   const handleGoToSubmit = (e) => {
@@ -328,13 +344,13 @@ function SuperAdminCatalog() {
     setGoToInput('')
   }
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers CRUD ──────────────────────────────────────────────────────────
   const handleCreate = async (form) => {
     try {
       await api.createGlobalProduct(form)
       toast.success(`"${form.name}" añadido al catálogo`)
       setModal(null)
-      load(search, 0)
+      load(search, 0, activeFilter, sortBy, sortDir)
       setPage(0)
     } catch (err) {
       toast.error(err?.message || 'No se pudo crear el producto')
@@ -347,7 +363,7 @@ function SuperAdminCatalog() {
       await api.updateGlobalProduct(modal.id, form)
       toast.success('Producto actualizado')
       setModal(null)
-      load(search, page)
+      load(search, page, activeFilter, sortBy, sortDir)
     } catch (err) {
       toast.error(err?.message || 'No se pudo actualizar el producto')
       throw err
@@ -368,7 +384,7 @@ function SuperAdminCatalog() {
     try {
       await api.updateGlobalProduct(product.id, { active: newActive })
       toast.success(`"${product.name}" ${newActive ? 'activado' : 'desactivado'}`)
-      load(search, page)
+      load(search, page, activeFilter, sortBy, sortDir)
     } catch {
       toast.error('No se pudo actualizar el producto')
     } finally {
@@ -419,7 +435,7 @@ function SuperAdminCatalog() {
     try {
       await api.superAdmin.deleteGlobalProduct(product.id)
       toast.success(`"${product.name}" eliminado del catálogo`)
-      load(search, page)
+      load(search, page, activeFilter, sortBy, sortDir)
     } catch {
       toast.error('No se pudo eliminar el producto')
     } finally {
@@ -427,10 +443,28 @@ function SuperAdminCatalog() {
     }
   }
 
-  const products    = data.content ?? []
-  const totalPages  = data.totalPages ?? 0
-  const totalItems  = data.totalElements ?? 0
-  const activeCount = products.filter(p => p.active).length
+  const products   = data.content ?? []
+  const totalPages = data.totalPages ?? 0
+  const totalItems = data.totalElements ?? 0
+
+  const FILTER_OPTIONS = [
+    { label: 'Todos',     value: 'all' },
+    { label: 'Activos',   value: 'active' },
+    { label: 'Inactivos', value: 'inactive' },
+  ]
+
+  // ─── Th con sort ──────────────────────────────────────────────────────────
+  const SortTh = ({ field, children, className = '' }) => (
+    <th
+      onClick={() => handleSortChange(field)}
+      className={`text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 transition-colors ${className}`}
+    >
+      <span className="inline-flex items-center gap-0.5">
+        {children}
+        <SortIcon field={field} sortBy={sortBy} sortDir={sortDir} />
+      </span>
+    </th>
+  )
 
   return (
     <SuperAdminLayout>
@@ -463,42 +497,80 @@ function SuperAdminCatalog() {
         </button>
       </div>
 
-      {/* Stats chips */}
+      {/* Stats chip */}
       {!loading && totalItems > 0 && (
-        <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-4">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 flex items-center gap-2">
             <ShoppingBag className="w-4 h-4 text-gray-400" />
             <span className="text-sm text-gray-600 dark:text-gray-300">
-              <span className="font-semibold text-gray-900 dark:text-gray-50">{totalItems}</span> productos en total
-            </span>
-          </div>
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 flex items-center gap-2">
-            <ToggleRight className="w-4 h-4 text-green-500" />
-            <span className="text-sm text-gray-600 dark:text-gray-300">
-              <span className="font-semibold text-gray-900 dark:text-gray-50">{activeCount}</span> activos en esta página
+              <span className="font-semibold text-gray-900 dark:text-gray-50">{totalItems}</span>
+              {activeFilter !== 'all'
+                ? <> {activeFilter === 'active' ? 'activos' : 'inactivos'}</>
+                : <> en total</>}
             </span>
           </div>
         </div>
       )}
 
-      {/* Buscador */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={e => handleSearch(e.target.value)}
-          placeholder="Buscar por nombre o código de barras..."
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 dark:bg-gray-800 dark:text-gray-100"
-        />
-        {search && (
-          <button
-            onClick={() => handleSearch('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-          >
-            <X className="w-3.5 h-3.5 text-gray-400" />
-          </button>
-        )}
+      {/* Barra de búsqueda + filtros */}
+      <div className="space-y-2 mb-4">
+        {/* Buscador */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => handleSearch(e.target.value)}
+            placeholder="Buscar por nombre o código de barras..."
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 dark:bg-gray-800 dark:text-gray-100"
+          />
+          {search && (
+            <button
+              onClick={() => handleSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+            >
+              <X className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+          )}
+        </div>
+
+        {/* Filtro de estado */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Estado:</span>
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+            {FILTER_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => handleActiveFilter(opt.value)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  activeFilter === opt.value
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {(search || activeFilter !== 'all' || sortBy !== 'name' || sortDir !== 'asc') && (
+            <button
+              onClick={() => {
+                setSearch('')
+                setActiveFilter('all')
+                setSortBy('name')
+                setSortDir('asc')
+                setPage(0)
+                clearTimeout(searchTimer.current)
+                load('', 0, 'all', 'name', 'asc')
+              }}
+              className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition ml-1"
+            >
+              <X className="w-3 h-3" />
+              Limpiar filtros
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabla */}
@@ -510,7 +582,9 @@ function SuperAdminCatalog() {
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm">
-            {search ? 'No se encontraron productos para esa búsqueda' : 'El catálogo está vacío. Agrega el primer producto.'}
+            {search || activeFilter !== 'all'
+              ? 'No se encontraron productos con esos filtros'
+              : 'El catálogo está vacío. Agrega el primer producto.'}
           </p>
         </div>
       ) : (
@@ -519,12 +593,18 @@ function SuperAdminCatalog() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-16">ID</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Producto</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Categoría</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Barcode / SKU</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Acciones</th>
+                  <SortTh field="id" className="w-16">ID</SortTh>
+                  <SortTh field="name" className="pl-4">Producto</SortTh>
+                  <SortTh field="category" className="hidden sm:table-cell">Categoría</SortTh>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">
+                    Barcode / SKU
+                  </th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Estado
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -631,7 +711,6 @@ function SuperAdminCatalog() {
           {/* Paginador */}
           {totalPages > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-              {/* Info de rango */}
               <p className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
                 {totalItems === 0 ? 'Sin resultados' : (
                   <>
@@ -641,13 +720,12 @@ function SuperAdminCatalog() {
                     </span>{' '}
                     de{' '}
                     <span className="font-semibold text-gray-700 dark:text-gray-200">{totalItems}</span>
-                    {search && <span className="text-gray-400"> (filtrado)</span>}
+                    {(search || activeFilter !== 'all') && <span className="text-gray-400"> (filtrado)</span>}
                   </>
                 )}
               </p>
 
               <div className="flex items-center gap-1 flex-wrap">
-                {/* Primera página */}
                 <button
                   onClick={() => goToPage(0)}
                   disabled={page === 0}
@@ -657,7 +735,6 @@ function SuperAdminCatalog() {
                   <ChevronsLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
 
-                {/* Anterior */}
                 <button
                   onClick={() => goToPage(page - 1)}
                   disabled={page === 0}
@@ -667,7 +744,6 @@ function SuperAdminCatalog() {
                   <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
 
-                {/* Números de página */}
                 {Array.from({ length: totalPages }, (_, i) => i)
                   .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 2)
                   .reduce((acc, i, idx, arr) => {
@@ -693,7 +769,6 @@ function SuperAdminCatalog() {
                     )
                   )}
 
-                {/* Siguiente */}
                 <button
                   onClick={() => goToPage(page + 1)}
                   disabled={page >= totalPages - 1}
@@ -703,7 +778,6 @@ function SuperAdminCatalog() {
                   <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
 
-                {/* Última página */}
                 <button
                   onClick={() => goToPage(totalPages - 1)}
                   disabled={page >= totalPages - 1}
@@ -713,7 +787,6 @@ function SuperAdminCatalog() {
                   <ChevronsRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
 
-                {/* Ir a página */}
                 {totalPages > 5 && (
                   <form onSubmit={handleGoToSubmit} className="flex items-center gap-1.5 ml-2 border-l border-gray-200 dark:border-gray-700 pl-2">
                     <label className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">Ir a</label>
