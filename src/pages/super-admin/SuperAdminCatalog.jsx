@@ -13,7 +13,7 @@ import { toast, confirm } from '../../lib/swal'
 import { uploadProductImage } from '../../lib/productImageUpload'
 import BarcodeScanner from '../../components/BarcodeScanner'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [10, 25, 50]
 
 const EMPTY = {
   name: '', description: '', category: '',
@@ -271,6 +271,7 @@ function SuperAdminCatalog() {
   const [page, setPage]               = useState(0)
   const [pageBeforeSearch, setPageBeforeSearch] = useState(0)
   const [goToInput, setGoToInput]     = useState('')
+  const [pageSize, setPageSize]       = useState(10)
   const [activeFilter, setActiveFilter] = useState('all')   // 'all' | 'active' | 'inactive'
   const [sortBy, setSortBy]           = useState('name')    // 'name' | 'id' | 'category'
   const [sortDir, setSortDir]         = useState('asc')     // 'asc' | 'desc'
@@ -283,10 +284,10 @@ function SuperAdminCatalog() {
     api.getProductCategories().then(setProductCategories).catch(() => setProductCategories([]))
   }, [])
 
-  const load = async (q = search, p = page, af = activeFilter, sb = sortBy, sd = sortDir) => {
+  const load = async (q = search, p = page, af = activeFilter, sb = sortBy, sd = sortDir, ps = pageSize) => {
     setLoading(true)
     try {
-      const result = await api.superAdmin.listGlobalProducts(q, p, PAGE_SIZE, af, sb, sd)
+      const result = await api.superAdmin.listGlobalProducts(q, p, ps, af, sb, sd)
       setData(result)
     } catch {
       toast.error('No se pudo cargar el catálogo')
@@ -310,14 +311,14 @@ function SuperAdminCatalog() {
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
       if (clearingSearch) setPage(pageBeforeSearch)
-      load(val, targetPage, activeFilter, sortBy, sortDir)
+      load(val, targetPage, activeFilter, sortBy, sortDir, pageSize)
     }, 300)
   }
 
   const handleActiveFilter = (val) => {
     setActiveFilter(val)
     setPage(0)
-    load(search, 0, val, sortBy, sortDir)
+    load(search, 0, val, sortBy, sortDir, pageSize)
   }
 
   const handleSortChange = (field) => {
@@ -325,13 +326,19 @@ function SuperAdminCatalog() {
     setSortBy(field)
     setSortDir(newDir)
     setPage(0)
-    load(search, 0, activeFilter, field, newDir)
+    load(search, 0, activeFilter, field, newDir, pageSize)
+  }
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize)
+    setPage(0)
+    load(search, 0, activeFilter, sortBy, sortDir, newSize)
   }
 
   const goToPage = (p) => {
     setPage(p)
     setGoToInput('')
-    load(search, p, activeFilter, sortBy, sortDir)
+    load(search, p, activeFilter, sortBy, sortDir, pageSize)
   }
 
   const handleGoToSubmit = (e) => {
@@ -350,7 +357,7 @@ function SuperAdminCatalog() {
       await api.createGlobalProduct(form)
       toast.success(`"${form.name}" añadido al catálogo`)
       setModal(null)
-      load(search, 0, activeFilter, sortBy, sortDir)
+      load(search, 0, activeFilter, sortBy, sortDir, pageSize)
       setPage(0)
     } catch (err) {
       toast.error(err?.message || 'No se pudo crear el producto')
@@ -363,7 +370,7 @@ function SuperAdminCatalog() {
       await api.updateGlobalProduct(modal.id, form)
       toast.success('Producto actualizado')
       setModal(null)
-      load(search, page, activeFilter, sortBy, sortDir)
+      load(search, page, activeFilter, sortBy, sortDir, pageSize)
     } catch (err) {
       toast.error(err?.message || 'No se pudo actualizar el producto')
       throw err
@@ -384,7 +391,7 @@ function SuperAdminCatalog() {
     try {
       await api.updateGlobalProduct(product.id, { active: newActive })
       toast.success(`"${product.name}" ${newActive ? 'activado' : 'desactivado'}`)
-      load(search, page, activeFilter, sortBy, sortDir)
+      load(search, page, activeFilter, sortBy, sortDir, pageSize)
     } catch {
       toast.error('No se pudo actualizar el producto')
     } finally {
@@ -435,7 +442,7 @@ function SuperAdminCatalog() {
     try {
       await api.superAdmin.deleteGlobalProduct(product.id)
       toast.success(`"${product.name}" eliminado del catálogo`)
-      load(search, page, activeFilter, sortBy, sortDir)
+      load(search, page, activeFilter, sortBy, sortDir, pageSize)
     } catch {
       toast.error('No se pudo eliminar el producto')
     } finally {
@@ -562,7 +569,7 @@ function SuperAdminCatalog() {
                 setSortDir('asc')
                 setPage(0)
                 clearTimeout(searchTimer.current)
-                load('', 0, 'all', 'name', 'asc')
+                load('', 0, 'all', 'name', 'asc', pageSize)
               }}
               className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition ml-1"
             >
@@ -711,19 +718,34 @@ function SuperAdminCatalog() {
           {/* Paginador */}
           {totalPages > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-              <p className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                {totalItems === 0 ? 'Sin resultados' : (
-                  <>
-                    Mostrando{' '}
-                    <span className="font-semibold text-gray-700 dark:text-gray-200">
-                      {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalItems)}
-                    </span>{' '}
-                    de{' '}
-                    <span className="font-semibold text-gray-700 dark:text-gray-200">{totalItems}</span>
-                    {(search || activeFilter !== 'all') && <span className="text-gray-400"> (filtrado)</span>}
-                  </>
-                )}
-              </p>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Selector de items por página */}
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Filas:</label>
+                  <select
+                    value={pageSize}
+                    onChange={e => handlePageSizeChange(Number(e.target.value))}
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-xs bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                  >
+                    {PAGE_SIZE_OPTIONS.map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {totalItems === 0 ? 'Sin resultados' : (
+                    <>
+                      <span className="font-semibold text-gray-700 dark:text-gray-200">
+                        {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalItems)}
+                      </span>
+                      {' de '}
+                      <span className="font-semibold text-gray-700 dark:text-gray-200">{totalItems}</span>
+                      {(search || activeFilter !== 'all') && <span className="text-gray-400"> (filtrado)</span>}
+                    </>
+                  )}
+                </p>
+              </div>
 
               <div className="flex items-center gap-1 flex-wrap">
                 <button
