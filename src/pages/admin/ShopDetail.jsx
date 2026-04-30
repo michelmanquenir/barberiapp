@@ -874,6 +874,21 @@ function ShopDetail() {
     }
   }
 
+  const handlePermanentDeleteProduct = async (product) => {
+    if (!(await confirm(
+      'Eliminar producto permanentemente',
+      `¿Estás seguro de que quieres eliminar "${product.name}" de forma permanente? Esta acción no se puede deshacer.`,
+      { confirmText: 'Sí, eliminar', icon: 'danger' }
+    ))) return
+    try {
+      await api.permanentDeleteProduct(product.id)
+      await loadProducts()
+      toast.success('Producto eliminado permanentemente')
+    } catch (err) {
+      toast.error(err?.message ?? 'No se pudo eliminar el producto')
+    }
+  }
+
   // ── Resolución de duplicado ───────────────────────────────────────────────────
 
   /** Suma el stock al producto existente usando costo promedio ponderado */
@@ -2389,6 +2404,14 @@ function ShopDetail() {
                                         {product.active ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                         <span className="hidden sm:inline">{product.active ? 'Desactivar' : 'Activar'}</span>
                                       </button>
+                                      {!product.globalProductId && (
+                                        <button onClick={() => handlePermanentDeleteProduct(product)}
+                                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950"
+                                          title="Eliminar permanentemente">
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          <span className="hidden sm:inline">Eliminar</span>
+                                        </button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>

@@ -210,6 +210,8 @@ export const api = {
     request(`/admin/products/${productId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteProduct: (productId) =>
     request(`/admin/products/${productId}`, { method: 'DELETE' }),
+  permanentDeleteProduct: (productId) =>
+    request(`/admin/products/${productId}/permanent`, { method: 'DELETE' }),
   adjustStock: (productId, delta) =>
     request(`/admin/products/${productId}/stock?delta=${delta}`, { method: 'PATCH' }),
 
