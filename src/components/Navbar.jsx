@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Menu, X, User, LogOut, Settings, LayoutDashboard, Sun, Moon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Menu, X, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import UserDropdown from './UserDropdown'
 
 function NavAvatar({ avatarUrl, fullName, size = 8 }) {
   const initials = fullName?.trim()
@@ -27,7 +28,7 @@ function NavAvatar({ avatarUrl, fullName, size = 8 }) {
 
 function Navbar({ toggleSidebar, isSidebarOpen }) {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
-  const { user, logout, isBusinessOwner } = useAuth()
+  const { user, logout } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
@@ -86,51 +87,10 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
                     className="fixed inset-0 z-10"
                     onClick={() => setIsProfileMenuOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-20">
-                    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-50">{user?.fullName ?? 'Usuario'}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
-                    </div>
-
-                    <Link
-                      to="/profile"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
-                    >
-                      <User className="h-4 w-4" />
-                      Ver Perfil
-                    </Link>
-
-                    <Link
-                      to="/edit-profile"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Configuraci&oacute;n
-                    </Link>
-
-                    {isBusinessOwner && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setIsProfileMenuOpen(false)}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3"
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Panel WeServ
-                      </Link>
-                    )}
-
-                    <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-2">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 flex items-center gap-3"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Cerrar Sesi&oacute;n
-                      </button>
-                    </div>
-                  </div>
+                  <UserDropdown
+                    onClose={() => setIsProfileMenuOpen(false)}
+                    onLogout={handleLogout}
+                  />
                 </>
               )}
             </div>

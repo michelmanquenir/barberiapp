@@ -1,21 +1,9 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import {
-  LogOut,
-  ChevronDown,
-  LayoutDashboard,
-  Store,
-  CalendarDays,
-  Compass,
-  Calendar,
-  Wallet,
-  Heart,
-  Sun,
-  Moon,
-} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronDown, Store, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { Shield } from 'lucide-react'
+import UserDropdown from './UserDropdown'
 
 function NavAvatar({ avatarUrl, fullName, size = 8 }) {
   const initials = fullName?.trim()
@@ -39,7 +27,7 @@ function NavAvatar({ avatarUrl, fullName, size = 8 }) {
 }
 
 function AdminNavbar() {
-  const { user, logout, isSuperAdmin } = useAuth()
+  const { user, logout } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -87,68 +75,13 @@ function AdminNavbar() {
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={close} />
-
-                <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-20 text-gray-900 dark:text-gray-50">
-
-                  <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-50">{user?.fullName ?? 'Admin'}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
-                  </div>
-
-                  <div className="px-4 pt-2 pb-1">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">WeServ</p>
-                  </div>
-                  <NavItem to="/admin" icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" onClick={close} />
-                  <NavItem to="/admin/shops" icon={<Store className="w-4 h-4" />} label="Mis Negocios" onClick={close} />
-                  <NavItem to="/admin/appointments" icon={<CalendarDays className="w-4 h-4" />} label="Todas las citas" onClick={close} />
-
-                  <div className="px-4 pt-3 pb-1 border-t border-gray-100 dark:border-gray-800 mt-1">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Modo Cliente</p>
-                  </div>
-                  <NavItem to="/booking" icon={<Compass className="w-4 h-4" />} label="Explorar negocios" onClick={close} />
-                  <NavItem to="/appointments" icon={<Calendar className="w-4 h-4" />} label="Mis citas" onClick={close} />
-                  <NavItem to="/my-barbers" icon={<Store className="w-4 h-4" />} label="Mis profesionales" onClick={close} />
-                  <NavItem to="/wallet" icon={<Wallet className="w-4 h-4" />} label="Wallet" onClick={close} />
-                  <NavItem to="/favorites" icon={<Heart className="w-4 h-4" />} label="Favoritos" onClick={close} />
-
-                  {isSuperAdmin && (
-                    <>
-                      <div className="px-4 pt-3 pb-1 border-t border-gray-100 dark:border-gray-800 mt-1">
-                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Super Admin</p>
-                      </div>
-                      <NavItem to="/super-admin/dashboard" icon={<Shield className="w-4 h-4" />} label="Panel Super Admin" onClick={close} />
-                    </>
-                  )}
-
-                  <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-2">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 flex items-center gap-3 transition"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Cerrar sesi&oacute;n
-                    </button>
-                  </div>
-                </div>
+                <UserDropdown onClose={close} onLogout={handleLogout} />
               </>
             )}
           </div>
         </div>
       </div>
     </nav>
-  )
-}
-
-function NavItem({ to, icon, label, onClick }) {
-  return (
-    <Link
-      to={to}
-      onClick={onClick}
-      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-    >
-      <span className="text-gray-400 dark:text-gray-500">{icon}</span>
-      {label}
-    </Link>
   )
 }
 
