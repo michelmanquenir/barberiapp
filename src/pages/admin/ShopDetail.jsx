@@ -854,6 +854,26 @@ function ShopDetail() {
     }
   }
 
+  const handleToggleProduct = async (product) => {
+    if (product.active) {
+      if (!(await confirm('Desactivar producto', '¿Desactivar este producto? Dejará de ser visible para los clientes.', { confirmText: 'Sí, desactivar', icon: 'warning' }))) return
+      try {
+        await api.deleteProduct(product.id)
+        await loadProducts()
+      } catch {
+        toast.error('No se pudo desactivar el producto')
+      }
+    } else {
+      try {
+        await api.updateProduct(product.id, { active: true })
+        await loadProducts()
+        toast.success('Producto activado')
+      } catch {
+        toast.error('No se pudo activar el producto')
+      }
+    }
+  }
+
   // ── Resolución de duplicado ───────────────────────────────────────────────────
 
   /** Suma el stock al producto existente usando costo promedio ponderado */
@@ -2364,9 +2384,10 @@ function ShopDetail() {
                                         className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
                                         <Pencil className="w-3.5 h-3.5" /><span className="hidden sm:inline">Editar</span>
                                       </button>
-                                      <button onClick={() => handleDeleteProduct(product.id)}
-                                        className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950">
-                                        <Trash2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">{product.active ? 'Desactivar' : 'Activar'}</span>
+                                      <button onClick={() => handleToggleProduct(product)}
+                                        className={`flex items-center gap-1 text-xs transition px-2 py-1 rounded ${product.active ? 'text-orange-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950' : 'text-green-500 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950'}`}>
+                                        {product.active ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                        <span className="hidden sm:inline">{product.active ? 'Desactivar' : 'Activar'}</span>
                                       </button>
                                     </div>
                                   </td>
