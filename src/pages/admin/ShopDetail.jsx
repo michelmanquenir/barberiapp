@@ -2036,6 +2036,36 @@ function ShopDetail() {
                           </div>
                         </div>
                       </div>
+                      {/* Sugerencia de precio de venta */}
+                      {productForm.purchasePrice && Number(productForm.purchasePrice) > 0 && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
+                          <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-1.5">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            Precio de venta sugerido — haz clic para aplicar
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { label: 'Mínimo',      pct: 30, color: 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800', bold: false },
+                              { label: 'Recomendado', pct: 50, color: 'text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950', bold: true  },
+                              { label: 'Premium',     pct: 65, color: 'text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950', bold: false },
+                            ].map(({ label, pct, color, bold }) => {
+                              const suggested = Math.ceil(Number(productForm.purchasePrice) / (1 - pct / 100))
+                              return (
+                                <button
+                                  key={pct}
+                                  type="button"
+                                  onClick={() => setProductForm(f => ({ ...f, salePrice: String(suggested) }))}
+                                  className={`flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs transition ${color} ${bold ? 'font-semibold' : ''}`}
+                                >
+                                  <span className="font-bold text-sm">${suggested.toLocaleString()}</span>
+                                  <span className="opacity-75">{label} · {pct}% margen</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Descripción: solo local */}
                       {!selectedGlobalProduct && <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Descripción <span className="text-gray-400">(opcional)</span></label>
