@@ -147,7 +147,7 @@ function AdminDashboard() {
 
           <div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard icon={<Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />} bg="bg-blue-50 dark:bg-blue-950" label="Citas del día" value={todayCitas} onClick={() => navigate('/admin/appointments')} clickable />
+              <SummaryCard icon={<Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />} bg="bg-blue-50 dark:bg-blue-950" label="Citas del día" value={todayCitas} onClick={() => navigate('/admin/appointments')} clickable golden={typeof todayCitas === 'number' && todayCitas > 0} />
               <SummaryCard icon={<Store className="w-6 h-6 text-green-600 dark:text-green-400" />} bg="bg-green-50 dark:bg-green-950" label="Mis negocios" value={shopCount} />
               <SummaryCard icon={<Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />} bg="bg-purple-50 dark:bg-purple-950" label="Profesionales activos" value="—" />
               <SummaryCard icon={<TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />} bg="bg-orange-50 dark:bg-orange-950" label="Ingresos del mes" value="—" />
@@ -215,17 +215,35 @@ function StatCard({ label, value, color }) {
   )
 }
 
-function SummaryCard({ icon, bg, label, value, onClick, clickable }) {
-  const base = 'bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-5'
-  const interactive = clickable ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm transition' : ''
-  return (
-    <div className={`${base} ${interactive}`} onClick={onClick}>
+function SummaryCard({ icon, bg, label, value, onClick, clickable, golden }) {
+  const inner = (
+    <div
+      className={`bg-white dark:bg-gray-900 rounded-xl p-5 h-full ${
+        golden
+          ? 'rounded-[10px]'
+          : 'border border-gray-200 dark:border-gray-700'
+      } ${clickable ? 'cursor-pointer transition' : ''}`}
+      onClick={onClick}
+    >
       <div className={`inline-flex p-2 rounded-lg ${bg} mb-3`}>{icon}</div>
       <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{value}</p>
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
       {clickable && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1.5 font-medium">Ver detalles →</p>}
     </div>
   )
+
+  if (golden) {
+    return (
+      <div
+        onClick={onClick}
+        className={`p-[2px] rounded-xl bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-500 shadow-[0_0_22px_rgba(245,158,11,0.40)] ${clickable ? 'cursor-pointer' : ''}`}
+      >
+        {inner}
+      </div>
+    )
+  }
+
+  return inner
 }
 
 function QuickLink({ icon, title, subtitle, onClick, highlight, trailingIcon }) {
