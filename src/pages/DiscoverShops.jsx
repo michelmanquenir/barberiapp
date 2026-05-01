@@ -50,8 +50,17 @@ const CATEGORY_CONFIG = {
   transporte:       { label: 'Transporte',  Icon: Car,         color: 'bg-green-50  text-green-700  dark:bg-green-950  dark:text-green-300  border-green-200  dark:border-green-800' },
 }
 
+const GYM_CFG = CATEGORY_CONFIG['gimnasio-boxeo']
+
+function getCategoryConfig(slug) {
+  if (!slug) return null
+  if (CATEGORY_CONFIG[slug]) return CATEGORY_CONFIG[slug]
+  if (slug.includes('gym') || slug.includes('box') || slug.includes('gimn')) return GYM_CFG
+  return null
+}
+
 function CategoryBadge({ slug, size = 'md' }) {
-  const cfg = CATEGORY_CONFIG[slug]
+  const cfg = getCategoryConfig(slug)
   if (!cfg) return null
   const { label, Icon, color } = cfg
   const cls = size === 'sm'
@@ -356,7 +365,7 @@ function DiscoverShops() {
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {favoriteShops.map((fav) => {
               const slug = categoryMap[fav.shop.categoryId] ?? ''
-              const cfg = CATEGORY_CONFIG[slug]
+              const cfg = getCategoryConfig(slug)
               const Icon = cfg?.Icon ?? Store
               return (
                 <button
