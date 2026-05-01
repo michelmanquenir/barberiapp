@@ -354,34 +354,32 @@ function DiscoverShops() {
             Tus negocios guardados
           </h2>
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {favoriteShops.map((fav) => (
-              {(() => {
-                const slug = categoryMap[fav.shop.categoryId] ?? ''
-                const cfg = CATEGORY_CONFIG[slug]
-                const Icon = cfg?.Icon ?? Store
-                return (
-                  <button
-                    key={fav.id}
-                    onClick={() => handleShopClick(fav.shop)}
-                    className="flex-shrink-0 w-52 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-primary-400 hover:shadow-sm transition text-left"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${cfg?.color ?? 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">
-                          {fav.shop.name}
-                        </p>
-                        <div className="mt-1">
-                          <CategoryBadge slug={slug} size="sm" />
-                        </div>
+            {favoriteShops.map((fav) => {
+              const slug = categoryMap[fav.shop.categoryId] ?? ''
+              const cfg = CATEGORY_CONFIG[slug]
+              const Icon = cfg?.Icon ?? Store
+              return (
+                <button
+                  key={fav.id}
+                  onClick={() => handleShopClick(fav.shop)}
+                  className="flex-shrink-0 w-52 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-primary-400 hover:shadow-sm transition text-left"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${cfg?.color ?? 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">
+                        {fav.shop.name}
+                      </p>
+                      <div className="mt-1">
+                        <CategoryBadge slug={slug} size="sm" />
                       </div>
                     </div>
-                  </button>
-                )
-              })()}
-            ))}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
