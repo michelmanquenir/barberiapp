@@ -583,17 +583,15 @@ function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [],
       <div className="p-4">
         <div className="flex justify-between items-start gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
+              <CategoryBadge slug={categorySlug} />
               {distance != null && (
-                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full flex-shrink-0 border border-blue-200 dark:border-blue-800 mt-1">
+                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full flex-shrink-0 border border-blue-200 dark:border-blue-800">
                   <Navigation className="w-3 h-3" />
                   {formatDistance(distance)}
                 </span>
               )}
-            </div>
-            <div className="mt-1.5">
-              <CategoryBadge slug={categorySlug} />
             </div>
             {shop.address && (
               <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
