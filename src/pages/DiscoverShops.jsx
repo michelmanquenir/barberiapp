@@ -372,9 +372,9 @@ function DiscoverShops() {
                       <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">
                         {fav.shop.name}
                       </p>
-                      <div className="mt-1">
-                        <CategoryBadge slug={slug} size="sm" />
-                      </div>
+                      {cfg && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{cfg.label}</p>
+                      )}
                     </div>
                   </div>
                 </button>
