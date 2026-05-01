@@ -15,6 +15,10 @@ import {
   Loader2,
   LocateFixed,
   XCircle,
+  ShoppingBag,
+  Car,
+  Dumbbell,
+  Sparkles,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -35,6 +39,30 @@ function getShopRating(barbers) {
   if (!barbers || barbers.length === 0) return null
   const sum = barbers.reduce((acc, b) => acc + (b.rating || 0), 0)
   return (sum / barbers.length).toFixed(1)
+}
+
+const CATEGORY_CONFIG = {
+  barberia:         { label: 'Barbería',    Icon: Scissors,    color: 'bg-blue-50   text-blue-700   dark:bg-blue-950   dark:text-blue-300   border-blue-200   dark:border-blue-800' },
+  estilista:        { label: 'Estilista',   Icon: Sparkles,    color: 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
+  lashes:           { label: 'Lashes',      Icon: Sparkles,    color: 'bg-pink-50   text-pink-700   dark:bg-pink-950   dark:text-pink-300   border-pink-200   dark:border-pink-800' },
+  bazar:            { label: 'Bazar',       Icon: ShoppingBag, color: 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300 border-orange-200 dark:border-orange-800' },
+  'gimnasio-boxeo': { label: 'Gym & Boxeo', Icon: Dumbbell,    color: 'bg-red-50    text-red-700    dark:bg-red-950    dark:text-red-300    border-red-200    dark:border-red-800' },
+  transporte:       { label: 'Transporte',  Icon: Car,         color: 'bg-green-50  text-green-700  dark:bg-green-950  dark:text-green-300  border-green-200  dark:border-green-800' },
+}
+
+function CategoryBadge({ slug, size = 'md' }) {
+  const cfg = CATEGORY_CONFIG[slug]
+  if (!cfg) return null
+  const { label, Icon, color } = cfg
+  const cls = size === 'sm'
+    ? 'text-[10px] px-1.5 py-0.5 gap-1'
+    : 'text-xs px-2 py-0.5 gap-1'
+  return (
+    <span className={`inline-flex items-center font-semibold rounded-full border ${color} ${cls} flex-shrink-0`}>
+      <Icon className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
+      {label}
+    </span>
+  )
 }
 
 const PROFESSIONAL_TITLES = {
@@ -327,27 +355,32 @@ function DiscoverShops() {
           </h2>
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {favoriteShops.map((fav) => (
-              <button
-                key={fav.id}
-                onClick={() => handleShopClick(fav.shop)}
-                className="flex-shrink-0 w-52 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-primary-400 hover:shadow-sm transition text-left"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 bg-primary-50 dark:bg-primary-950 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Scissors className="w-4 h-4 text-primary-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">
-                      {fav.shop.name}
-                    </p>
-                    {fav.shop.address && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                        {fav.shop.address}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </button>
+              {(() => {
+                const slug = categoryMap[fav.shop.categoryId] ?? ''
+                const cfg = CATEGORY_CONFIG[slug]
+                const Icon = cfg?.Icon ?? Store
+                return (
+                  <button
+                    key={fav.id}
+                    onClick={() => handleShopClick(fav.shop)}
+                    className="flex-shrink-0 w-52 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-primary-400 hover:shadow-sm transition text-left"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${cfg?.color ?? 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">
+                          {fav.shop.name}
+                        </p>
+                        <div className="mt-1">
+                          <CategoryBadge slug={slug} size="sm" />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })()}
             ))}
           </div>
         </div>
@@ -455,6 +488,9 @@ function DiscoverShops() {
                   >
                     <div className="text-sm min-w-[160px] p-1">
                       <p className="font-semibold text-gray-900 text-base">{shop.name}</p>
+                      <div className="mt-1 mb-1">
+                        <CategoryBadge slug={categoryMap[shop.categoryId] ?? ''} size="sm" />
+                      </div>
                       {shop.address && (
                         <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1">
                           <MapPin className="w-3 h-3 flex-shrink-0" />
@@ -540,15 +576,17 @@ function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [],
       <div className="p-4">
         <div className="flex justify-between items-start gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-start gap-2 flex-wrap">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
-              {/* Badge de distancia */}
               {distance != null && (
-                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full flex-shrink-0 border border-blue-200 dark:border-blue-800">
+                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full flex-shrink-0 border border-blue-200 dark:border-blue-800 mt-1">
                   <Navigation className="w-3 h-3" />
                   {formatDistance(distance)}
                 </span>
               )}
+            </div>
+            <div className="mt-1.5">
+              <CategoryBadge slug={categorySlug} />
             </div>
             {shop.address && (
               <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
