@@ -14,11 +14,13 @@ import {
   Navigation,
   Loader2,
   LocateFixed,
-  XCircle,
   ShoppingBag,
   Car,
   Dumbbell,
   Sparkles,
+  SlidersHorizontal,
+  ArrowUpDown,
+  ChevronDown,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -105,6 +107,13 @@ function DiscoverShops() {
   const [highlightedShopId, setHighlightedShopId] = useState(null)
   const [openInfoId, setOpenInfoId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // ── Filtros avanzados ──────────────────────────────────────────────────────
+  const [showFilters, setShowFilters]         = useState(false)
+  const [filterCategory, setFilterCategory]   = useState('')      // '' = todos
+  const [filterMinRating, setFilterMinRating] = useState(0)       // 0 = sin mínimo
+  const [filterMaxDist, setFilterMaxDist]     = useState(0)       // 0 = sin límite (km)
+  const [sortBy, setSortBy]                   = useState('smart') // 'smart'|'rating'|'name'
 
   const mapRef = useRef(null)
 
@@ -208,25 +217,83 @@ function DiscoverShops() {
     })
   }, [shops, userLocation])
 
+  // Promedio de valoración por shop (calculado de reviews cargados en background)
+  const shopAvgRating = useMemo(() => {
+    const map = {}
+    Object.entries(shopReviews).forEach(([id, reviews]) => {
+      if (reviews.length === 0) { map[id] = null; return }
+      map[id] = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+    })
+    return map
+  }, [shopReviews])
+
   const filteredShops = useMemo(() => {
     let result = shopsWithDistance
+
+    // 1. Texto libre
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter(
         s => s.name.toLowerCase().includes(q) || (s.address && s.address.toLowerCase().includes(q))
       )
     }
-    // Ordenar: los que tienen distancia primero (más cercanos), luego sin coordenadas
-    if (userLocation) {
-      result = [...result].sort((a, b) => {
+
+    // 2. Categoría
+    if (filterCategory) {
+      result = result.filter(s => (categoryMap[s.categoryId] ?? '') === filterCategory)
+    }
+
+    // 3. Valoración mínima
+    if (filterMinRating > 0) {
+      result = result.filter(s => {
+        const avg = shopAvgRating[s.id]
+        return avg !== null && avg !== undefined && avg >= filterMinRating
+      })
+    }
+
+    // 4. Radio máximo (solo si tenemos ubicación)
+    if (filterMaxDist > 0 && userLocation) {
+      result = result.filter(s => s.distance != null && s.distance <= filterMaxDist * 1000)
+    }
+
+    // 5. Ordenar
+    result = [...result].sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name)
+      if (sortBy === 'rating') {
+        const ra = shopAvgRating[a.id] ?? -1
+        const rb = shopAvgRating[b.id] ?? -1
+        return rb - ra
+      }
+      // 'smart' (default): primero por distancia si disponible, luego rating
+      if (userLocation) {
         if (a.distance == null && b.distance == null) return 0
         if (a.distance == null) return 1
         if (b.distance == null) return -1
         return a.distance - b.distance
-      })
-    }
+      }
+      // Sin ubicación: ordenar por rating descendente
+      const ra = shopAvgRating[a.id] ?? -1
+      const rb = shopAvgRating[b.id] ?? -1
+      return rb - ra
+    })
+
     return result
-  }, [shopsWithDistance, searchQuery, userLocation])
+  }, [shopsWithDistance, searchQuery, filterCategory, filterMinRating, filterMaxDist, sortBy, categoryMap, shopAvgRating, userLocation])
+
+  const activeFilterCount = [
+    filterCategory !== '',
+    filterMinRating > 0,
+    filterMaxDist > 0,
+    sortBy !== 'smart',
+  ].filter(Boolean).length
+
+  const clearFilters = () => {
+    setFilterCategory('')
+    setFilterMinRating(0)
+    setFilterMaxDist(0)
+    setSortBy('smart')
+    setSearchQuery('')
+  }
 
   const mappableShops = filteredShops.filter(s => s.latitude && s.longitude)
 
@@ -314,45 +381,195 @@ function DiscoverShops() {
         </div>
       )}
 
-      {/* Header + Search */}
-      <div className="px-4 sm:px-6 lg:px-8 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header + Search + Filtros */}
+      <div className="px-4 sm:px-6 lg:px-8 mb-4">
+        {/* Título */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">Descubre Negocios</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
               {userLocation
-                ? 'Negocios cerca de ti, ordenados por distancia'
-                : 'Encuentra el negocio ideal y agenda tu cita'}
+                ? `${filteredShops.length} negocio${filteredShops.length !== 1 ? 's' : ''} cerca de ti`
+                : `${filteredShops.length} negocio${filteredShops.length !== 1 ? 's' : ''} disponibles`}
             </p>
           </div>
-          <div className="flex items-center gap-2 max-w-sm w-full">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nombre o dirección..."
-                className="w-full pl-9 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
-                </button>
-              )}
-            </div>
-            {/* Botón de re-centrar si ya tenemos ubicación */}
-            {userLocation && (
-              <button
-                onClick={centerOnMe}
-                title="Centrar en mi ubicación"
-                className="p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition flex-shrink-0"
-              >
-                <LocateFixed className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        </div>
+
+        {/* Barra de búsqueda + botones */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nombre o dirección..."
+              className="w-full pl-9 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
               </button>
             )}
           </div>
+
+          {/* Filtros */}
+          <button
+            onClick={() => setShowFilters(f => !f)}
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-medium transition flex-shrink-0 ${
+              showFilters || activeFilterCount > 0
+                ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">Filtros</span>
+            {activeFilterCount > 0 && (
+              <span className={`text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 ${
+                showFilters || activeFilterCount > 0 ? 'bg-white/20 text-white dark:bg-black/20 dark:text-gray-900' : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+              }`}>
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Centrar en ubicación */}
+          {userLocation && (
+            <button
+              onClick={centerOnMe}
+              title="Centrar en mi ubicación"
+              className="p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition flex-shrink-0 bg-white dark:bg-gray-800"
+            >
+              <LocateFixed className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </button>
+          )}
         </div>
+
+        {/* Chips de categoría (siempre visibles) */}
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setFilterCategory('')}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+              filterCategory === ''
+                ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
+            }`}
+          >
+            <Store className="w-3 h-3" />
+            Todos
+          </button>
+          {Object.entries(CATEGORY_CONFIG).map(([slug, { label, Icon, color }]) => (
+            <button
+              key={slug}
+              onClick={() => setFilterCategory(prev => prev === slug ? '' : slug)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                filterCategory === slug
+                  ? `${color} font-semibold`
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
+              }`}
+            >
+              <Icon className="w-3 h-3" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Panel de filtros avanzados */}
+        {showFilters && (
+          <div className="mt-3 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+
+              {/* Ordenar por */}
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  Ordenar por
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { value: 'smart',  label: userLocation ? 'Más cercano' : 'Mejor valorado' },
+                    { value: 'rating', label: '★ Valoración' },
+                    { value: 'name',   label: 'A–Z Nombre' },
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setSortBy(value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        sortBy === value
+                          ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Valoración mínima */}
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 fill-gray-400" />
+                  Valoración mínima
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {[0, 3, 4, 4.5].map(val => (
+                    <button
+                      key={val}
+                      onClick={() => setFilterMinRating(val)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        filterMinRating === val
+                          ? 'bg-yellow-400 text-gray-900 border-yellow-400'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
+                      }`}
+                    >
+                      {val === 0 ? 'Todas' : `${val}★ o más`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Radio máximo (solo con ubicación) */}
+              {userLocation && (
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5" />
+                    Distancia máxima
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[0, 0.5, 1, 3, 5].map(km => (
+                      <button
+                        key={km}
+                        onClick={() => setFilterMaxDist(km)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                          filterMaxDist === km
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        {km === 0 ? 'Cualquiera' : km < 1 ? `${km * 1000}m` : `${km} km`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Limpiar filtros */}
+            {(activeFilterCount > 0 || searchQuery) && (
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-medium transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Limpiar todos los filtros
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Favoritos guardados */}
@@ -402,10 +619,15 @@ function DiscoverShops() {
               <Store className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-400 font-medium">No se encontraron negocios</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {searchQuery
-                  ? 'Intenta con otro término de búsqueda'
+                {activeFilterCount > 0 || searchQuery
+                  ? 'Prueba ajustando los filtros o el término de búsqueda'
                   : 'Aún no hay negocios registrados'}
               </p>
+              {(activeFilterCount > 0 || searchQuery) && (
+                <button onClick={clearFilters} className="mt-3 text-xs text-primary-600 dark:text-primary-400 underline">
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           ) : (
             filteredShops.map((shop) => (
