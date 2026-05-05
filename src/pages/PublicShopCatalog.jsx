@@ -1123,7 +1123,7 @@ export default function PublicShopCatalog() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
+          <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 ${cartCount > 0 ? 'pb-28' : ''}`}>
             {visibleProducts.map(product => (
               <ProductCard key={product.id} product={product}
                 qty={cart[product.id] ?? 0}
