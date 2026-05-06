@@ -4,10 +4,11 @@ import {
   ShoppingBag, Plus, Minus, X, MapPin, Home, Package,
   CreditCard, Banknote, CheckCircle, Store, ArrowLeft, Loader2,
   User, Clock, Calendar, Images, ChevronLeft, ChevronRight,
-  Search, SlidersHorizontal, ChevronDown,
+  Search, SlidersHorizontal, ChevronDown, Landmark, Upload, FileText,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
+import { uploadTransferProof } from '../lib/transferProofUpload'
 import { useAuth } from '../context/AuthContext'
 import PublicUserMenu from '../components/PublicUserMenu'
 
@@ -280,7 +281,12 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
   const [distanceKm, setDistanceKm]             = useState(null)
   const [deliveryFee, setDeliveryFee]           = useState(0)
   const [paymentMethod, setPaymentMethod]       = useState('cash')
+  const [proofFile, setProofFile]               = useState(null)   // File seleccionado
+  const [proofUrl, setProofUrl]                 = useState(null)   // URL tras upload
+  const [uploadingProof, setUploadingProof]     = useState(false)
+  const [proofError, setProofError]             = useState(null)
   const [notes, setNotes]                       = useState('')
+  const proofInputRef = useRef(null)
   const autocompleteRef = useRef(null)
 
   // ── Profesional + horario ────────────────────────────────────────────────
@@ -379,6 +385,26 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
     selectedHour
   )
 
+  const handleProofChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setProofFile(file)
+    setProofError(null)
+    setUploadingProof(true)
+    try {
+      const url = await uploadTransferProof(file, shop.id)
+      setProofUrl(url)
+    } catch (err) {
+      setProofError(err.message)
+      setProofFile(null)
+      setProofUrl(null)
+    } finally {
+      setUploadingProof(false)
+    }
+  }
+
+  const hasTransferInfo = shop?.transferAccountNumber || shop?.transferAlias
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!isDeliveryValid) return
@@ -389,6 +415,7 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
       deliveryType,
       clientAddress: address.trim() || null,
       paymentMethod,
+      transferProofUrl: paymentMethod === 'transfer' ? (proofUrl ?? null) : null,
       notes: notes.trim() || null,
       deliveryFee: deliveryType === 'delivery' ? deliveryFee : 0,
       assignedBarberId: selectedBarberId ? Number(selectedBarberId) : null,
@@ -616,7 +643,7 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
             <div className="grid grid-cols-2 gap-2">
               {[
                 { value: 'cash', label: 'Efectivo', icon: <Banknote className="w-4 h-4" /> },
-                { value: 'transfer', label: 'Transferencia', icon: <CreditCard className="w-4 h-4" /> },
+                { value: 'transfer', label: 'Transferencia', icon: <Landmark className="w-4 h-4" /> },
               ].map(({ value, label, icon }) => (
                 <button key={value} type="button" onClick={() => setPaymentMethod(value)}
                   className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition ${
@@ -629,6 +656,99 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
                 </button>
               ))}
             </div>
+
+            {/* Panel de transferencia */}
+            {paymentMethod === 'transfer' && (
+              <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 p-4 space-y-3">
+
+                {/* Datos bancarios del negocio */}
+                {hasTransferInfo ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                      <Landmark className="w-3.5 h-3.5" />
+                      Datos para transferir
+                    </p>
+                    <div className="bg-white dark:bg-gray-900 rounded-lg p-3 space-y-1.5 text-sm">
+                      {shop?.transferBankName && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">Banco</span>
+                          <span className="font-medium text-gray-900 dark:text-white text-xs">{shop.transferBankName}</span>
+                        </div>
+                      )}
+                      {shop?.transferAccountHolder && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">Titular</span>
+                          <span className="font-medium text-gray-900 dark:text-white text-xs">{shop.transferAccountHolder}</span>
+                        </div>
+                      )}
+                      {shop?.transferAccountNumber && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-500 dark:text-gray-400 text-xs shrink-0">CBU/CVU</span>
+                          <span className="font-mono font-medium text-gray-900 dark:text-white text-xs break-all text-right">{shop.transferAccountNumber}</span>
+                        </div>
+                      )}
+                      {shop?.transferAlias && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">Alias</span>
+                          <span className="font-mono font-semibold text-blue-700 dark:text-blue-300 text-xs">{shop.transferAlias}</span>
+                        </div>
+                      )}
+                    </div>
+                    {shop?.transferInstructions && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400">{shop.transferInstructions}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    El negocio te indicará los datos de transferencia por otro canal.
+                  </p>
+                )}
+
+                {/* Upload del comprobante */}
+                <div>
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    Adjuntar comprobante
+                    <span className="font-normal text-blue-500 dark:text-blue-500">(opcional)</span>
+                  </p>
+                  <input
+                    ref={proofInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={handleProofChange}
+                  />
+                  {!proofFile ? (
+                    <button
+                      type="button"
+                      onClick={() => proofInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl py-4 text-center hover:border-blue-500 dark:hover:border-blue-500 transition"
+                    >
+                      <Upload className="w-5 h-5 text-blue-400 mx-auto mb-1" />
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Subir imagen o PDF</p>
+                      <p className="text-[10px] text-blue-400 dark:text-blue-600 mt-0.5">JPG, PNG, WEBP, PDF · máx 20 MB</p>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-white dark:bg-gray-900 rounded-xl px-3 py-2.5 border border-blue-200 dark:border-blue-800">
+                      <FileText className="w-5 h-5 text-blue-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 dark:text-white truncate">{proofFile.name}</p>
+                        {uploadingProof && <p className="text-[10px] text-blue-500">Subiendo...</p>}
+                        {proofUrl && !uploadingProof && <p className="text-[10px] text-green-600 dark:text-green-400">Comprobante adjunto ✓</p>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setProofFile(null); setProofUrl(null); setProofError(null) }}
+                        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                      >
+                        <X className="w-3.5 h-3.5 text-gray-400" />
+                      </button>
+                    </div>
+                  )}
+                  {proofError && <p className="text-xs text-red-500 mt-1">{proofError}</p>}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Notas opcionales */}
@@ -750,7 +870,7 @@ export default function PublicShopCatalog() {
     return filtered
   })()
 
-  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, notes, deliveryFee, assignedBarberId, scheduledAt }) => {
+  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, transferProofUrl, notes, deliveryFee, assignedBarberId, scheduledAt }) => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: `/shop/${slug}` } })
       return
@@ -763,6 +883,7 @@ export default function PublicShopCatalog() {
         shopId: shop.id,
         deliveryType,
         paymentMethod,
+        transferProofUrl: transferProofUrl ?? null,
         clientAddress,
         notes,
         deliveryFee: deliveryFee ?? 0,

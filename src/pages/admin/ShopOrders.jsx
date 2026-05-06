@@ -16,6 +16,7 @@ import {
   CreditCard,
   User,
   AlertCircle,
+  FileText,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
@@ -331,6 +332,17 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpda
               <CreditCard className="w-3.5 h-3.5" />
               {order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia'}
             </span>
+            {order.paymentMethod === 'transfer' && order.transferProofUrl && (
+              <a
+                href={order.transferProofUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Ver comprobante
+              </a>
+            )}
             {order.clientAddress && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5" />

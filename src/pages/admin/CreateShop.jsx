@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Store, MapPin, Home, Tag } from 'lucide-react'
+import { ArrowLeft, Store, MapPin, Home, Tag, Landmark } from 'lucide-react'
 import { GoogleMap, Marker, Autocomplete } from '@react-google-maps/api'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -42,6 +42,11 @@ function CreateShop() {
     homeServiceEnabled: false,
     pricePerKm: '',
     categoryId: '',
+    transferBankName: '',
+    transferAccountHolder: '',
+    transferAccountNumber: '',
+    transferAlias: '',
+    transferInstructions: '',
   })
   const [categories, setCategories] = useState([])
   const [slugEdited, setSlugEdited] = useState(false)
@@ -77,6 +82,11 @@ function CreateShop() {
           homeServiceEnabled: shop.homeServiceEnabled ?? false,
           pricePerKm: shop.pricePerKm != null ? String(shop.pricePerKm) : '',
           categoryId: shop.categoryId || '',
+          transferBankName: shop.transferBankName || '',
+          transferAccountHolder: shop.transferAccountHolder || '',
+          transferAccountNumber: shop.transferAccountNumber || '',
+          transferAlias: shop.transferAlias || '',
+          transferInstructions: shop.transferInstructions || '',
         })
         setSlugEdited(true)
         if (shop.latitude && shop.longitude) {
@@ -416,6 +426,69 @@ function CreateShop() {
                     <span className="text-gray-600 dark:text-gray-300 font-medium">tudominio.com/book/{form.slug}</span>
                   </p>
                 )}
+              </div>
+
+              {/* Datos de transferencia bancaria */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Landmark className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Datos bancarios para transferencias</span>
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  Si aceptás pagos por transferencia, completá estos datos. Se mostrarán al cliente cuando seleccione esa opción.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Banco</label>
+                  <input
+                    type="text"
+                    value={form.transferBankName}
+                    onChange={(e) => setForm((f) => ({ ...f, transferBankName: e.target.value }))}
+                    placeholder="ej: Banco Nación, BBVA, Santander..."
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Titular de la cuenta</label>
+                  <input
+                    type="text"
+                    value={form.transferAccountHolder}
+                    onChange={(e) => setForm((f) => ({ ...f, transferAccountHolder: e.target.value }))}
+                    placeholder="Nombre completo o razón social"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">CBU / CVU / CLABE</label>
+                    <input
+                      type="text"
+                      value={form.transferAccountNumber}
+                      onChange={(e) => setForm((f) => ({ ...f, transferAccountNumber: e.target.value }))}
+                      placeholder="Número de cuenta"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Alias <span className="text-gray-400 font-normal">(opcional)</span></label>
+                    <input
+                      type="text"
+                      value={form.transferAlias}
+                      onChange={(e) => setForm((f) => ({ ...f, transferAlias: e.target.value }))}
+                      placeholder="mi.alias.mp"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Instrucciones adicionales <span className="text-gray-400 font-normal">(opcional)</span></label>
+                  <textarea
+                    value={form.transferInstructions}
+                    onChange={(e) => setForm((f) => ({ ...f, transferInstructions: e.target.value }))}
+                    placeholder="ej: Indicar nombre completo en el concepto"
+                    rows={2}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 resize-none"
+                  />
+                </div>
               </div>
 
               {/* Botones */}
