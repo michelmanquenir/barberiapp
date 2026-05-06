@@ -4,7 +4,7 @@ import {
   ShoppingBag, Plus, Minus, X, MapPin, Home, Package,
   CreditCard, Banknote, CheckCircle, Store, ArrowLeft, Loader2,
   User, Clock, Calendar, Images, ChevronLeft, ChevronRight,
-  Search, SlidersHorizontal, ChevronDown, Landmark, Upload, FileText,
+  Search, SlidersHorizontal, ChevronDown, Landmark, Upload, FileText, Copy, Check,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -269,6 +269,129 @@ function ProductCard({ product, qty, onAdd, onRemove, onDetail }) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── CopyField — campo copiable ────────────────────────────────────────────────
+function CopyField({ label, value }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <div className="flex items-center justify-between gap-2 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <div className="min-w-0">
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{label}</p>
+        <p className="text-xs font-mono font-semibold text-gray-900 dark:text-white break-all">{value}</p>
+      </div>
+      <button
+        type="button"
+        onClick={copy}
+        className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition ${
+          copied
+            ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
+            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+        }`}
+      >
+        {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+        {copied ? 'Copiado' : 'Copiar'}
+      </button>
+    </div>
+  )
+}
+
+// ── TransferPanel ─────────────────────────────────────────────────────────────
+function TransferPanel({ shop, proofFile, proofUrl, uploadingProof, proofError, proofInputRef, onProofChange, onClearProof }) {
+  const hasData = shop?.transferAccountNumber || shop?.transferAlias
+
+  return (
+    <div className="mt-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 overflow-hidden">
+
+      {/* Paso 1 — Datos bancarios */}
+      <div className="p-4">
+        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-3">
+          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</span>
+          Transferí el monto a esta cuenta
+        </p>
+
+        {hasData ? (
+          <div className="bg-white dark:bg-gray-900 rounded-xl px-3 divide-y divide-gray-100 dark:divide-gray-800">
+            {shop?.transferBankName && (
+              <div className="py-2 flex items-center justify-between">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Banco</p>
+                <p className="text-xs font-semibold text-gray-800 dark:text-white">{shop.transferBankName}</p>
+              </div>
+            )}
+            {shop?.transferAccountHolder && (
+              <div className="py-2 flex items-center justify-between">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Titular</p>
+                <p className="text-xs font-semibold text-gray-800 dark:text-white">{shop.transferAccountHolder}</p>
+              </div>
+            )}
+            {shop?.transferAccountNumber && (
+              <CopyField label="CBU / CVU / CLABE" value={shop.transferAccountNumber} />
+            )}
+            {shop?.transferAlias && (
+              <CopyField label="Alias" value={shop.transferAlias} />
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-emerald-700 dark:text-emerald-400 bg-white dark:bg-gray-900 rounded-xl px-3 py-3">
+            El negocio te indicará los datos por otro medio.
+          </p>
+        )}
+
+        {shop?.transferInstructions && (
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2 leading-snug">
+            💬 {shop.transferInstructions}
+          </p>
+        )}
+      </div>
+
+      {/* Paso 2 — Comprobante (opcional) */}
+      <div className="border-t border-emerald-200 dark:border-emerald-800 bg-white/60 dark:bg-gray-900/40 p-4">
+        <p className="text-xs font-bold text-gray-600 dark:text-gray-300 flex items-center gap-1.5 mb-2">
+          <span className="w-4 h-4 rounded-full bg-gray-400 dark:bg-gray-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</span>
+          Adjuntá el comprobante
+          <span className="font-normal text-gray-400">(opcional)</span>
+        </p>
+
+        <input
+          ref={proofInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          className="hidden"
+          onChange={onProofChange}
+        />
+
+        {!proofFile ? (
+          <button
+            type="button"
+            onClick={() => proofInputRef.current?.click()}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-emerald-400 dark:hover:border-emerald-600 hover:text-emerald-600 dark:hover:text-emerald-400 transition text-xs font-medium"
+          >
+            <Upload className="w-4 h-4 shrink-0" />
+            Subir imagen o PDF del comprobante
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2 border border-gray-200 dark:border-gray-700">
+            <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-800 dark:text-white truncate">{proofFile.name}</p>
+              {uploadingProof && <p className="text-[10px] text-blue-500">Subiendo...</p>}
+              {proofUrl && !uploadingProof && <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Adjunto ✓</p>}
+            </div>
+            <button type="button" onClick={onClearProof} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+              <X className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+          </div>
+        )}
+        {proofError && <p className="text-xs text-red-500 mt-1.5">{proofError}</p>}
       </div>
     </div>
   )
@@ -659,95 +782,11 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
 
             {/* Panel de transferencia */}
             {paymentMethod === 'transfer' && (
-              <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 p-4 space-y-3">
-
-                {/* Datos bancarios del negocio */}
-                {hasTransferInfo ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
-                      <Landmark className="w-3.5 h-3.5" />
-                      Datos para transferir
-                    </p>
-                    <div className="bg-white dark:bg-gray-900 rounded-lg p-3 space-y-1.5 text-sm">
-                      {shop?.transferBankName && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500 dark:text-gray-400 text-xs">Banco</span>
-                          <span className="font-medium text-gray-900 dark:text-white text-xs">{shop.transferBankName}</span>
-                        </div>
-                      )}
-                      {shop?.transferAccountHolder && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500 dark:text-gray-400 text-xs">Titular</span>
-                          <span className="font-medium text-gray-900 dark:text-white text-xs">{shop.transferAccountHolder}</span>
-                        </div>
-                      )}
-                      {shop?.transferAccountNumber && (
-                        <div className="flex justify-between gap-2">
-                          <span className="text-gray-500 dark:text-gray-400 text-xs shrink-0">CBU/CVU</span>
-                          <span className="font-mono font-medium text-gray-900 dark:text-white text-xs break-all text-right">{shop.transferAccountNumber}</span>
-                        </div>
-                      )}
-                      {shop?.transferAlias && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500 dark:text-gray-400 text-xs">Alias</span>
-                          <span className="font-mono font-semibold text-blue-700 dark:text-blue-300 text-xs">{shop.transferAlias}</span>
-                        </div>
-                      )}
-                    </div>
-                    {shop?.transferInstructions && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400">{shop.transferInstructions}</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-blue-600 dark:text-blue-400">
-                    El negocio te indicará los datos de transferencia por otro canal.
-                  </p>
-                )}
-
-                {/* Upload del comprobante */}
-                <div>
-                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-1.5">
-                    <Upload className="w-3.5 h-3.5" />
-                    Adjuntar comprobante
-                    <span className="font-normal text-blue-500 dark:text-blue-500">(opcional)</span>
-                  </p>
-                  <input
-                    ref={proofInputRef}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    className="hidden"
-                    onChange={handleProofChange}
-                  />
-                  {!proofFile ? (
-                    <button
-                      type="button"
-                      onClick={() => proofInputRef.current?.click()}
-                      className="w-full border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl py-4 text-center hover:border-blue-500 dark:hover:border-blue-500 transition"
-                    >
-                      <Upload className="w-5 h-5 text-blue-400 mx-auto mb-1" />
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Subir imagen o PDF</p>
-                      <p className="text-[10px] text-blue-400 dark:text-blue-600 mt-0.5">JPG, PNG, WEBP, PDF · máx 20 MB</p>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-3 bg-white dark:bg-gray-900 rounded-xl px-3 py-2.5 border border-blue-200 dark:border-blue-800">
-                      <FileText className="w-5 h-5 text-blue-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-800 dark:text-white truncate">{proofFile.name}</p>
-                        {uploadingProof && <p className="text-[10px] text-blue-500">Subiendo...</p>}
-                        {proofUrl && !uploadingProof && <p className="text-[10px] text-green-600 dark:text-green-400">Comprobante adjunto ✓</p>}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => { setProofFile(null); setProofUrl(null); setProofError(null) }}
-                        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                      >
-                        <X className="w-3.5 h-3.5 text-gray-400" />
-                      </button>
-                    </div>
-                  )}
-                  {proofError && <p className="text-xs text-red-500 mt-1">{proofError}</p>}
-                </div>
-              </div>
+              <TransferPanel shop={shop} proofFile={proofFile} proofUrl={proofUrl}
+                uploadingProof={uploadingProof} proofError={proofError}
+                proofInputRef={proofInputRef} onProofChange={handleProofChange}
+                onClearProof={() => { setProofFile(null); setProofUrl(null); setProofError(null) }}
+              />
             )}
           </div>
 
