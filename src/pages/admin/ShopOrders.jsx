@@ -17,6 +17,10 @@ import {
   User,
   AlertCircle,
   FileText,
+  Store,
+  X,
+  ExternalLink,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
@@ -81,12 +85,14 @@ function ShopOrders() {
   const { shopId } = useParams()
   const navigate   = useNavigate()
 
+  const [shop,       setShop]       = useState(null)
   const [orders,     setOrders]     = useState([])
   const [loading,    setLoading]    = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [filter,     setFilter]     = useState('all')
   const [expanded,   setExpanded]   = useState(null) // orderId | null
   const [updating,   setUpdating]   = useState(null) // orderId | null
+  const [proofModal, setProofModal] = useState(null) // URL del comprobante a visualizar
 
   // ── Carga ──────────────────────────────────────────────────────────────────
 
@@ -103,7 +109,10 @@ function ShopOrders() {
     }
   }, [shopId])
 
-  useEffect(() => { loadOrders() }, [loadOrders])
+  useEffect(() => {
+    api.getShopById(shopId).then(setShop).catch(() => {})
+    loadOrders()
+  }, [loadOrders, shopId])
 
   // ── Acciones ───────────────────────────────────────────────────────────────
 
@@ -174,13 +183,22 @@ function ShopOrders() {
               <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             </button>
             <div>
+              {/* Breadcrumb del negocio */}
+              <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-0.5">
+                <Store className="w-3.5 h-3.5" />
+                <span>{shop?.name ?? '...'}</span>
+                {shop?.address && (
+                  <>
+                    <span>·</span>
+                    <MapPin className="w-3 h-3" />
+                    <span className="truncate max-w-[200px]">{shop.address}</span>
+                  </>
+                )}
+              </div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
                 <ShoppingBag className="w-6 h-6" />
                 Pedidos
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                Gestiona los pedidos de tu negocio
-              </p>
             </div>
           </div>
           <button
@@ -231,6 +249,11 @@ function ShopOrders() {
           ))}
         </div>
 
+        {/* Modal comprobante de transferencia */}
+        {proofModal && (
+          <ProofModal url={proofModal} onClose={() => setProofModal(null)} />
+        )}
+
         {/* Lista */}
         {loading ? (
           <div className="flex flex-col items-center py-16 gap-3">
@@ -256,10 +279,71 @@ function ShopOrders() {
                 onUpdateStatus={handleUpdateStatus}
                 onCancel={handleCancel}
                 isUpdating={updating === order.id}
+                onViewProof={setProofModal}
               />
             ))}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ─── ProofModal ───────────────────────────────────────────────────────────────
+
+function ProofModal({ url, onClose }) {
+  const isPdf = url?.toLowerCase().includes('.pdf')
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden max-w-2xl w-full max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <span className="text-sm font-semibold text-gray-800 dark:text-white">Comprobante de transferencia</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400"
+              title="Abrir en nueva pestaña"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-500 dark:text-gray-400"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Contenido */}
+        <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 dark:bg-gray-950 min-h-[300px]">
+          {isPdf ? (
+            <iframe
+              src={url}
+              title="Comprobante PDF"
+              className="w-full h-[70vh]"
+            />
+          ) : (
+            <img
+              src={url}
+              alt="Comprobante de transferencia"
+              className="max-w-full max-h-[70vh] object-contain"
+            />
+          )}
+        </div>
       </div>
     </div>
   )
@@ -281,7 +365,7 @@ function StatCard({ icon, label, value, bg }) {
 
 // ─── OrderCard ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpdating }) {
+function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpdating, onViewProof }) {
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending
   const isTerminal = order.status === 'delivered' || order.status === 'cancelled'
 
@@ -332,16 +416,22 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpda
               <CreditCard className="w-3.5 h-3.5" />
               {order.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia'}
             </span>
-            {order.paymentMethod === 'transfer' && order.transferProofUrl && (
-              <a
-                href={order.transferProofUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Ver comprobante
-              </a>
+            {order.paymentMethod === 'transfer' && (
+              order.transferProofUrl ? (
+                <button
+                  type="button"
+                  onClick={() => onViewProof(order.transferProofUrl)}
+                  className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Ver comprobante
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <FileText className="w-3.5 h-3.5" />
+                  Sin comprobante
+                </span>
+              )
             )}
             {order.clientAddress && (
               <span className="flex items-center gap-1">
