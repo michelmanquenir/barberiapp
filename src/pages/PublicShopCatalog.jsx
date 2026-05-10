@@ -307,48 +307,62 @@ function CopyField({ label, value }) {
 
 // ── TransferPanel ─────────────────────────────────────────────────────────────
 function TransferPanel({ shop, proofFile, proofUrl, uploadingProof, proofError, proofInputRef, onProofChange, onClearProof }) {
-  const hasData = shop?.transferAccountNumber || shop?.transferAlias
+  const [copiedAll, setCopiedAll] = useState(false)
+
+  const fields = [
+    { label: 'Nombre',           value: shop?.transferAccountHolder },
+    { label: 'RUT',              value: shop?.transferRut },
+    { label: 'Email',            value: shop?.transferEmail },
+    { label: 'Tipo de cuenta',   value: shop?.transferAccountType },
+    { label: 'Número de cuenta', value: shop?.transferAccountNumber },
+    { label: 'Banco',            value: shop?.transferBankName },
+  ].filter(f => f.value)
+
+  const hasData = fields.length > 0
+
+  const copyAll = () => {
+    const text = fields.map(f => f.value).join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedAll(true)
+      setTimeout(() => setCopiedAll(false), 2500)
+    })
+  }
 
   return (
     <div className="mt-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 overflow-hidden">
 
       {/* Paso 1 — Datos bancarios */}
       <div className="p-4">
-        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-3">
-          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</span>
-          Transferí el monto a esta cuenta
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+            <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</span>
+            Transferí el monto a esta cuenta
+          </p>
+          {hasData && (
+            <button
+              type="button"
+              onClick={copyAll}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                copiedAll
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-white dark:bg-gray-900 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+              }`}
+            >
+              {copiedAll ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedAll ? '¡Copiado!' : 'Copiar todo'}
+            </button>
+          )}
+        </div>
 
         {hasData ? (
           <div className="bg-white dark:bg-gray-900 rounded-xl px-3 divide-y divide-gray-100 dark:divide-gray-800">
-            {shop?.transferBankName && (
-              <div className="py-2 flex items-center justify-between">
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Banco</p>
-                <p className="text-xs font-semibold text-gray-800 dark:text-white">{shop.transferBankName}</p>
-              </div>
-            )}
-            {shop?.transferAccountHolder && (
-              <div className="py-2 flex items-center justify-between">
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Titular</p>
-                <p className="text-xs font-semibold text-gray-800 dark:text-white">{shop.transferAccountHolder}</p>
-              </div>
-            )}
-            {shop?.transferAccountNumber && (
-              <CopyField label="CBU / CVU / CLABE" value={shop.transferAccountNumber} />
-            )}
-            {shop?.transferAlias && (
-              <CopyField label="Alias" value={shop.transferAlias} />
-            )}
+            {fields.map(({ label, value }) => (
+              <CopyField key={label} label={label} value={value} />
+            ))}
           </div>
         ) : (
           <p className="text-xs text-emerald-700 dark:text-emerald-400 bg-white dark:bg-gray-900 rounded-xl px-3 py-3">
-            El negocio te indicará los datos por otro medio.
-          </p>
-        )}
-
-        {shop?.transferInstructions && (
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2 leading-snug">
-            💬 {shop.transferInstructions}
+            El negocio te indicará los datos de transferencia por otro medio.
           </p>
         )}
       </div>
