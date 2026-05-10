@@ -369,10 +369,10 @@ function TransferPanel({ shop, proofFile, proofUrl, uploadingProof, proofError, 
 
       {/* Paso 2 — Comprobante (opcional) */}
       <div className="border-t border-emerald-200 dark:border-emerald-800 bg-white/60 dark:bg-gray-900/40 p-4">
-        <p className="text-xs font-bold text-gray-600 dark:text-gray-300 flex items-center gap-1.5 mb-2">
-          <span className="w-4 h-4 rounded-full bg-gray-400 dark:bg-gray-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</span>
+        <p className="text-xs font-bold text-gray-700 dark:text-gray-200 flex items-center gap-1.5 mb-2">
+          <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</span>
           Adjuntá el comprobante
-          <span className="font-normal text-gray-400">(opcional)</span>
+          <span className="font-normal text-amber-600 dark:text-amber-400">· obligatorio</span>
         </p>
 
         <input
@@ -515,12 +515,13 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
   const grandTotal = cartTotal + (deliveryType === 'delivery' ? deliveryFee : 0)
 
   // ── Validación ───────────────────────────────────────────────────────────
-  const isDeliveryValid = deliveryType !== 'delivery' || (
+  const isTransferValid = paymentMethod !== 'transfer' || (!!proofUrl && !uploadingProof)
+  const isDeliveryValid = (deliveryType !== 'delivery' || (
     address.trim() &&
     selectedBarberId &&
     selectedDay &&
     selectedHour
-  )
+  )) && isTransferValid
 
   const handleProofChange = async (e) => {
     const file = e.target.files?.[0]
@@ -816,6 +817,11 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
             />
           </div>
 
+          {paymentMethod === 'transfer' && !proofUrl && !uploadingProof && (
+            <p className="text-xs text-center text-amber-600 dark:text-amber-400 -mb-2">
+              Debés adjuntar el comprobante de transferencia para continuar
+            </p>
+          )}
           <button type="submit" disabled={submitting || !isDeliveryValid}
             className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-semibold text-sm hover:bg-gray-700 dark:hover:bg-gray-100 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
