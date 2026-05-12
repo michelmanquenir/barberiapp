@@ -412,7 +412,7 @@ function TransferPanel({ shop, proofFile, proofUrl, uploadingProof, proofError, 
 }
 
 // ── CheckoutModal ─────────────────────────────────────────────────────────────
-function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm, submitting }) {
+function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm, submitting, isAuthenticated }) {
   const [deliveryType, setDeliveryType]         = useState('pickup')
   const [address, setAddress]                   = useState('')
   const [distanceKm, setDistanceKm]             = useState(null)
@@ -423,6 +423,10 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
   const [uploadingProof, setUploadingProof]     = useState(false)
   const [proofError, setProofError]             = useState(null)
   const [notes, setNotes]                       = useState('')
+  // ── Datos de invitado (si no está autenticado) ───────────────────────────
+  const [guestName, setGuestName]               = useState('')
+  const [guestEmail, setGuestEmail]             = useState('')
+  const [guestPhone, setGuestPhone]             = useState('')
   const proofInputRef = useRef(null)
   const autocompleteRef = useRef(null)
 
@@ -516,12 +520,13 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
 
   // ── Validación ───────────────────────────────────────────────────────────
   const isTransferValid = paymentMethod !== 'transfer' || (!!proofUrl && !uploadingProof)
+  const isGuestValid    = isAuthenticated || (guestName.trim().length >= 2 && guestEmail.trim().length >= 5)
   const isDeliveryValid = (deliveryType !== 'delivery' || (
     address.trim() &&
     selectedBarberId &&
     selectedDay &&
     selectedHour
-  )) && isTransferValid
+  )) && isTransferValid && isGuestValid
 
   const handleProofChange = async (e) => {
     const file = e.target.files?.[0]
@@ -558,6 +563,11 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
       deliveryFee: deliveryType === 'delivery' ? deliveryFee : 0,
       assignedBarberId: selectedBarberId ? Number(selectedBarberId) : null,
       scheduledAt,
+      ...(!isAuthenticated && {
+        guestName:  guestName.trim(),
+        guestEmail: guestEmail.trim(),
+        guestPhone: guestPhone.trim() || null,
+      }),
     })
   }
 
@@ -805,6 +815,50 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
             )}
           </div>
 
+          {/* Datos del invitado (solo si no está autenticado) */}
+          {!isAuthenticated && (
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-3">
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                Tus datos de contacto
+              </p>
+              <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                Para que el negocio pueda contactarte.{' '}
+                <button type="button" onClick={() => window.location.href = '/login'}
+                  className="underline font-semibold">¿Tenés cuenta? Iniciá sesión</button>
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+                    Nombre completo <span className="text-red-500">*</span>
+                  </label>
+                  <input type="text" value={guestName} onChange={e => setGuestName(e.target.value)}
+                    placeholder="Tu nombre"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input type="email" value={guestEmail} onChange={e => setGuestEmail(e.target.value)}
+                    placeholder="tu@email.com"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+                    Teléfono <span className="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <input type="tel" value={guestPhone} onChange={e => setGuestPhone(e.target.value)}
+                    placeholder="+54 9 11 ..."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-600"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Notas opcionales */}
           <div>
             <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
@@ -929,11 +983,7 @@ export default function PublicShopCatalog() {
     return filtered
   })()
 
-  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, transferProofUrl, notes, deliveryFee, assignedBarberId, scheduledAt }) => {
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: `/shop/${slug}` } })
-      return
-    }
+  const handleConfirmOrder = async ({ deliveryType, clientAddress, paymentMethod, transferProofUrl, notes, deliveryFee, assignedBarberId, scheduledAt, guestName, guestEmail, guestPhone }) => {
     if (cartItems.length === 0) return
 
     setSubmitting(true)
@@ -948,6 +998,9 @@ export default function PublicShopCatalog() {
         deliveryFee: deliveryFee ?? 0,
         assignedBarberId: assignedBarberId ?? null,
         scheduledAt: scheduledAt ?? null,
+        guestName:  guestName  ?? null,
+        guestEmail: guestEmail ?? null,
+        guestPhone: guestPhone ?? null,
         items: cartItems.map(i => ({ productId: i.id, quantity: i.quantity })),
       })
       setOrderPlaced(true)
@@ -1322,13 +1375,7 @@ export default function PublicShopCatalog() {
       {cartCount > 0 && (
         <div className="fixed bottom-6 left-0 right-0 flex justify-center px-4 z-30">
           <button
-            onClick={() => {
-              if (!isAuthenticated) {
-                navigate('/login', { state: { from: `/shop/${slug}` } })
-                return
-              }
-              setCheckoutOpen(true)
-            }}
+            onClick={() => setCheckoutOpen(true)}
             className="flex items-center gap-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3.5 rounded-2xl shadow-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition font-semibold"
           >
             <div className="relative">
@@ -1352,6 +1399,7 @@ export default function PublicShopCatalog() {
           onClose={() => setCheckoutOpen(false)}
           onConfirm={handleConfirmOrder}
           submitting={submitting}
+          isAuthenticated={isAuthenticated}
         />
       )}
 

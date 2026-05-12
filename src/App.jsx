@@ -64,6 +64,7 @@ function App() {
             <Route path="/book/:slug" element={<PublicBooking />} />
             <Route path="/shop/:slug" element={<PublicShopCatalog />} />
             <Route path="/transport/:slug" element={<PublicTransport />} />
+            <Route path="/booking" element={<DiscoverShops />} />
 
             {/* Panel Super Admin */}
             <Route
@@ -253,7 +254,6 @@ function App() {
                   <Layout>
                     <Routes>
                       <Route path="/" element={<Navigate to="/booking" replace />} />
-                      <Route path="/booking" element={<DiscoverShops />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/appointments" element={<Appointments />} />
                       <Route path="/wallet" element={<Wallet />} />

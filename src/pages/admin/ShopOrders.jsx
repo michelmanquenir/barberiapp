@@ -21,6 +21,9 @@ import {
   X,
   ExternalLink,
   Image as ImageIcon,
+  UserX,
+  Phone,
+  Mail,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
@@ -408,6 +411,12 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpda
               <User className="w-3.5 h-3.5" />
               {order.clientName ?? 'Cliente'}
             </span>
+            {order.source === 'guest' && (
+              <span className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold text-[10px]">
+                <UserX className="w-3 h-3" />
+                Invitado · sin cuenta
+              </span>
+            )}
             <span className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
               {formatDateTime(order.createdAt)}
@@ -452,6 +461,23 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpda
               </span>
             )}
           </div>
+
+          {order.source === 'guest' && (order.guestEmail || order.guestPhone) && (
+            <div className="mt-2 flex flex-wrap gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+              {order.guestEmail && (
+                <a href={`mailto:${order.guestEmail}`}
+                  className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 hover:underline">
+                  <Mail className="w-3.5 h-3.5" />{order.guestEmail}
+                </a>
+              )}
+              {order.guestPhone && (
+                <a href={`tel:${order.guestPhone}`}
+                  className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 hover:underline">
+                  <Phone className="w-3.5 h-3.5" />{order.guestPhone}
+                </a>
+              )}
+            </div>
+          )}
 
           {order.notes && (
             <div className="mt-2 flex items-start gap-1.5 bg-gray-50 dark:bg-gray-800 rounded-lg px-2.5 py-1.5">
