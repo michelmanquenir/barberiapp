@@ -64,7 +64,7 @@ function App() {
             <Route path="/book/:slug" element={<PublicBooking />} />
             <Route path="/shop/:slug" element={<PublicShopCatalog />} />
             <Route path="/transport/:slug" element={<PublicTransport />} />
-            <Route path="/booking" element={<DiscoverShops />} />
+            <Route path="/booking" element={<Layout><DiscoverShops /></Layout>} />
 
             {/* Panel Super Admin */}
             <Route
