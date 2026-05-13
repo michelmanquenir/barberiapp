@@ -90,19 +90,6 @@ function getProfLabel(slug, count) {
   return count === 1 ? entry.singular : entry.plural
 }
 
-// ─── Orbs de fondo ────────────────────────────────────────────────────────────
-
-function BackgroundOrbs() {
-  return (
-    <>
-      <div className="pointer-events-none absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-purple-400/20 dark:bg-purple-500/25 blur-3xl" />
-      <div className="pointer-events-none absolute -top-20 right-0 w-96 h-96 rounded-full bg-cyan-400/15 dark:bg-cyan-500/20 blur-3xl" />
-      <div className="pointer-events-none absolute top-1/2 left-1/3 w-80 h-80 rounded-full bg-fuchsia-400/10 dark:bg-fuchsia-500/15 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 right-1/4 w-72 h-72 rounded-full bg-amber-400/10 dark:bg-amber-500/10 blur-3xl" />
-    </>
-  )
-}
-
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 function DiscoverShops() {
@@ -123,10 +110,10 @@ function DiscoverShops() {
 
   // ── Filtros avanzados ──────────────────────────────────────────────────────
   const [showFilters, setShowFilters]         = useState(false)
-  const [filterCategory, setFilterCategory]   = useState('')
-  const [filterMinRating, setFilterMinRating] = useState(0)
-  const [filterMaxDist, setFilterMaxDist]     = useState(0)
-  const [sortBy, setSortBy]                   = useState('smart')
+  const [filterCategory, setFilterCategory]   = useState('')      // '' = todos
+  const [filterMinRating, setFilterMinRating] = useState(0)       // 0 = sin mínimo
+  const [filterMaxDist, setFilterMaxDist]     = useState(0)       // 0 = sin límite (km)
+  const [sortBy, setSortBy]                   = useState('smart') // 'smart'|'rating'|'name'
 
   const mapRef = useRef(null)
 
@@ -153,6 +140,7 @@ function DiscoverShops() {
         setFavoriteShops(favs)
         setFavoriteShopIds(new Set(favs.map((f) => f.shop.id)))
 
+        // Reviews se cargan en background SIN bloquear el render de shops
         setLoading(false)
 
         Promise.all(
@@ -229,6 +217,7 @@ function DiscoverShops() {
     })
   }, [shops, userLocation])
 
+  // Promedio de valoración por shop (calculado de reviews cargados en background)
   const shopAvgRating = useMemo(() => {
     const map = {}
     Object.entries(shopReviews).forEach(([id, reviews]) => {
@@ -241,6 +230,7 @@ function DiscoverShops() {
   const filteredShops = useMemo(() => {
     let result = shopsWithDistance
 
+    // 1. Texto libre
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter(
@@ -248,10 +238,12 @@ function DiscoverShops() {
       )
     }
 
+    // 2. Categoría
     if (filterCategory) {
       result = result.filter(s => (categoryMap[s.categoryId] ?? '') === filterCategory)
     }
 
+    // 3. Valoración mínima
     if (filterMinRating > 0) {
       result = result.filter(s => {
         const avg = shopAvgRating[s.id]
@@ -259,10 +251,12 @@ function DiscoverShops() {
       })
     }
 
+    // 4. Radio máximo (solo si tenemos ubicación)
     if (filterMaxDist > 0 && userLocation) {
       result = result.filter(s => s.distance != null && s.distance <= filterMaxDist * 1000)
     }
 
+    // 5. Ordenar
     result = [...result].sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name)
       if (sortBy === 'rating') {
@@ -270,12 +264,14 @@ function DiscoverShops() {
         const rb = shopAvgRating[b.id] ?? -1
         return rb - ra
       }
+      // 'smart' (default): primero por distancia si disponible, luego rating
       if (userLocation) {
         if (a.distance == null && b.distance == null) return 0
         if (a.distance == null) return 1
         if (b.distance == null) return -1
         return a.distance - b.distance
       }
+      // Sin ubicación: ordenar por rating descendente
       const ra = shopAvgRating[a.id] ?? -1
       const rb = shopAvgRating[b.id] ?? -1
       return rb - ra
@@ -309,6 +305,8 @@ function DiscoverShops() {
 
   const mapZoom = userLocation ? 14 : 13
 
+  // ── Centrar mapa en mi ubicación ───────────────────────────────────────────
+
   const centerOnMe = () => {
     if (mapRef.current && userLocation) {
       mapRef.current.panTo({ lat: userLocation.lat, lng: userLocation.lng })
@@ -320,22 +318,20 @@ function DiscoverShops() {
 
   if (loading) {
     return (
-      <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-white via-purple-50/40 to-cyan-50/20 dark:from-gray-950 dark:via-purple-950/40 dark:to-gray-950">
-        <BackgroundOrbs />
-        <div className="w-10 h-10 border-4 border-purple-200 dark:border-purple-800 border-t-purple-600 dark:border-t-purple-400 rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="w-10 h-10 border-4 border-gray-200 dark:border-gray-700 border-t-primary-600 rounded-full animate-spin" />
       </div>
     )
   }
 
   if (loadError) {
     return (
-      <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-white via-purple-50/40 to-cyan-50/20 dark:from-gray-950 dark:via-purple-950/40 dark:to-gray-950 gap-4 px-4">
-        <BackgroundOrbs />
+      <div className="flex flex-col items-center justify-center py-20 gap-4 px-4">
         <div className="text-4xl">😵</div>
         <p className="text-gray-600 dark:text-gray-300 text-center font-medium">{loadError}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-cyan-500 text-white rounded-lg text-sm font-medium hover:opacity-90 transition shadow-[0_0_16px_rgba(139,92,246,0.35)]"
+          className="px-6 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition"
         >
           Reintentar
         </button>
@@ -344,17 +340,14 @@ function DiscoverShops() {
   }
 
   return (
-    <div className="relative max-w-full -mx-4 sm:-mx-6 lg:-mx-8 overflow-x-hidden min-h-screen bg-gradient-to-br from-white via-purple-50/30 to-cyan-50/10 dark:from-gray-950 dark:via-purple-950/30 dark:to-gray-950">
-
-      {/* Orbs de fondo */}
-      <BackgroundOrbs />
+    <div className="max-w-full -mx-4 sm:-mx-6 lg:-mx-8">
 
       {/* ── Banner de ubicación ─────────────────────────────────────────── */}
       {permission === null && (
-        <div className="relative px-4 sm:px-6 lg:px-8 pt-4 mb-4">
-          <div className="bg-white/70 dark:bg-blue-950/40 backdrop-blur-sm border border-blue-200/60 dark:border-blue-800/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="px-4 sm:px-6 lg:px-8 mb-4">
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-blue-100/80 dark:bg-blue-900/60 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
                 <Navigation className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
@@ -379,7 +372,7 @@ function DiscoverShops() {
               </button>
               <button
                 onClick={dismissLocation}
-                className="flex-1 sm:flex-none text-sm px-4 py-2 border border-blue-300/60 dark:border-blue-700/60 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/40 transition font-medium"
+                className="flex-1 sm:flex-none text-sm px-4 py-2 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition font-medium"
               >
                 No, gracias
               </button>
@@ -389,13 +382,11 @@ function DiscoverShops() {
       )}
 
       {/* Header + Search + Filtros */}
-      <div className="relative px-4 sm:px-6 lg:px-8 pt-4 mb-4">
-        {/* Título con gradiente */}
+      <div className="px-4 sm:px-6 lg:px-8 mb-4">
+        {/* Título */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 via-fuchsia-500 to-cyan-500 dark:from-purple-400 dark:via-fuchsia-400 dark:to-cyan-400 bg-clip-text text-transparent">
-              Descubre Negocios
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50">Descubre Negocios</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
               {userLocation
                 ? `${filteredShops.length} negocio${filteredShops.length !== 1 ? 's' : ''} cerca de ti`
@@ -413,7 +404,7 @@ function DiscoverShops() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por nombre o dirección..."
-              className="w-full pl-9 pr-8 py-2.5 border border-purple-200/50 dark:border-purple-700/30 rounded-lg text-sm bg-white/70 dark:bg-gray-900/50 backdrop-blur-sm dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+              className="w-full pl-9 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -427,14 +418,16 @@ function DiscoverShops() {
             onClick={() => setShowFilters(f => !f)}
             className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-medium transition flex-shrink-0 ${
               showFilters || activeFilterCount > 0
-                ? 'bg-gradient-to-r from-purple-600 to-cyan-500 text-white border-transparent shadow-[0_0_14px_rgba(139,92,246,0.35)]'
-                : 'bg-white/70 dark:bg-gray-800/60 backdrop-blur-sm border-purple-200/50 dark:border-purple-700/30 text-gray-700 dark:text-gray-200 hover:border-purple-400/70 dark:hover:border-purple-500/50'
+                ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
             <span className="hidden sm:inline">Filtros</span>
             {activeFilterCount > 0 && (
-              <span className="text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 bg-white/25 text-white">
+              <span className={`text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 ${
+                showFilters || activeFilterCount > 0 ? 'bg-white/20 text-white dark:bg-black/20 dark:text-gray-900' : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+              }`}>
                 {activeFilterCount}
               </span>
             )}
@@ -446,21 +439,21 @@ function DiscoverShops() {
             <button
               onClick={centerOnMe}
               title="Centrar en mi ubicación"
-              className="p-2.5 border border-purple-200/50 dark:border-purple-700/30 rounded-lg hover:bg-white/80 dark:hover:bg-gray-800/60 transition flex-shrink-0 bg-white/70 dark:bg-gray-800/50 backdrop-blur-sm"
+              className="p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition flex-shrink-0 bg-white dark:bg-gray-800"
             >
               <LocateFixed className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </button>
           )}
         </div>
 
-        {/* Chips de categoría */}
+        {/* Chips de categoría (siempre visibles) */}
         <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
           <button
             onClick={() => setFilterCategory('')}
             className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
               filterCategory === ''
-                ? 'bg-gradient-to-r from-purple-600 to-cyan-500 text-white border-transparent shadow-[0_0_10px_rgba(139,92,246,0.3)]'
-                : 'bg-white/70 dark:bg-gray-800/60 backdrop-blur-sm text-gray-600 dark:text-gray-300 border-purple-200/50 dark:border-gray-600/60 hover:border-purple-400/60 dark:hover:border-purple-500/50'
+                ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
             }`}
           >
             <Store className="w-3 h-3" />
@@ -472,8 +465,8 @@ function DiscoverShops() {
               onClick={() => setFilterCategory(prev => prev === slug ? '' : slug)}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
                 filterCategory === slug
-                  ? `${color} font-semibold shadow-sm`
-                  : 'bg-white/70 dark:bg-gray-800/60 backdrop-blur-sm text-gray-600 dark:text-gray-300 border-purple-200/50 dark:border-gray-600/60 hover:border-purple-400/60 dark:hover:border-purple-500/50'
+                  ? `${color} font-semibold`
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
               }`}
             >
               <Icon className="w-3 h-3" />
@@ -484,7 +477,7 @@ function DiscoverShops() {
 
         {/* Panel de filtros avanzados */}
         {showFilters && (
-          <div className="mt-3 p-4 bg-white/70 dark:bg-gray-900/60 backdrop-blur-md border border-purple-100/60 dark:border-purple-800/30 rounded-xl shadow-sm space-y-4">
+          <div className="mt-3 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
 
               {/* Ordenar por */}
@@ -504,8 +497,8 @@ function DiscoverShops() {
                       onClick={() => setSortBy(value)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                         sortBy === value
-                          ? 'bg-gradient-to-r from-purple-600 to-cyan-500 text-white border-transparent shadow-[0_0_8px_rgba(139,92,246,0.3)]'
-                          : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-purple-200/50 dark:border-gray-600/60 hover:border-purple-400/60'
+                          ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
                       }`}
                     >
                       {label}
@@ -527,8 +520,8 @@ function DiscoverShops() {
                       onClick={() => setFilterMinRating(val)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                         filterMinRating === val
-                          ? 'bg-yellow-400 text-gray-900 border-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.4)]'
-                          : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-purple-200/50 dark:border-gray-600/60 hover:border-purple-400/60'
+                          ? 'bg-yellow-400 text-gray-900 border-yellow-400'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
                       }`}
                     >
                       {val === 0 ? 'Todas' : `${val}★ o más`}
@@ -537,7 +530,7 @@ function DiscoverShops() {
                 </div>
               </div>
 
-              {/* Radio máximo */}
+              {/* Radio máximo (solo con ubicación) */}
               {userLocation && (
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
@@ -551,8 +544,8 @@ function DiscoverShops() {
                         onClick={() => setFilterMaxDist(km)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                           filterMaxDist === km
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.35)]'
-                            : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-purple-200/50 dark:border-gray-600/60 hover:border-purple-400/60'
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
                         }`}
                       >
                         {km === 0 ? 'Cualquiera' : km < 1 ? `${km * 1000}m` : `${km} km`}
@@ -565,7 +558,7 @@ function DiscoverShops() {
 
             {/* Limpiar filtros */}
             {(activeFilterCount > 0 || searchQuery) && (
-              <div className="pt-2 border-t border-purple-100/60 dark:border-purple-800/30">
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
                 <button
                   onClick={clearFilters}
                   className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-medium transition"
@@ -581,7 +574,7 @@ function DiscoverShops() {
 
       {/* Favoritos guardados */}
       {favoriteShops.length > 0 && (
-        <div className="relative px-4 sm:px-6 lg:px-8 mb-6">
+        <div className="px-4 sm:px-6 lg:px-8 mb-6">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
             <Heart className="w-4 h-4 text-red-400 fill-red-400" />
             Tus negocios guardados
@@ -595,21 +588,19 @@ function DiscoverShops() {
                 <button
                   key={fav.id}
                   onClick={() => handleShopClick(fav.shop)}
-                  className="flex-shrink-0 w-52 p-[1px] bg-gradient-to-br from-purple-300/50 via-fuchsia-300/30 to-cyan-300/50 dark:from-purple-600/40 dark:via-fuchsia-500/20 dark:to-cyan-600/40 hover:from-purple-400 hover:via-fuchsia-400 hover:to-cyan-400 dark:hover:from-purple-500 dark:hover:to-cyan-500 rounded-xl hover:shadow-[0_0_16px_rgba(139,92,246,0.25)] dark:hover:shadow-[0_0_16px_rgba(139,92,246,0.4)] transition-all"
+                  className="flex-shrink-0 w-52 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:border-primary-400 hover:shadow-sm transition text-left"
                 >
-                  <div className="bg-white/85 dark:bg-gray-900/75 backdrop-blur-md rounded-xl p-4 text-left h-full">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${cfg?.color ?? 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">
-                          {fav.shop.name}
-                        </p>
-                        {cfg && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{cfg.label}</p>
-                        )}
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${cfg?.color ?? 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:border-gray-700'}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">
+                        {fav.shop.name}
+                      </p>
+                      {cfg && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{cfg.label}</p>
+                      )}
                     </div>
                   </div>
                 </button>
@@ -620,7 +611,7 @@ function DiscoverShops() {
       )}
 
       {/* Split view: list + map */}
-      <div className="relative flex flex-col lg:flex-row gap-4 px-4 sm:px-6 lg:px-8 lg:h-[calc(100vh-320px)] lg:min-h-[400px] pb-4">
+      <div className="flex flex-col lg:flex-row gap-4 px-4 sm:px-6 lg:px-8 lg:h-[calc(100vh-320px)] lg:min-h-[400px]">
         {/* Left: shop cards */}
         <div className="lg:w-1/2 lg:overflow-y-auto space-y-3 pb-4 lg:pb-0 lg:pr-1">
           {filteredShops.length === 0 ? (
@@ -633,7 +624,7 @@ function DiscoverShops() {
                   : 'Aún no hay negocios registrados'}
               </p>
               {(activeFilterCount > 0 || searchQuery) && (
-                <button onClick={clearFilters} className="mt-3 text-xs text-purple-600 dark:text-purple-400 underline">
+                <button onClick={clearFilters} className="mt-3 text-xs text-primary-600 dark:text-primary-400 underline">
                   Limpiar filtros
                 </button>
               )}
@@ -658,7 +649,7 @@ function DiscoverShops() {
         </div>
 
         {/* Right: Google Map */}
-        <div className="lg:w-1/2 rounded-xl overflow-hidden border border-purple-200/40 dark:border-purple-700/30 min-h-[300px] lg:min-h-0 shadow-[0_0_30px_rgba(139,92,246,0.08)] dark:shadow-[0_0_30px_rgba(139,92,246,0.15)]">
+        <div className="lg:w-1/2 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[300px] lg:min-h-0">
           <GoogleMap
             mapContainerStyle={MAP_STYLES}
             center={mapCenter}
@@ -667,6 +658,7 @@ function DiscoverShops() {
             onLoad={onMapLoad}
             onClick={() => setOpenInfoId(null)}
           >
+              {/* Marcador del usuario */}
               {userLocation && (
                 <>
                   <Marker
@@ -692,6 +684,7 @@ function DiscoverShops() {
                 </>
               )}
 
+              {/* Marcadores de negocios */}
               {mappableShops.map((shop) => (
                 <Marker
                   key={shop.id}
@@ -751,7 +744,7 @@ function DiscoverShops() {
                       </div>
                       <button
                         onClick={() => handleShopClick(shop)}
-                        className="mt-2 w-full bg-gradient-to-r from-purple-600 to-cyan-500 text-white text-xs font-medium py-1.5 rounded-md hover:opacity-90 transition"
+                        className="mt-2 w-full bg-gray-900 text-white text-xs font-medium py-1.5 rounded-md hover:bg-gray-700 transition"
                       >
                         Reservar cita →
                       </button>
@@ -787,86 +780,84 @@ function ShopCard({ shop, categorySlug, isFavorite, isHighlighted, reviews = [],
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       onClick={onClick}
-      className={`p-[1px] rounded-xl cursor-pointer transition-all duration-200 ${
+      className={`bg-white dark:bg-gray-900 rounded-xl border overflow-hidden cursor-pointer transition-all ${
         isHighlighted
-          ? 'bg-gradient-to-br from-purple-500 via-fuchsia-500 to-cyan-500 shadow-[0_0_28px_rgba(139,92,246,0.45)] dark:shadow-[0_0_36px_rgba(139,92,246,0.6)]'
-          : 'bg-gradient-to-br from-purple-200/60 via-fuchsia-200/30 to-cyan-200/60 dark:from-purple-600/30 dark:via-fuchsia-600/15 dark:to-cyan-600/30 hover:from-purple-400/80 hover:via-fuchsia-400/60 hover:to-cyan-400/80 dark:hover:from-purple-500/60 dark:hover:via-fuchsia-500/40 dark:hover:to-cyan-500/60 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)] dark:hover:shadow-[0_0_24px_rgba(139,92,246,0.4)]'
+          ? 'border-primary-500 shadow-md ring-1 ring-primary-200 dark:ring-primary-800'
+          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
       }`}
     >
-      <div className="bg-white/85 dark:bg-gray-900/75 backdrop-blur-md rounded-xl overflow-hidden">
-        {/* Franja de galería */}
-        {previewPhotos.length > 0 && (
-          <div className="flex gap-0.5 h-28 overflow-hidden">
-            {previewPhotos.map((img, idx) => (
-              <div key={img.id} className="relative flex-1 overflow-hidden">
-                <img src={img.imageUrl} alt={img.caption || ''} className="w-full h-full object-cover" />
-                {idx === previewPhotos.length - 1 && extraCount > 0 && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">+{extraCount}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="p-4">
-          <div className="flex justify-between items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
-                <CategoryBadge slug={categorySlug} />
-                {distance != null && (
-                  <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/60 px-2 py-0.5 rounded-full flex-shrink-0 border border-blue-200/60 dark:border-blue-800/60">
-                    <Navigation className="w-3 h-3" />
-                    {formatDistance(distance)}
-                  </span>
-                )}
-              </div>
-              {shop.address && (
-                <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">{shop.address}</span>
+      {/* Franja de galería */}
+      {previewPhotos.length > 0 && (
+        <div className="flex gap-0.5 h-28 overflow-hidden">
+          {previewPhotos.map((img, idx) => (
+            <div key={img.id} className="relative flex-1 overflow-hidden">
+              <img src={img.imageUrl} alt={img.caption || ''} className="w-full h-full object-cover" />
+              {idx === previewPhotos.length - 1 && extraCount > 0 && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">+{extraCount}</span>
                 </div>
               )}
-              {shop.description && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 line-clamp-2">{shop.description}</p>
-              )}
-              <div className="flex items-center gap-3 mt-3 flex-wrap">
-                <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                  <Users className="w-4 h-4" />
-                  <span>{shop.barbers?.length || 0} {getProfLabel(categorySlug, shop.barbers?.length || 0)}</span>
-                </div>
-                {gallery.length > 0 && (
-                  <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
-                    <Images className="w-3.5 h-3.5" />
-                    <span>{gallery.length} foto{gallery.length !== 1 ? 's' : ''}</span>
-                  </div>
-                )}
-              </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            {/* Favorite toggle */}
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
-              className="p-2 rounded-full hover:bg-red-50/80 dark:hover:bg-red-950/50 transition flex-shrink-0"
-            >
-              <Heart className={`w-5 h-5 transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-red-300'}`} />
-            </button>
-          </div>
-
-          {/* Rating */}
-          <div className="mt-3 pt-3 border-t border-purple-100/60 dark:border-purple-800/20 flex items-center gap-2">
-            <StarRating value={avgRating !== null ? Math.round(avgRating) : 0} size="sm" />
-            {avgRating !== null ? (
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                {avgRating.toFixed(1)}
-                <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">({reviews.length} reseña{reviews.length !== 1 ? 's' : ''})</span>
-              </span>
-            ) : (
-              <span className="text-xs text-gray-400 dark:text-gray-500">Sin reseñas aún</span>
+      <div className="p-4">
+        <div className="flex justify-between items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-50 truncate">{shop.name}</h3>
+              <CategoryBadge slug={categorySlug} />
+              {distance != null && (
+                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full flex-shrink-0 border border-blue-200 dark:border-blue-800">
+                  <Navigation className="w-3 h-3" />
+                  {formatDistance(distance)}
+                </span>
+              )}
+            </div>
+            {shop.address && (
+              <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{shop.address}</span>
+              </div>
             )}
+            {shop.description && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 line-clamp-2">{shop.description}</p>
+            )}
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
+              <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                <Users className="w-4 h-4" />
+                <span>{shop.barbers?.length || 0} {getProfLabel(categorySlug, shop.barbers?.length || 0)}</span>
+              </div>
+              {gallery.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+                  <Images className="w-3.5 h-3.5" />
+                  <span>{gallery.length} foto{gallery.length !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Favorite toggle */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
+            className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-950 transition flex-shrink-0"
+          >
+            <Heart className={`w-5 h-5 transition-colors ${isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300 dark:text-gray-600 hover:text-red-300'}`} />
+          </button>
+        </div>
+
+        {/* Rating de reseñas (solo lectura) */}
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2">
+          <StarRating value={avgRating !== null ? Math.round(avgRating) : 0} size="sm" />
+          {avgRating !== null ? (
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+              {avgRating.toFixed(1)}
+              <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">({reviews.length} reseña{reviews.length !== 1 ? 's' : ''})</span>
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500">Sin reseñas aún</span>
+          )}
         </div>
       </div>
     </div>
