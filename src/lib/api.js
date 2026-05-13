@@ -23,6 +23,10 @@ function getAuthHeader() {
 async function request(path, options = {}) {
   const MAX_RETRIES = 2
 
+  // Capturar si esta request envía un token ANTES de lanzarla.
+  // Solo si enviamos token un 401/403 puede ser "sesión expirada".
+  const sentToken = !!getAuthHeader().Authorization
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     let response
     try {
@@ -44,21 +48,12 @@ async function request(path, options = {}) {
 
     // Respuesta HTTP recibida — nunca reintentar estos
     if (!response.ok) {
-      // 401 / 403 con token guardado → sesión expirada
-      if (response.status === 401 || response.status === 403) {
-        try {
-          const stored = localStorage.getItem(STORAGE_KEY)
-          if (stored) {
-            const { token } = JSON.parse(stored)
-            if (token) {
-              window.dispatchEvent(new CustomEvent('auth:expired'))
-              throw new Error('Sesión expirada')
-            }
-          }
-        } catch (innerErr) {
-          if (innerErr.message === 'Sesión expirada') throw innerErr
-          // Si falla el parse, continuar con el error normal
-        }
+      // 401 / 403 solo dispara "sesión expirada" si esta request envió un token.
+      // Sin esto, un login con credenciales incorrectas (401) y un token viejo en
+      // localStorage causaba un redirect silencioso sin mostrar el error al usuario.
+      if (sentToken && (response.status === 401 || response.status === 403)) {
+        window.dispatchEvent(new CustomEvent('auth:expired'))
+        throw new Error('Sesión expirada')
       }
 
       let message = `Error API: ${response.status} ${response.statusText}`
