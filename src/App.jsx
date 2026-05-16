@@ -27,6 +27,7 @@ import GymMembers from './pages/admin/GymMembers'
 import PublicShopCatalog from './pages/PublicShopCatalog'
 import PublicTransport from './pages/PublicTransport'
 import PublicBooking from './pages/PublicBooking'
+import PublicGallery from './pages/PublicGallery'
 import SuperAdminUsers from './pages/super-admin/SuperAdminUsers'
 import SuperAdminShops from './pages/super-admin/SuperAdminShops'
 import SuperAdminProducts from './pages/super-admin/SuperAdminProducts'
@@ -62,6 +63,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/book/:slug" element={<PublicBooking />} />
+            <Route path="/book/:slug/gallery" element={<PublicGallery />} />
             <Route path="/shop/:slug" element={<PublicShopCatalog />} />
             <Route path="/transport/:slug" element={<PublicTransport />} />
             <Route path="/booking" element={<Layout><DiscoverShops /></Layout>} />

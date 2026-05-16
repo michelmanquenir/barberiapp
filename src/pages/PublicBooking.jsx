@@ -345,7 +345,7 @@ function PublicBooking() {
           <div className="min-w-0 space-y-8">
 
             {/* Galería */}
-            <GallerySection shopGallery={shopGallery} />
+            <GallerySection shopGallery={shopGallery} slug={slug} />
 
             {/* Info del negocio */}
             <div>
@@ -474,37 +474,48 @@ function PublicBooking() {
 
 // ─── GallerySection ───────────────────────────────────────────────────────────
 
-function GallerySection({ shopGallery }) {
+function GallerySection({ shopGallery, slug }) {
   const [lightboxIndex, setLightboxIndex] = useState(null)
 
   if (shopGallery.length === 0) return null
 
   return (
     <>
-      <div className="rounded-2xl overflow-hidden bg-gray-200 dark:bg-gray-800">
-        {shopGallery.length === 1 ? (
-          <button className="w-full" onClick={() => setLightboxIndex(0)}>
-            <img src={shopGallery[0].imageUrl} alt="" className="w-full h-72 object-cover hover:opacity-95 transition" />
-          </button>
-        ) : (
-          <div className="grid gap-1 h-72" style={{ gridTemplateColumns: '2fr 1fr' }}>
-            <button className="overflow-hidden" onClick={() => setLightboxIndex(0)}>
-              <img src={shopGallery[0].imageUrl} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+      <div className="relative">
+        <div className="rounded-2xl overflow-hidden bg-gray-200 dark:bg-gray-800">
+          {shopGallery.length === 1 ? (
+            <button className="w-full" onClick={() => setLightboxIndex(0)}>
+              <img src={shopGallery[0].imageUrl} alt="" className="w-full h-72 object-cover hover:opacity-95 transition" />
             </button>
-            <div className="grid gap-1" style={{ gridTemplateRows: '1fr 1fr' }}>
-              {shopGallery.slice(1, 3).map((img, idx) => (
-                <button key={img.id} className="relative overflow-hidden" onClick={() => setLightboxIndex(idx + 1)}>
-                  <img src={img.imageUrl} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                  {idx === 1 && shopGallery.length > 3 && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">+{shopGallery.length - 3} fotos</span>
-                    </div>
-                  )}
-                </button>
-              ))}
+          ) : (
+            <div className="grid gap-1 h-72" style={{ gridTemplateColumns: '2fr 1fr' }}>
+              <button className="overflow-hidden" onClick={() => setLightboxIndex(0)}>
+                <img src={shopGallery[0].imageUrl} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+              </button>
+              <div className="grid gap-1" style={{ gridTemplateRows: '1fr 1fr' }}>
+                {shopGallery.slice(1, 3).map((img, idx) => (
+                  <button key={img.id} className="relative overflow-hidden" onClick={() => setLightboxIndex(idx + 1)}>
+                    <img src={img.imageUrl} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                    {idx === 1 && shopGallery.length > 3 && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">+{shopGallery.length - 3} fotos</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Botón flotante — ver galería completa */}
+        <button
+          onClick={() => window.open(`/book/${slug}/gallery`, '_blank')}
+          className="absolute bottom-3 right-3 flex items-center gap-2 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 text-xs font-semibold px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+        >
+          <Images className="w-3.5 h-3.5" />
+          Ver todas las fotos ({shopGallery.length})
+        </button>
       </div>
 
       {lightboxIndex !== null && (
