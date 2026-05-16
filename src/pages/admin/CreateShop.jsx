@@ -195,357 +195,338 @@ function CreateShop() {
   }
 
 
+  const inputCls = 'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent'
+  const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5'
+  const cardCls  = 'bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6'
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
       <AdminNavbar />
 
       <main className="pt-16">
-        <div className="max-w-xl mx-auto px-6 py-8">
-          {/* Back */}
-          <button
-            onClick={() => navigate(isEdit ? `/admin/shops/${shopId}` : '/admin/shops')}
-            className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-6 transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {isEdit ? 'Volver al negocio' : 'Mis negocios'}
-          </button>
+        <div className="max-w-6xl mx-auto px-6 py-8">
 
-          {/* Header */}
-          <div className="mb-8">
-            <div className="w-12 h-12 bg-gray-900 dark:bg-gray-100 rounded-xl flex items-center justify-center mb-4">
-              <Store className="w-6 h-6 text-white dark:text-gray-900" />
+          {/* Back + Header */}
+          <div className="mb-7">
+            <button
+              onClick={() => navigate(isEdit ? `/admin/shops/${shopId}` : '/admin/shops')}
+              className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-5 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {isEdit ? 'Volver al negocio' : 'Mis negocios'}
+            </button>
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 bg-gray-900 dark:bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Store className="w-5 h-5 text-white dark:text-gray-900" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+                  {isEdit ? 'Editar negocio' : 'Crear negocio'}
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  {isEdit ? 'Modifica la información de tu negocio' : 'Configura tu negocio y obtén un enlace público para recibir reservas'}
+                </p>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
-              {isEdit ? 'Editar negocio' : 'Crear negocio'}
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
-              {isEdit
-                ? 'Modifica la información de tu negocio'
-                : 'Configura tu negocio y obtén un enlace público para recibir reservas'}
-            </p>
           </div>
 
           {loadingShop && (
-            <div className="flex justify-center py-12">
+            <div className="flex justify-center py-16">
               <div className="w-8 h-8 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-gray-100 rounded-full animate-spin" />
             </div>
           )}
 
           {!loadingShop && (
-            <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
+            <form onSubmit={handleSubmit}>
               {error && (
-                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg p-3 text-sm">
+                <div className="mb-5 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg p-3 text-sm">
                   {error}
                 </div>
               )}
 
-              {/* Nombre */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  Nombre del negocio <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={handleNameChange}
-                  placeholder="Mi Negocio"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent"
-                  required
-                />
-              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
 
-              {/* Descripción */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  Descripción
-                  <span className="text-gray-400 dark:text-gray-500 font-normal"> (opcional)</span>
-                </label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Breve descripción de tu negocio..."
-                  rows={3}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent resize-none"
-                />
-              </div>
+                {/* ── COLUMNA IZQUIERDA: Identidad del negocio ──────────────── */}
+                <div className="space-y-5">
+                  <div className={cardCls}>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-5">Información del negocio</h3>
+                    <div className="space-y-5">
 
-              {/* Categoría */}
-              {categories.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    <span className="flex items-center gap-1.5">
-                      <Tag className="w-4 h-4" />
-                      Tipo de negocio
-                    </span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {categories.map(cat => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, categoryId: f.categoryId === cat.id ? '' : cat.id }))}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-left ${
-                          form.categoryId === cat.id
-                            ? 'border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
-                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500'
-                        }`}
-                      >
-                        <span className="text-lg">{cat.icon}</span>
-                        <span className="truncate">{cat.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      {/* Nombre */}
+                      <div>
+                        <label className={labelCls}>Nombre del negocio <span className="text-red-500">*</span></label>
+                        <input type="text" value={form.name} onChange={handleNameChange}
+                          placeholder="Mi Negocio" required className={inputCls} />
+                      </div>
 
-              {/* Dirección con Google Places Autocomplete */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  Dirección
-                  <span className="text-gray-400 dark:text-gray-500 font-normal"> — escribe para buscar</span>
-                </label>
-                <Autocomplete
-                  onLoad={(ref) => (autocompleteRef.current = ref)}
-                  onPlaceChanged={onPlaceChanged}
-                >
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
-                    <input
-                      ref={addressInputRef}
-                      type="text"
-                      defaultValue={form.address}
-                      placeholder="Escribe la dirección de tu negocio..."
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent"
-                    />
-                  </div>
-                </Autocomplete>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Al seleccionar una sugerencia, el mapa se moverá automáticamente
-                </p>
-              </div>
+                      {/* Descripción */}
+                      <div>
+                        <label className={labelCls}>
+                          Descripción <span className="text-gray-400 dark:text-gray-500 font-normal">(opcional)</span>
+                        </label>
+                        <textarea value={form.description}
+                          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                          placeholder="Breve descripción de tu negocio..." rows={3}
+                          className={`${inputCls} resize-none`} />
+                      </div>
 
-              {/* Google Map */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  Ubicación en el mapa
-                  <span className="text-gray-400 dark:text-gray-500 font-normal">
-                    {' '}(click para marcar · arrastra el pin para ajustar)
-                  </span>
-                </label>
-                <div className="h-64 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-                  <GoogleMap
-                    mapContainerStyle={MAP_STYLES}
-                    center={mapCenter}
-                    zoom={markerPos ? 16 : 13}
-                    options={MAP_OPTIONS}
-                    onLoad={onMapLoad}
-                    onClick={onMapClick}
-                  >
-                    {markerPos && (
-                      <Marker
-                        position={markerPos}
-                        draggable
-                        onDragEnd={onMarkerDragEnd}
-                      />
-                    )}
-                  </GoogleMap>
-                </div>
-                {form.latitude && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-                    📍 {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
-                  </p>
-                )}
-              </div>
-
-              {/* Servicio a domicilio */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Home className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Servicio a domicilio</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, homeServiceEnabled: !f.homeServiceEnabled }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      form.homeServiceEnabled ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${
-                        form.homeServiceEnabled ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
-                  Permite que los clientes soliciten un profesional en su domicilio. El tiempo de bloqueo será de 3 horas por cita.
-                </p>
-                {form.homeServiceEnabled && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                      Precio por km (CLP) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        value={form.pricePerKm}
-                        onChange={(e) => setForm((f) => ({ ...f, pricePerKm: e.target.value }))}
-                        placeholder="ej: 500"
-                        className="w-40 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                      />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">× distancia (ida y vuelta) = recargo total</span>
+                      {/* Categoría */}
+                      {categories.length > 0 && (
+                        <div>
+                          <label className={labelCls}>
+                            <span className="flex items-center gap-1.5"><Tag className="w-4 h-4" /> Tipo de negocio</span>
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {categories.map(cat => (
+                              <button key={cat.id} type="button"
+                                onClick={() => setForm(f => ({ ...f, categoryId: f.categoryId === cat.id ? '' : cat.id }))}
+                                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-left ${
+                                  form.categoryId === cat.id
+                                    ? 'border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+                                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:border-gray-400 dark:hover:border-gray-500'
+                                }`}>
+                                <span className="text-lg">{cat.icon}</span>
+                                <span className="truncate">{cat.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {form.pricePerKm > 0 && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        Ej: 10 km → recargo $ {(Number(form.pricePerKm) * 10 * 2).toLocaleString('es-CL')}
+                  </div>
+
+                  {/* Dirección + Mapa */}
+                  <div className={cardCls}>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-5">Ubicación</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className={labelCls}>
+                          Dirección <span className="text-gray-400 dark:text-gray-500 font-normal">— escribe para buscar</span>
+                        </label>
+                        <Autocomplete onLoad={(ref) => (autocompleteRef.current = ref)} onPlaceChanged={onPlaceChanged}>
+                          <div className="relative">
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none z-10" />
+                            <input ref={addressInputRef} type="text" defaultValue={form.address}
+                              placeholder="Escribe la dirección de tu negocio..."
+                              className={`${inputCls} pl-9`} />
+                          </div>
+                        </Autocomplete>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Al seleccionar una sugerencia, el mapa se moverá automáticamente</p>
+                      </div>
+
+                      <div>
+                        <label className={labelCls}>
+                          Mapa <span className="text-gray-400 dark:text-gray-500 font-normal">(click para marcar · arrastra el pin para ajustar)</span>
+                        </label>
+                        <div className="h-72 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+                          <GoogleMap mapContainerStyle={MAP_STYLES} center={mapCenter} zoom={markerPos ? 16 : 13}
+                            options={MAP_OPTIONS} onLoad={onMapLoad} onClick={onMapClick}>
+                            {markerPos && <Marker position={markerPos} draggable onDragEnd={onMarkerDragEnd} />}
+                          </GoogleMap>
+                        </div>
+                        {form.latitude && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                            📍 {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── COLUMNA DERECHA: Configuración ───────────────────────── */}
+                <div className="space-y-4">
+
+                  {/* URL pública */}
+                  <div className={cardCls}>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-4">URL pública</h3>
+                    <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-gray-900 dark:focus-within:ring-gray-100 focus-within:border-transparent">
+                      <span className="bg-gray-50 dark:bg-gray-800 border-r border-gray-300 dark:border-gray-600 px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 select-none whitespace-nowrap">
+                        /book/
+                      </span>
+                      <input type="text" value={form.slug} onChange={handleSlugChange}
+                        placeholder="mi-barberia" required
+                        className="flex-1 px-3 py-2.5 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none" />
+                    </div>
+                    {form.slug && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                        Enlace: <span className="text-gray-600 dark:text-gray-300 font-medium break-all">tudominio.com/book/{form.slug}</span>
                       </p>
                     )}
                   </div>
-                )}
-              </div>
 
-              {/* Slug / URL pública */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  URL pública <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-gray-900 dark:focus-within:ring-gray-100 focus-within:border-transparent">
-                  <span className="bg-gray-50 dark:bg-gray-800 border-r border-gray-300 dark:border-gray-600 px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 select-none whitespace-nowrap">
-                    /book/
-                  </span>
-                  <input
-                    type="text"
-                    value={form.slug}
-                    onChange={handleSlugChange}
-                    placeholder="mi-barberia"
-                    className="flex-1 px-3 py-2.5 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none"
-                    required
-                  />
-                </div>
-                {form.slug && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-                    Enlace público:{' '}
-                    <span className="text-gray-600 dark:text-gray-300 font-medium">tudominio.com/book/{form.slug}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Datos de transferencia bancaria */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
-                {/* Toggle */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Aceptar transferencias bancarias</span>
+                  {/* Servicio a domicilio */}
+                  <div className={cardCls}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Home className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Servicio a domicilio</span>
+                      </div>
+                      <button type="button"
+                        onClick={() => setForm((f) => ({ ...f, homeServiceEnabled: !f.homeServiceEnabled }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          form.homeServiceEnabled ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${
+                          form.homeServiceEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                      Los clientes podrán pedir un profesional en su domicilio. El bloqueo es de 3 h por cita.
+                    </p>
+                    {form.homeServiceEnabled && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                          Precio por km (CLP) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input type="number" min="0" value={form.pricePerKm}
+                            onChange={(e) => setForm((f) => ({ ...f, pricePerKm: e.target.value }))}
+                            placeholder="ej: 500"
+                            className="w-36 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100" />
+                          <span className="text-xs text-gray-400 dark:text-gray-500">× dist. ida y vuelta</span>
+                        </div>
+                        {form.pricePerKm > 0 && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            Ej: 10 km → recargo ${(Number(form.pricePerKm) * 10 * 2).toLocaleString('es-CL')}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, transferEnabled: !f.transferEnabled }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      form.transferEnabled ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
-                  >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${
-                      form.transferEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`} />
-                  </button>
-                </div>
 
-                {form.transferEnabled && (
-                  <div className="space-y-3 pt-1">
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
-                      Estos datos se mostrarán al cliente cuando elija pagar por transferencia.
+                  {/* Transferencias bancarias */}
+                  <div className={cardCls}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Landmark className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Transferencias bancarias</span>
+                      </div>
+                      <button type="button"
+                        onClick={() => setForm((f) => ({ ...f, transferEnabled: !f.transferEnabled }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          form.transferEnabled ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${
+                          form.transferEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                      Activa para que los clientes puedan pagar por transferencia. Los datos aparecerán en la confirmación de su reserva.
                     </p>
 
-                    {/* Nombre titular */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre completo del titular</label>
-                      <input type="text" value={form.transferAccountHolder}
-                        onChange={(e) => setForm((f) => ({ ...f, transferAccountHolder: e.target.value }))}
-                        placeholder="ej: Constanza RODRIGUEZ"
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                      />
-                    </div>
+                    {form.transferEnabled && (
+                      <div className="space-y-3 pt-1 border-t border-gray-100 dark:border-gray-800">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 pt-3">Datos de la cuenta receptora</p>
 
-                    {/* RUT y Email */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">RUT</label>
-                        <input type="text" value={form.transferRut}
-                          onChange={(e) => setForm((f) => ({ ...f, transferRut: e.target.value }))}
-                          placeholder="ej: 19.917.898-9"
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>
-                        <input type="email" value={form.transferEmail}
-                          onChange={(e) => setForm((f) => ({ ...f, transferEmail: e.target.value }))}
-                          placeholder="correo@ejemplo.com"
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                        />
-                      </div>
-                    </div>
+                        {/* Titular */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            Titular de la cuenta <span className="text-red-500">*</span>
+                          </label>
+                          <input type="text" value={form.transferAccountHolder}
+                            onChange={(e) => setForm((f) => ({ ...f, transferAccountHolder: e.target.value }))}
+                            placeholder="Nombre completo tal como aparece en el banco"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                          />
+                        </div>
 
-                    {/* Tipo de cuenta */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de cuenta</label>
-                      <select value={form.transferAccountType}
-                        onChange={(e) => setForm((f) => ({ ...f, transferAccountType: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                      >
-                        <option value="">Seleccionar tipo...</option>
-                        <option>Cuenta Corriente</option>
-                        <option>Cuenta Vista</option>
-                        <option>Cuenta de Ahorro</option>
-                        <option>Chequera Electrónica</option>
-                        <option>Cuenta RUT</option>
-                      </select>
-                    </div>
+                        {/* RUT */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            RUT <span className="text-red-500">*</span>
+                          </label>
+                          <input type="text" value={form.transferRut}
+                            onChange={(e) => setForm((f) => ({ ...f, transferRut: e.target.value }))}
+                            placeholder="ej: 12.345.678-9"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                          />
+                        </div>
 
-                    {/* Número de cuenta y Banco */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Número de cuenta</label>
-                        <input type="text" value={form.transferAccountNumber}
-                          onChange={(e) => setForm((f) => ({ ...f, transferAccountNumber: e.target.value }))}
-                          placeholder="ej: 19998917523"
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                        />
+                        {/* Banco */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            Banco <span className="text-red-500">*</span>
+                          </label>
+                          <select value={form.transferBankName}
+                            onChange={(e) => setForm((f) => ({ ...f, transferBankName: e.target.value }))}
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100">
+                            <option value="">Seleccionar banco...</option>
+                            <option>BancoEstado</option>
+                            <option>Banco de Chile</option>
+                            <option>Santander</option>
+                            <option>BCI</option>
+                            <option>Itaú</option>
+                            <option>Scotiabank</option>
+                            <option>BBVA</option>
+                            <option>Banco Security</option>
+                            <option>Banco Bice</option>
+                            <option>Banco Internacional</option>
+                            <option>Coopeuch</option>
+                            <option>Mercado Pago</option>
+                            <option>MACH</option>
+                          </select>
+                        </div>
+
+                        {/* Tipo de cuenta */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            Tipo de cuenta <span className="text-red-500">*</span>
+                          </label>
+                          <select value={form.transferAccountType}
+                            onChange={(e) => setForm((f) => ({ ...f, transferAccountType: e.target.value }))}
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100">
+                            <option value="">Seleccionar tipo...</option>
+                            <option>Cuenta Corriente</option>
+                            <option>Cuenta Vista</option>
+                            <option>Cuenta de Ahorro</option>
+                            <option>Chequera Electrónica</option>
+                            <option>Cuenta RUT</option>
+                          </select>
+                        </div>
+
+                        {/* Número de cuenta */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            Número de cuenta <span className="text-red-500">*</span>
+                          </label>
+                          <input type="text" value={form.transferAccountNumber}
+                            onChange={(e) => setForm((f) => ({ ...f, transferAccountNumber: e.target.value }))}
+                            placeholder="ej: 00123456789"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                          />
+                        </div>
+
+                        {/* Email */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                            Email de confirmación <span className="text-red-500">*</span>
+                          </label>
+                          <input type="email" value={form.transferEmail}
+                            onChange={(e) => setForm((f) => ({ ...f, transferEmail: e.target.value }))}
+                            placeholder="correo@ejemplo.com"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Banco</label>
-                        <input type="text" value={form.transferBankName}
-                          onChange={(e) => setForm((f) => ({ ...f, transferBankName: e.target.value }))}
-                          placeholder="ej: Banco Estado"
-                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                        />
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Botones */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => navigate(isEdit ? `/admin/shops/${shopId}` : '/admin/shops')}
-                  className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading
-                    ? (isEdit ? 'Guardando...' : 'Creando...')
-                    : (isEdit ? 'Guardar cambios' : 'Crear negocio')}
-                </button>
+                  {/* Botones */}
+                  <div className="flex gap-3">
+                    <button type="button"
+                      onClick={() => navigate(isEdit ? `/admin/shops/${shopId}` : '/admin/shops')}
+                      className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                      Cancelar
+                    </button>
+                    <button type="submit" disabled={loading}
+                      className="flex-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                      {loading ? (isEdit ? 'Guardando...' : 'Creando...') : (isEdit ? 'Guardar cambios' : 'Crear negocio')}
+                    </button>
+                  </div>
+                </div>
               </div>
             </form>
           )}
