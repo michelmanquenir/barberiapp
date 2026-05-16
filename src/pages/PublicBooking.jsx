@@ -977,7 +977,7 @@ function ConfirmStep({ booking, setBooking, shop, selectedService, selectedBarbe
 
   const paymentMethods = [
     { id: 'cash', label: 'Efectivo', emoji: '💵', desc: 'Paga al llegar' },
-    { id: 'transfer', label: 'Transferencia', emoji: '💳', desc: 'Transferencia bancaria' },
+    ...(shop?.transferEnabled ? [{ id: 'transfer', label: 'Transferencia', emoji: '💳', desc: 'Transferencia bancaria' }] : []),
     ...(subUsable ? [{
       id: 'subscription', label: 'Suscripción', emoji: '🏷️',
       desc: `${activeSubscription.cutsRemaining} disponible${activeSubscription.cutsRemaining !== 1 ? 's' : ''} · ${activeSubscription.planName}`,

@@ -42,6 +42,7 @@ function CreateShop() {
     homeServiceEnabled: false,
     pricePerKm: '',
     categoryId: '',
+    transferEnabled: false,
     transferAccountHolder: '',
     transferRut: '',
     transferEmail: '',
@@ -83,6 +84,7 @@ function CreateShop() {
           homeServiceEnabled: shop.homeServiceEnabled ?? false,
           pricePerKm: shop.pricePerKm != null ? String(shop.pricePerKm) : '',
           categoryId: shop.categoryId || '',
+          transferEnabled: shop.transferEnabled ?? false,
           transferAccountHolder: shop.transferAccountHolder || '',
           transferRut: shop.transferRut || '',
           transferEmail: shop.transferEmail || '',
@@ -432,79 +434,98 @@ function CreateShop() {
 
               {/* Datos de transferencia bancaria */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Landmark className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Datos bancarios para transferencias</span>
-                </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
-                  Estos datos se mostrarán al cliente cuando elija pagar por transferencia.
-                </p>
-
-                {/* Nombre titular */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre completo del titular</label>
-                  <input type="text" value={form.transferAccountHolder}
-                    onChange={(e) => setForm((f) => ({ ...f, transferAccountHolder: e.target.value }))}
-                    placeholder="ej: Constanza RODRIGUEZ"
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                  />
-                </div>
-
-                {/* RUT y Email */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">RUT</label>
-                    <input type="text" value={form.transferRut}
-                      onChange={(e) => setForm((f) => ({ ...f, transferRut: e.target.value }))}
-                      placeholder="ej: 19.917.898-9"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                    />
+                {/* Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Aceptar transferencias bancarias</span>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>
-                    <input type="email" value={form.transferEmail}
-                      onChange={(e) => setForm((f) => ({ ...f, transferEmail: e.target.value }))}
-                      placeholder="correo@ejemplo.com"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                    />
-                  </div>
-                </div>
-
-                {/* Tipo de cuenta */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de cuenta</label>
-                  <select value={form.transferAccountType}
-                    onChange={(e) => setForm((f) => ({ ...f, transferAccountType: e.target.value }))}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, transferEnabled: !f.transferEnabled }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      form.transferEnabled ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
                   >
-                    <option value="">Seleccionar tipo...</option>
-                    <option>Cuenta Corriente</option>
-                    <option>Cuenta Vista</option>
-                    <option>Cuenta de Ahorro</option>
-                    <option>Chequera Electrónica</option>
-                    <option>Cuenta RUT</option>
-                  </select>
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${
+                      form.transferEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
                 </div>
 
-                {/* Número de cuenta y Banco */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Número de cuenta</label>
-                    <input type="text" value={form.transferAccountNumber}
-                      onChange={(e) => setForm((f) => ({ ...f, transferAccountNumber: e.target.value }))}
-                      placeholder="ej: 19998917523"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                    />
+                {form.transferEnabled && (
+                  <div className="space-y-3 pt-1">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      Estos datos se mostrarán al cliente cuando elija pagar por transferencia.
+                    </p>
+
+                    {/* Nombre titular */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Nombre completo del titular</label>
+                      <input type="text" value={form.transferAccountHolder}
+                        onChange={(e) => setForm((f) => ({ ...f, transferAccountHolder: e.target.value }))}
+                        placeholder="ej: Constanza RODRIGUEZ"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                      />
+                    </div>
+
+                    {/* RUT y Email */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">RUT</label>
+                        <input type="text" value={form.transferRut}
+                          onChange={(e) => setForm((f) => ({ ...f, transferRut: e.target.value }))}
+                          placeholder="ej: 19.917.898-9"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>
+                        <input type="email" value={form.transferEmail}
+                          onChange={(e) => setForm((f) => ({ ...f, transferEmail: e.target.value }))}
+                          placeholder="correo@ejemplo.com"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Tipo de cuenta */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Tipo de cuenta</label>
+                      <select value={form.transferAccountType}
+                        onChange={(e) => setForm((f) => ({ ...f, transferAccountType: e.target.value }))}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                      >
+                        <option value="">Seleccionar tipo...</option>
+                        <option>Cuenta Corriente</option>
+                        <option>Cuenta Vista</option>
+                        <option>Cuenta de Ahorro</option>
+                        <option>Chequera Electrónica</option>
+                        <option>Cuenta RUT</option>
+                      </select>
+                    </div>
+
+                    {/* Número de cuenta y Banco */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Número de cuenta</label>
+                        <input type="text" value={form.transferAccountNumber}
+                          onChange={(e) => setForm((f) => ({ ...f, transferAccountNumber: e.target.value }))}
+                          placeholder="ej: 19998917523"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Banco</label>
+                        <input type="text" value={form.transferBankName}
+                          onChange={(e) => setForm((f) => ({ ...f, transferBankName: e.target.value }))}
+                          placeholder="ej: Banco Estado"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Banco</label>
-                    <input type="text" value={form.transferBankName}
-                      onChange={(e) => setForm((f) => ({ ...f, transferBankName: e.target.value }))}
-                      placeholder="ej: Banco Colo Colo"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Botones */}
