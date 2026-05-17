@@ -21,6 +21,17 @@ import AdminNavbar from '../../components/AdminNavbar'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
+function isTransferComplete(shop) {
+  return !!(
+    shop?.transferAccountHolder?.trim() &&
+    shop?.transferRut?.trim() &&
+    shop?.transferBankName?.trim() &&
+    shop?.transferAccountType?.trim() &&
+    shop?.transferAccountNumber?.trim() &&
+    shop?.transferEmail?.trim()
+  )
+}
+
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371
   const dLat = (lat2 - lat1) * Math.PI / 180
@@ -191,6 +202,8 @@ function BarberBooking() {
 
   // ── Envío ────────────────────────────────────────────────────────────────────
 
+  const transferIncomplete = form.paymentMethod === 'transfer' && !isTransferComplete(shop)
+
   const canSubmit =
     form.clientName.trim() &&
     form.serviceId &&
@@ -198,6 +211,7 @@ function BarberBooking() {
     form.date &&
     form.time &&
     form.paymentMethod &&
+    !transferIncomplete &&
     (form.locationType !== 'home' || !!form.clientAddress)
 
   const handleSubmit = async () => {
@@ -516,21 +530,26 @@ function BarberBooking() {
                   <p className="text-xs font-medium text-gray-500 mb-1.5">Método de pago</p>
                   <div className="space-y-1.5">
                     {[
-                      { id: 'cash',     label: '💵 Efectivo' },
-                      { id: 'transfer', label: '💳 Transferencia' },
-                    ].map((m) => (
+                      { id: 'cash',     label: '💵 Efectivo',       show: true },
+                      { id: 'transfer', label: '💳 Transferencia',   show: !!shop?.transferEnabled },
+                    ].filter(m => m.show).map((m) => (
                       <button
                         key={m.id}
                         onClick={() => setForm((prev) => ({ ...prev, paymentMethod: m.id }))}
                         className={`w-full p-2.5 rounded-lg border-2 text-left text-sm transition-all ${
                           form.paymentMethod === m.id
-                            ? 'border-gray-900 bg-gray-50 font-medium'
-                            : 'border-gray-200 hover:border-gray-400'
+                            ? 'border-gray-900 bg-gray-50 dark:bg-gray-800 font-medium'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'
                         }`}
                       >
                         {m.label}
                       </button>
                     ))}
+                    {transferIncomplete && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                        Los datos bancarios del negocio están incompletos. Completa la configuración en <strong>Editar negocio</strong> para usar este método.
+                      </p>
+                    )}
                   </div>
                 </div>
                 {/* Ubicación — solo si el negocio tiene domicilio habilitado */}

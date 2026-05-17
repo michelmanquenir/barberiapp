@@ -105,6 +105,19 @@ function formatReviewDate(dateStr) {
   } catch { return '' }
 }
 
+// ─── Validación datos bancarios ───────────────────────────────────────────────
+
+function isTransferComplete(shop) {
+  return !!(
+    shop?.transferAccountHolder?.trim() &&
+    shop?.transferRut?.trim() &&
+    shop?.transferBankName?.trim() &&
+    shop?.transferAccountType?.trim() &&
+    shop?.transferAccountNumber?.trim() &&
+    shop?.transferEmail?.trim()
+  )
+}
+
 // ─── Componente principal ──────────────────────────────────────────────────────
 
 function PublicBooking() {
@@ -199,6 +212,7 @@ function PublicBooking() {
     if (step === 4) {
       if (!booking.paymentMethod) return false
       if (booking.locationType === 'home' && !booking.clientAddress) return false
+      if (booking.paymentMethod === 'transfer' && !isTransferComplete(shop)) return false
       return true
     }
     return false
@@ -1127,10 +1141,19 @@ function ConfirmStep({ booking, setBooking, shop, selectedService, selectedBarbe
                 <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm">{m.label}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{m.desc}</p>
               </div>
+              {/* aviso inline si datos bancarios incompletos */}
+              {m.id === 'transfer' && booking.paymentMethod === 'transfer' && !isTransferComplete(shop) && (
+                <span className="text-xs text-amber-600 dark:text-amber-400 flex-shrink-0 font-medium">Incompleto</span>
+              )}
               {booking.paymentMethod === m.id && <Check className="w-4 h-4 text-gray-900 dark:text-gray-50 flex-shrink-0" />}
             </button>
           ))}
         </div>
+        {booking.paymentMethod === 'transfer' && !isTransferComplete(shop) && (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+            El negocio no tiene los datos bancarios completos. No es posible seleccionar este método de pago por ahora.
+          </p>
+        )}
       </div>
     </div>
   )

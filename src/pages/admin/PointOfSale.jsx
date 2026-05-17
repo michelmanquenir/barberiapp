@@ -15,6 +15,17 @@ import BarcodeScanner, { primeBeepAudio } from '../../components/BarcodeScanner'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + Number(n ?? 0).toLocaleString('es-CL')
 
+function isTransferComplete(shop) {
+  return !!(
+    shop?.transferAccountHolder?.trim() &&
+    shop?.transferRut?.trim() &&
+    shop?.transferBankName?.trim() &&
+    shop?.transferAccountType?.trim() &&
+    shop?.transferAccountNumber?.trim() &&
+    shop?.transferEmail?.trim()
+  )
+}
+
 
 // ── CartItem ──────────────────────────────────────────────────────────────────
 function CartItem({ item, onAdd, onRemove, onDelete }) {
@@ -428,9 +439,9 @@ export default function PointOfSale() {
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: 'cash',     label: 'Efectivo',       icon: <Banknote className="w-4 h-4" /> },
-                  { value: 'transfer', label: 'Transferencia',   icon: <CreditCard className="w-4 h-4" /> },
-                ].map(({ value, label, icon }) => (
+                  { value: 'cash',     label: 'Efectivo',     icon: <Banknote className="w-4 h-4" />,   show: true },
+                  { value: 'transfer', label: 'Transferencia', icon: <CreditCard className="w-4 h-4" />, show: !!shop?.transferEnabled },
+                ].filter(m => m.show).map(({ value, label, icon }) => (
                   <button key={value} type="button" onClick={() => setPaymentMethod(value)}
                     className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition ${
                       paymentMethod === value
@@ -441,12 +452,17 @@ export default function PointOfSale() {
                   </button>
                 ))}
               </div>
+              {paymentMethod === 'transfer' && !isTransferComplete(shop) && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                  Los datos bancarios están incompletos. Completa la configuración en <strong>Editar negocio</strong>.
+                </p>
+              )}
             </div>
 
             {/* Botón confirmar */}
             <button
               onClick={handleConfirm}
-              disabled={cartItems.length === 0 || submitting}
+              disabled={cartItems.length === 0 || submitting || (paymentMethod === 'transfer' && !isTransferComplete(shop))}
               className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-bold text-base hover:bg-gray-700 dark:hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {submitting
