@@ -26,7 +26,7 @@ import {
   Mail,
 } from 'lucide-react'
 import { api } from '../../lib/api'
-import { toast, confirm, confirmDanger } from '../../lib/swal'
+import { toast, confirm } from '../../lib/swal'
 import AdminNavbar from '../../components/AdminNavbar'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -88,14 +88,16 @@ function ShopOrders() {
   const { shopId } = useParams()
   const navigate   = useNavigate()
 
-  const [shop,       setShop]       = useState(null)
-  const [orders,     setOrders]     = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [filter,     setFilter]     = useState('all')
-  const [expanded,   setExpanded]   = useState(null) // orderId | null
-  const [updating,   setUpdating]   = useState(null) // orderId | null
-  const [proofModal, setProofModal] = useState(null) // URL del comprobante a visualizar
+  const [shop,        setShop]        = useState(null)
+  const [orders,      setOrders]      = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [refreshing,  setRefreshing]  = useState(false)
+  const [filter,      setFilter]      = useState('all')
+  const [expanded,    setExpanded]    = useState(null) // orderId | null
+  const [updating,    setUpdating]    = useState(null) // orderId | null
+  const [proofModal,  setProofModal]  = useState(null) // URL del comprobante a visualizar
+  const [cancelModal, setCancelModal] = useState(null) // orderId | null
+  const [cancelReason, setCancelReason] = useState('')
 
   // ── Carga ──────────────────────────────────────────────────────────────────
 
@@ -136,16 +138,17 @@ function ShopOrders() {
     }
   }
 
-  const handleCancel = async (orderId) => {
-    const ok = await confirmDanger(
-      'Cancelar pedido',
-      '¿Seguro que deseas cancelar este pedido? El stock de los productos será restaurado.',
-      { confirmText: 'Sí, cancelar' }
-    )
-    if (!ok) return
+  const handleCancel = (orderId) => {
+    setCancelReason('')
+    setCancelModal(orderId)
+  }
+
+  const handleConfirmCancel = async () => {
+    const orderId = cancelModal
+    setCancelModal(null)
     setUpdating(orderId)
     try {
-      const updated = await api.updateOrderStatus(orderId, 'cancelled')
+      const updated = await api.updateOrderStatus(orderId, 'cancelled', cancelReason.trim() || null)
       setOrders(prev => prev.map(o => o.id === orderId ? updated : o))
       toast.success('Pedido cancelado')
     } catch {
@@ -257,6 +260,16 @@ function ShopOrders() {
           <ProofModal url={proofModal} onClose={() => setProofModal(null)} />
         )}
 
+        {/* Modal cancelación con motivo */}
+        {cancelModal && (
+          <CancelReasonModal
+            reason={cancelReason}
+            onReasonChange={setCancelReason}
+            onConfirm={handleConfirmCancel}
+            onClose={() => setCancelModal(null)}
+          />
+        )}
+
         {/* Lista */}
         {loading ? (
           <div className="flex flex-col items-center py-16 gap-3">
@@ -346,6 +359,62 @@ function ProofModal({ url, onClose }) {
               className="max-w-full max-h-[70vh] object-contain"
             />
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CancelReasonModal ────────────────────────────────────────────────────────
+
+function CancelReasonModal({ reason, onReasonChange, onConfirm, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center flex-shrink-0">
+            <XCircle className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-50">Cancelar pedido</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">El stock de los productos será restaurado.</p>
+          </div>
+        </div>
+
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          Motivo de cancelación <span className="text-gray-400 font-normal">(opcional)</span>
+        </label>
+        <textarea
+          value={reason}
+          onChange={e => onReasonChange(e.target.value)}
+          placeholder="Ej: El comprobante de transferencia no corresponde..."
+          rows={3}
+          className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
+        />
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          Este motivo se enviará al cliente por correo y será visible en la app.
+        </p>
+
+        <div className="flex gap-2 mt-5 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm transition"
+          >
+            Volver
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition flex items-center gap-1.5"
+          >
+            <XCircle className="w-4 h-4" />
+            Sí, cancelar pedido
+          </button>
         </div>
       </div>
     </div>
@@ -483,6 +552,15 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, onCancel, isUpda
             <div className="mt-2 flex items-start gap-1.5 bg-gray-50 dark:bg-gray-800 rounded-lg px-2.5 py-1.5">
               <AlertCircle className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-gray-600 dark:text-gray-300">{order.notes}</p>
+            </div>
+          )}
+
+          {order.status === 'cancelled' && order.cancellationReason && (
+            <div className="mt-2 flex items-start gap-1.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg px-2.5 py-1.5">
+              <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600 dark:text-red-400">
+                <strong>Motivo de cancelación:</strong> {order.cancellationReason}
+              </p>
             </div>
           )}
         </div>

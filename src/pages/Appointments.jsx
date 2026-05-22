@@ -336,6 +336,15 @@ function Appointments() {
                     </p>
                   )}
 
+                  {order.status === 'cancelled' && order.cancellationReason && (
+                    <div className="mt-2 flex items-start gap-1.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg px-2.5 py-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-600 dark:text-red-400">
+                        <strong>Motivo de cancelación:</strong> {order.cancellationReason}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Reseña para pedidos entregados */}
                   {order.status === 'delivered' && (() => {
                     const orderReviews = orderReviewsMap[order.id]

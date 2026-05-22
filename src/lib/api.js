@@ -247,8 +247,11 @@ export const api = {
   cancelOrder: (orderId) =>
     request(`/orders/${orderId}/cancel`, { method: 'PUT' }),
   getShopOrders: (shopId) => request(`/admin/shops/${shopId}/orders`),
-  updateOrderStatus: (orderId, status) =>
-    request(`/admin/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  updateOrderStatus: (orderId, status, cancellationReason = null) =>
+    request(`/admin/orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, ...(cancellationReason ? { cancellationReason } : {}) }),
+    }),
 
   // ── Transporte ─────────────────────────────────────────────────────────────
 
