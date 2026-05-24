@@ -32,7 +32,7 @@ function Sidebar({ isOpen }) {
     { path: '/booking',       icon: Compass,   label: 'Explorar'          },
     { path: '/profile',       icon: User,      label: 'Perfil'            },
     { path: '/appointments',  icon: Calendar,  label: 'Mis Citas'         },
-    { path: '/my-barbers',    icon: Briefcase, label: 'Mis Profesionales' },
+    { path: '/my-visits',     icon: Briefcase, label: 'Mis Visitas' },
     { path: '/wallet',        icon: Wallet,    label: 'Wallet'            },
     { path: '/favorites',     icon: Heart,     label: 'Favoritos'         },
     { path: '/edit-profile',  icon: Settings,  label: 'Editar Perfil'     },

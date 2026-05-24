@@ -113,7 +113,7 @@ function MyBarbers() {
             <Users className="w-5 h-5 text-white dark:text-gray-900" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Mis Profesionales</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Mis Visitas</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">Historial de profesionales con los que has agendado</p>
           </div>
         </div>

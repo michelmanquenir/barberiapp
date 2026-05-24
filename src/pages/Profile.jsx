@@ -211,7 +211,7 @@ export default function Profile() {
 
         {/* Accesos rápidos */}
         <Section title="Accesos rápidos">
-          <QuickLink icon={<Users />}     label="Mis Profesionales" to="/my-barbers"  navigate={navigate} />
+          <QuickLink icon={<Users />}     label="Mis Visitas" to="/my-visits"  navigate={navigate} />
           <QuickLink icon={<Heart />}     label="Favoritos"        to="/favorites"   navigate={navigate} />
           <QuickLink icon={<Clock />}     label="Mis Citas"        to="/appointments" navigate={navigate} />
           <QuickLink icon={<CreditCard />} label="Wallet"          to="/wallet"      navigate={navigate} />

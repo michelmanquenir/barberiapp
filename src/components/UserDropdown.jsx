@@ -57,7 +57,7 @@ function UserDropdown({ onClose, onLogout }) {
       {section('Modo Cliente')}
       {item('/booking',     <Compass className="w-4 h-4" />,  'Explorar negocios')}
       {item('/appointments',<Calendar className="w-4 h-4" />, 'Mis citas')}
-      {item('/my-barbers',  <Store className="w-4 h-4" />,    'Mis profesionales')}
+      {item('/my-visits',   <Store className="w-4 h-4" />,    'Mis Visitas')}
       {item('/wallet',      <Wallet className="w-4 h-4" />,   'Wallet')}
       {item('/favorites',   <Heart className="w-4 h-4" />,    'Favoritos')}
 
