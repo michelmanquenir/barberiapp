@@ -8,8 +8,8 @@ function Favorites() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const [tab, setTab] = useState('barbers') // 'barbers' | 'shops'
-  const [barberFavs, setBarberFavs] = useState([])
+  const [tab, setTab] = useState('shops') // 'professionals' | 'shops'
+  const [professionalFavs, setProfessionalFavs] = useState([])
   const [shopFavs, setShopFavs] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -18,16 +18,16 @@ function Favorites() {
     Promise.all([
       api.getFavorites(user.userId).catch(() => []),
       api.getFavoriteShops(user.userId).catch(() => []),
-    ]).then(([barbers, shops]) => {
-      setBarberFavs(barbers || [])
+    ]).then(([professionals, shops]) => {
+      setProfessionalFavs(professionals || [])
       setShopFavs(shops || [])
     }).finally(() => setLoading(false))
   }, [user.userId])
 
-  const handleRemoveBarber = useCallback(async (favoriteId) => {
+  const handleRemoveProfessional = useCallback(async (favoriteId) => {
     try {
       await api.removeFavorite(favoriteId, user.userId)
-      setBarberFavs(prev => prev.filter(f => f.id !== favoriteId))
+      setProfessionalFavs(prev => prev.filter(f => f.id !== favoriteId))
     } catch (err) {
       console.error('Error al eliminar favorito:', err)
     }
@@ -66,9 +66,9 @@ function Favorites() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button
-            onClick={() => setTab('barbers')}
+            onClick={() => setTab('professionals')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
-              tab === 'barbers'
+              tab === 'professionals'
                 ? 'bg-gray-900 text-white'
                 : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-400'
             }`}
@@ -76,9 +76,9 @@ function Favorites() {
             <Users className="w-4 h-4" />
             Profesionales
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-              tab === 'barbers' ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+              tab === 'professionals' ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
             }`}>
-              {barberFavs.length}
+              {professionalFavs.length}
             </span>
           </button>
           <button
@@ -99,9 +99,9 @@ function Favorites() {
           </button>
         </div>
 
-        {/* ── Tab: Barberos ── */}
-        {tab === 'barbers' && (
-          barberFavs.length === 0 ? (
+        {/* ── Tab: Profesionales ── */}
+        {tab === 'professionals' && (
+          professionalFavs.length === 0 ? (
             <EmptyState
               icon={<Users className="w-10 h-10 text-gray-300 dark:text-gray-600" />}
               title="Aún no tienes profesionales favoritos"
@@ -109,34 +109,34 @@ function Favorites() {
             />
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
-              {barberFavs.map((fav) => {
-                const barber = fav.barber
-                const specialties = parseSpecialties(barber?.specialties)
+              {professionalFavs.map((fav) => {
+                const professional = fav.barber
+                const specialties = parseSpecialties(professional?.specialties)
                 return (
                   <div key={fav.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-sm transition-shadow">
                     <div className="flex items-start justify-between gap-3 mb-4">
                       {/* Avatar */}
                       <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {barber?.imageUrl
-                          ? <img src={barber.imageUrl} alt={barber.name} className="w-full h-full object-cover" />
+                        {professional?.imageUrl
+                          ? <img src={professional.imageUrl} alt={professional.name} className="w-full h-full object-cover" />
                           : <Users className="w-6 h-6 text-gray-400 dark:text-gray-500" />
                         }
                       </div>
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-50 truncate">{barber?.name ?? '—'}</h3>
-                        {barber?.rating != null && barber.rating > 0 && (
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-50 truncate">{professional?.name ?? '—'}</h3>
+                        {professional?.rating != null && professional.rating > 0 && (
                           <div className="flex items-center gap-1 mt-0.5">
                             <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
                             <span className="text-sm text-yellow-600 font-medium">
-                              {Number(barber.rating).toFixed(1)}
+                              {Number(professional.rating).toFixed(1)}
                             </span>
                           </div>
                         )}
                       </div>
                       {/* Quitar */}
                       <button
-                        onClick={() => handleRemoveBarber(fav.id)}
+                        onClick={() => handleRemoveProfessional(fav.id)}
                         title="Quitar de favoritos"
                         className="p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950 transition flex-shrink-0"
                       >
@@ -145,8 +145,8 @@ function Favorites() {
                     </div>
 
                     {/* Bio */}
-                    {barber?.bio && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">{barber.bio}</p>
+                    {professional?.bio && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">{professional.bio}</p>
                     )}
 
                     {/* Especialidades */}
