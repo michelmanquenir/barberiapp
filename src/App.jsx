@@ -44,6 +44,7 @@ import Favorites from './pages/Favorites'
 import MyBarbers from './pages/MyBarbers'
 import EditProfile from './pages/EditProfile'
 import EmployeeDashboard from './pages/employee/EmployeeDashboard'
+import MyFinances from './pages/MyFinances'
 
 function App() {
   return (
@@ -262,6 +263,7 @@ function App() {
                       <Route path="/favorites" element={<Favorites />} />
                       <Route path="/my-visits" element={<MyBarbers />} />
                       <Route path="/edit-profile" element={<EditProfile />} />
+                      <Route path="/my-finances" element={<MyFinances />} />
                       <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
                     </Routes>
                   </Layout>

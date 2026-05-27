@@ -501,4 +501,53 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ caption }),
     }),
+
+  // ── Mis Finanzas ───────────────────────────────────────────────────────────
+
+  getFinanceSummary: (userId) =>
+    request(`/finance/summary?userId=${userId}`),
+
+  // Ingresos
+  getFinanceIncomes: (userId) =>
+    request(`/finance/incomes?userId=${userId}`),
+  createFinanceIncome: (userId, data) =>
+    request(`/finance/incomes?userId=${userId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceIncome: (id, userId, data) =>
+    request(`/finance/incomes/${id}?userId=${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteFinanceIncome: (id, userId) =>
+    request(`/finance/incomes/${id}?userId=${userId}`, { method: 'DELETE' }),
+
+  // Gastos
+  getFinanceExpenses: (userId) =>
+    request(`/finance/expenses?userId=${userId}`),
+  createFinanceExpense: (userId, data) =>
+    request(`/finance/expenses?userId=${userId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceExpense: (id, userId, data) =>
+    request(`/finance/expenses/${id}?userId=${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteFinanceExpense: (id, userId) =>
+    request(`/finance/expenses/${id}?userId=${userId}`, { method: 'DELETE' }),
+
+  // Cuotas
+  getFinanceInstallments: (userId) =>
+    request(`/finance/installments?userId=${userId}`),
+  createFinanceInstallment: (userId, data) =>
+    request(`/finance/installments?userId=${userId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceInstallment: (id, userId, data) =>
+    request(`/finance/installments/${id}?userId=${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  payFinanceInstallment: (id, userId) =>
+    request(`/finance/installments/${id}/pay?userId=${userId}`, { method: 'PATCH' }),
+  deleteFinanceInstallment: (id, userId) =>
+    request(`/finance/installments/${id}?userId=${userId}`, { method: 'DELETE' }),
+
+  // Metas de ahorro
+  getFinanceSavingGoals: (userId) =>
+    request(`/finance/saving-goals?userId=${userId}`),
+  createFinanceSavingGoal: (userId, data) =>
+    request(`/finance/saving-goals?userId=${userId}`, { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceSavingGoal: (id, userId, data) =>
+    request(`/finance/saving-goals/${id}?userId=${userId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  addToFinanceSavingGoal: (id, userId, amount) =>
+    request(`/finance/saving-goals/${id}/add?userId=${userId}`, { method: 'PATCH', body: JSON.stringify({ amount }) }),
+  deleteFinanceSavingGoal: (id, userId) =>
+    request(`/finance/saving-goals/${id}?userId=${userId}`, { method: 'DELETE' }),
 }
