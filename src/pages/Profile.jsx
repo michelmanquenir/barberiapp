@@ -214,7 +214,7 @@ export default function Profile() {
           <QuickLink icon={<Users />}     label="Mis Visitas" to="/my-visits"  navigate={navigate} />
           <QuickLink icon={<Heart />}     label="Favoritos"        to="/favorites"   navigate={navigate} />
           <QuickLink icon={<Clock />}     label="Mis Citas"        to="/appointments" navigate={navigate} />
-          <QuickLink icon={<CreditCard />} label="Wallet"          to="/wallet"      navigate={navigate} />
+          <QuickLink icon={<CreditCard />} label="Mis Finanzas"    to="/my-finances" navigate={navigate} />
         </Section>
       </div>
     </div>

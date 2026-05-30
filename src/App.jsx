@@ -260,10 +260,10 @@ function App() {
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/appointments" element={<Appointments />} />
                       <Route path="/wallet" element={<Wallet />} />
+                      <Route path="/my-finances" element={<MyFinances />} />
                       <Route path="/favorites" element={<Favorites />} />
                       <Route path="/my-visits" element={<MyBarbers />} />
                       <Route path="/edit-profile" element={<EditProfile />} />
-                      <Route path="/my-finances" element={<MyFinances />} />
                       <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
                     </Routes>
                   </Layout>

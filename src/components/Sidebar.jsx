@@ -34,9 +34,8 @@ function Sidebar({ isOpen }) {
     { path: '/profile',       icon: User,      label: 'Perfil'            },
     { path: '/appointments',  icon: Calendar,  label: 'Mis Citas'         },
     { path: '/my-visits',     icon: Briefcase, label: 'Mis Visitas' },
-    { path: '/wallet',        icon: Wallet,    label: 'Wallet'            },
-    { path: '/favorites',     icon: Heart,     label: 'Favoritos'         },
     { path: '/my-finances',   icon: PiggyBank, label: 'Mis Finanzas'      },
+    { path: '/favorites',     icon: Heart,     label: 'Favoritos'         },
     { path: '/edit-profile',  icon: Settings,  label: 'Editar Perfil'     },
   ]
 

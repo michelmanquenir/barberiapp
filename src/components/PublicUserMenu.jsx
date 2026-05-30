@@ -55,7 +55,7 @@ export default function PublicUserMenu({ loginRedirect, dark = true }) {
     { to: '/appointments', icon: Calendar,  label: 'Mis Citas' },
     { to: '/favorites',    icon: Heart,     label: 'Favoritos' },
     { to: '/my-visits',    icon: Briefcase, label: 'Mis Visitas' },
-    { to: '/wallet',       icon: Wallet,    label: 'Wallet' },
+    { to: '/my-finances',  icon: Wallet,    label: 'Mis Finanzas' },
     { to: '/edit-profile', icon: Settings,  label: 'Configuración' },
   ]
 

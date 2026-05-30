@@ -317,10 +317,10 @@ export const api = {
   // Wallet
   getBalance: (userId) => request(`/wallet/balance?userId=${userId}`),
   getTransactions: (userId) => request(`/wallet/transactions?userId=${userId}`),
-  addFunds: (userId, amount) =>
+  addFunds: (userId, amount, description = 'Ingreso') =>
     request(`/wallet/add-funds?userId=${userId}`, {
       method: 'POST',
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({ amount, description }),
     }),
 
   // Galerías de barbero (privado — barbero autenticado)
