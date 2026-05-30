@@ -3,7 +3,7 @@ import {
   TrendingUp, TrendingDown, PiggyBank, CreditCard,
   Plus, Trash2, Pencil, Check, X,
   DollarSign, Target, AlertCircle, Loader2,
-  ArrowUpCircle, ArrowDownCircle,
+  ArrowUpCircle, ArrowDownCircle, RefreshCw, ChevronRight,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -378,13 +378,60 @@ function TabIngresos({ userId, onRefreshSummary }) {
 
 // ─── TAB: Gastos ─────────────────────────────────────────────────────────────
 
+// Tipos internos para el formulario
+const EXPENSE_TYPE_NORMAL    = 'normal'
+const EXPENSE_TYPE_RECURRING = 'periodico'
+const EXPENSE_TYPE_INSTALLMENT = 'cuotas'
+
+function expenseTypeOf(item) {
+  if (item.installmentNumber != null && item.installmentTotal != null) return EXPENSE_TYPE_INSTALLMENT
+  if (item.recurring) return EXPENSE_TYPE_RECURRING
+  return EXPENSE_TYPE_NORMAL
+}
+
+function buildFormFromItem(item) {
+  return {
+    category:           item.category,
+    description:        item.description ?? '',
+    amount:             item.amount,
+    date:               item.date ?? today(),
+    expenseType:        expenseTypeOf(item),
+    installmentNumber:  item.installmentNumber ?? '',
+    installmentTotal:   item.installmentTotal  ?? '',
+  }
+}
+
+function buildEmptyForm() {
+  return {
+    category:           'COMIDA',
+    description:        '',
+    amount:             '',
+    date:               today(),
+    expenseType:        EXPENSE_TYPE_NORMAL,
+    installmentNumber:  '',
+    installmentTotal:   '',
+  }
+}
+
+function formToPayload(form) {
+  return {
+    category:           form.category,
+    description:        form.description,
+    amount:             parseFloat(form.amount),
+    date:               form.date,
+    recurring:          form.expenseType === EXPENSE_TYPE_RECURRING,
+    installmentNumber:  form.expenseType === EXPENSE_TYPE_INSTALLMENT ? parseInt(form.installmentNumber) || null : null,
+    installmentTotal:   form.expenseType === EXPENSE_TYPE_INSTALLMENT ? parseInt(form.installmentTotal)  || null : null,
+  }
+}
+
 function TabGastos({ userId, onRefreshSummary }) {
   const [expenses, setExpenses] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
-  const [modal,    setModal]    = useState(null)
+  const [modal,    setModal]    = useState(null)   // null | 'new' | item
   const [error,    setError]    = useState('')
-  const [form,     setForm]     = useState({ category: 'COMIDA', description: '', amount: '', date: today() })
+  const [form,     setForm]     = useState(buildEmptyForm())
 
   const load = useCallback(() => {
     setLoading(true)
@@ -396,13 +443,43 @@ function TabGastos({ userId, onRefreshSummary }) {
 
   useEffect(() => { load() }, [load])
 
-  const openNew  = () => { setError(''); setForm({ category: 'COMIDA', description: '', amount: '', date: today() }); setModal('new') }
-  const openEdit = (item) => { setError(''); setForm({ category: item.category, description: item.description ?? '', amount: item.amount, date: item.date ?? today() }); setModal(item) }
+  const openNew  = (preset = {}) => {
+    setError('')
+    setForm({ ...buildEmptyForm(), ...preset })
+    setModal('new')
+  }
+
+  const openEdit = (item) => {
+    setError('')
+    setForm(buildFormFromItem(item))
+    setModal(item)
+  }
+
+  // Abre el form pre-llenado para registrar la SIGUIENTE cuota de un gasto
+  const openNextInstallment = (item) => {
+    openNew({
+      category:          item.category,
+      description:       item.description,
+      amount:            item.amount,
+      date:              today(),
+      expenseType:       EXPENSE_TYPE_INSTALLMENT,
+      installmentNumber: String((item.installmentNumber ?? 0) + 1),
+      installmentTotal:  String(item.installmentTotal ?? ''),
+    })
+  }
 
   const handleSave = async () => {
     setError('')
-    const data = { ...form, amount: parseFloat(form.amount) }
-    if (!data.amount || isNaN(data.amount) || data.amount <= 0) { setError('Ingresa un monto válido mayor a 0.'); return }
+    const data = formToPayload(form)
+    if (!data.amount || isNaN(data.amount) || data.amount <= 0) {
+      setError('Ingresa un monto válido mayor a 0.')
+      return
+    }
+    if (form.expenseType === EXPENSE_TYPE_INSTALLMENT) {
+      if (!data.installmentNumber || data.installmentNumber < 1) { setError('Número de cuota actual inválido.'); return }
+      if (!data.installmentTotal  || data.installmentTotal  < 1) { setError('Total de cuotas inválido.'); return }
+      if (data.installmentNumber > data.installmentTotal)       { setError('La cuota actual no puede ser mayor al total.'); return }
+    }
     setSaving(true)
     try {
       if (modal === 'new') await api.createFinanceExpense(userId, data)
@@ -428,7 +505,7 @@ function TabGastos({ userId, onRefreshSummary }) {
     }
   }
 
-  // Agrupar por categoría para mostrar totales
+  // Totales por categoría para los chips del resumen
   const totalByCategory = expenses.reduce((acc, item) => {
     acc[item.category] = (acc[item.category] || 0) + (item.amount || 0)
     return acc
@@ -436,19 +513,22 @@ function TabGastos({ userId, onRefreshSummary }) {
 
   return (
     <div>
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Mis Gastos</h2>
           {!loading && expenses.length > 0 && (
-            <p className="text-sm text-gray-400">{expenses.length} registro{expenses.length !== 1 ? 's' : ''} · Total: {fmt(expenses.reduce((s, i) => s + i.amount, 0))}</p>
+            <p className="text-sm text-gray-400">
+              {expenses.length} registro{expenses.length !== 1 ? 's' : ''} · Total: {fmt(expenses.reduce((s, i) => s + (i.amount || 0), 0))}
+            </p>
           )}
         </div>
-        <button onClick={openNew} className="btn-primary flex items-center gap-2">
+        <button onClick={() => openNew()} className="btn-primary flex items-center gap-2">
           <Plus className="h-4 w-4" /> Agregar gasto
         </button>
       </div>
 
-      {/* Resumen por categoría (mini chips) */}
+      {/* Chips resumen por categoría */}
       {!loading && Object.keys(totalByCategory).length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {Object.entries(totalByCategory).map(([cat, total]) => {
@@ -462,49 +542,111 @@ function TabGastos({ userId, onRefreshSummary }) {
         </div>
       )}
 
+      {/* Lista */}
       {loading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <LoadingRow key={i} />)}</div>
+        <div className="space-y-3">{[1, 2, 3].map(i => <LoadingRow key={i} />)}</div>
       ) : expenses.length === 0 ? (
         <EmptyState
           icon={ArrowDownCircle}
           text="Aún no tienes gastos registrados"
-          sub="Registra tus gastos para ver en qué estás gastando tu dinero."
-          onAdd={openNew}
+          sub="Registra gastos normales, periódicos o en cuotas para llevar el control."
+          onAdd={() => openNew()}
           addLabel="Agregar primer gasto"
         />
       ) : (
         <div className="space-y-3">
           {expenses.map((item) => {
-            const cat   = EXPENSE_CATEGORIES.find(c => c.value === item.category)
-            const color = CATEGORY_COLORS[item.category] ?? '#94a3b8'
+            const cat      = EXPENSE_CATEGORIES.find(c => c.value === item.category)
+            const color    = CATEGORY_COLORS[item.category] ?? '#94a3b8'
+            const type     = expenseTypeOf(item)
+            const isInstallment = type === EXPENSE_TYPE_INSTALLMENT
+            const isRecurring   = type === EXPENSE_TYPE_RECURRING
+            const pct = isInstallment && item.installmentTotal
+              ? Math.min(100, Math.round((item.installmentNumber / item.installmentTotal) * 100))
+              : 0
+            const isLastInstallment = isInstallment && item.installmentNumber === item.installmentTotal
+
             return (
-              <div key={item.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
-                    style={{ backgroundColor: color + '22' }}>
-                    {cat?.emoji ?? '📦'}
+              <div key={item.id} className="rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors overflow-hidden">
+                <div className="flex items-center justify-between p-4">
+                  {/* Icono + info */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                      style={{ backgroundColor: color + '22' }}>
+                      {cat?.emoji ?? '📦'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-gray-900 dark:text-gray-50 truncate">
+                          {item.description || cat?.label}
+                        </p>
+                        {/* Badges */}
+                        {isRecurring && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
+                            <RefreshCw className="h-3 w-3" /> Mensual
+                          </span>
+                        )}
+                        {isInstallment && (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                            isLastInstallment
+                              ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300'
+                              : 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300'
+                          }`}>
+                            <ChevronRight className="h-3 w-3" />
+                            Cuota {item.installmentNumber}/{item.installmentTotal}
+                            {isLastInstallment && ' ✓'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">{cat?.label} · {fmtDate(item.date)}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-gray-900 dark:text-gray-50 truncate">
-                      {item.description || cat?.label}
-                    </p>
-                    <p className="text-xs text-gray-400">{cat?.label} · {fmtDate(item.date)}</p>
+
+                  {/* Monto + acciones */}
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    <span className="text-base font-bold text-red-600 dark:text-red-400">-{fmt(item.amount)}</span>
+                    {/* Botón "siguiente cuota" — solo aparece en gastos en cuotas que no estén en la última */}
+                    {isInstallment && !isLastInstallment && (
+                      <button
+                        onClick={() => openNextInstallment(item)}
+                        title={`Registrar cuota ${(item.installmentNumber ?? 0) + 1}/${item.installmentTotal}`}
+                        className="p-1 text-orange-500 hover:text-orange-600 transition-colors"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    )}
+                    <button onClick={() => openEdit(item)}        title="Editar"   className="p-1 text-gray-400 hover:text-primary-600 transition-colors"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => handleDelete(item.id)} title="Eliminar" className="p-1 text-gray-400 hover:text-red-500  transition-colors"><Trash2  className="h-4 w-4" /></button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-2 shrink-0">
-                  <span className="text-base font-bold text-red-600 dark:text-red-400">-{fmt(item.amount)}</span>
-                  <button onClick={() => openEdit(item)}      title="Editar"   className="p-1 text-gray-400 hover:text-primary-600 transition-colors"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => handleDelete(item.id)} title="Eliminar" className="p-1 text-gray-400 hover:text-red-500  transition-colors"><Trash2  className="h-4 w-4" /></button>
-                </div>
+
+                {/* Barra de progreso para cuotas */}
+                {isInstallment && (
+                  <div className="px-4 pb-3">
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>Progreso de cuotas</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${isLastInstallment ? 'bg-green-500' : 'bg-orange-400'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
       )}
 
+      {/* Modal nuevo/editar gasto */}
       {modal && (
         <Modal title={modal === 'new' ? 'Nuevo gasto' : 'Editar gasto'} onClose={() => setModal(null)}>
           <ErrorBanner msg={error} />
+
+          {/* Categoría */}
           <FormField label="Categoría" required>
             <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={inputCls}>
               {EXPENSE_CATEGORIES.map(c => (
@@ -512,17 +654,91 @@ function TabGastos({ userId, onRefreshSummary }) {
               ))}
             </select>
           </FormField>
+
+          {/* Descripción */}
           <FormField label="Descripción">
             <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-              placeholder="Ej: Supermercado, Uber, Netflix..." className={inputCls} />
+              placeholder="Ej: Supermercado, Celular Samsung, Netflix..." className={inputCls} />
           </FormField>
+
+          {/* Monto */}
           <FormField label="Monto" required>
-            <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })}
+            <input type="number" min="0" step="0.01" value={form.amount}
+              onChange={e => setForm({ ...form, amount: e.target.value })}
               placeholder="0" className={inputCls} />
           </FormField>
+
+          {/* Fecha */}
           <FormField label="Fecha" required>
             <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className={inputCls} />
           </FormField>
+
+          {/* Tipo de gasto — selector visual */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de gasto</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: EXPENSE_TYPE_NORMAL,      label: 'Normal',    desc: 'Un pago único',         icon: '💸' },
+                { value: EXPENSE_TYPE_RECURRING,   label: 'Periódico', desc: 'Se repite cada mes',    icon: '🔄' },
+                { value: EXPENSE_TYPE_INSTALLMENT, label: 'En cuotas', desc: 'Parte de un plan cuotas', icon: '📅' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, expenseType: opt.value })}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+                    form.expenseType === opt.value
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <span className="text-xl">{opt.icon}</span>
+                  <span className={`text-xs font-semibold ${form.expenseType === opt.value ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {opt.label}
+                  </span>
+                  <span className="text-xs text-gray-400 leading-tight">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Campos adicionales según tipo */}
+          {form.expenseType === EXPENSE_TYPE_INSTALLMENT && (
+            <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 p-4 mb-4">
+              <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3">📅 Detalle de cuotas</p>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Cuota actual (voy en la…)">
+                  <input
+                    type="number" min="1" value={form.installmentNumber}
+                    onChange={e => setForm({ ...form, installmentNumber: e.target.value })}
+                    placeholder="Ej: 10" className={inputCls}
+                  />
+                </FormField>
+                <FormField label="Total de cuotas">
+                  <input
+                    type="number" min="1" value={form.installmentTotal}
+                    onChange={e => setForm({ ...form, installmentTotal: e.target.value })}
+                    placeholder="Ej: 30" className={inputCls}
+                  />
+                </FormField>
+              </div>
+              {form.installmentNumber && form.installmentTotal && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  Vas en la cuota {form.installmentNumber} de {form.installmentTotal}
+                  {' · '}quedan {Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar
+                </p>
+              )}
+            </div>
+          )}
+
+          {form.expenseType === EXPENSE_TYPE_RECURRING && (
+            <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 mb-4">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                🔄 Este gasto se marcará como <strong>periódico mensual</strong>. Recuerda registrarlo cada mes cuando lo pagues.
+              </p>
+            </div>
+          )}
+
           <ModalButtons onClose={() => setModal(null)} onSave={handleSave} saving={saving} />
         </Modal>
       )}
