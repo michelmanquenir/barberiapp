@@ -314,7 +314,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
       ) : (
         <div className="space-y-3">
           {incomes.map((item) => (
-            <div key={item.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <div key={item.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0
                   ${item.type === 'SALARY'
@@ -637,7 +637,7 @@ function TabGastos({ userId, onRefreshSummary }) {
             const isLastInstallment = isInstallment && item.installmentNumber === item.installmentTotal
 
             return (
-              <div key={item.id} className="rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors overflow-hidden">
+              <div key={item.id} className="rounded-xl bg-gray-50 dark:bg-gray-800 overflow-hidden">
                 <div className="flex items-center justify-between p-4">
                   {/* Icono + info */}
                   <div className="flex items-center gap-3 min-w-0">
