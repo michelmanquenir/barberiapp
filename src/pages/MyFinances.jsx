@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  TrendingUp, TrendingDown, PiggyBank, CreditCard,
+  TrendingUp, TrendingDown, PiggyBank,
   Plus, Trash2, Pencil, Check, X,
   DollarSign, Target, AlertCircle, Loader2,
   ArrowUpCircle, ArrowDownCircle, RefreshCw, ChevronRight,
@@ -42,7 +42,6 @@ const TABS = [
   { id: 'resumen',  label: 'Resumen'   },
   { id: 'ingresos', label: 'Ingresos'  },
   { id: 'gastos',   label: 'Gastos'    },
-  { id: 'cuotas',   label: 'Cuotas'    },
   { id: 'metas',    label: 'Metas'     },
 ]
 
@@ -183,11 +182,11 @@ function TabResumen({ summary }) {
             : 'bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400'}
         />
         <SummaryCard
-          icon={CreditCard}
-          label="Cuotas pendientes"
-          value={summary.pendingInstallments}
-          color="bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400"
-          sub="monto total restante"
+          icon={PiggyBank}
+          label="Total ahorrado"
+          value={summary.totalSavings}
+          color="bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400"
+          sub="en todas tus metas"
         />
       </div>
 
@@ -230,12 +229,6 @@ function TabResumen({ summary }) {
         </div>
       </div>
 
-      {/* Total ahorrado */}
-      <div className="card">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-2">Total ahorrado (metas)</h3>
-        <p className="text-3xl font-bold text-primary-600 dark:text-primary-400">{fmt(summary.totalSavings)}</p>
-        <p className="text-xs text-gray-400 mt-1">suma del monto acumulado en todas tus metas</p>
-      </div>
     </div>
   )
 }
@@ -505,11 +498,39 @@ function TabGastos({ userId, onRefreshSummary }) {
     }
   }
 
-  // Totales por categoría para los chips del resumen
+  // ── Totales por categoría (chips) ─────────────────────────────────────────
   const totalByCategory = expenses.reduce((acc, item) => {
     acc[item.category] = (acc[item.category] || 0) + (item.amount || 0)
     return acc
   }, {})
+
+  // ── Planes en cuotas: agrupa por (descripción + total) ────────────────────
+  // Muestra el MAYOR installmentNumber registrado como "última cuota pagada"
+  const installmentPlans = useMemo(() => {
+    const map = {}
+    expenses
+      .filter(e => e.installmentNumber != null && e.installmentTotal != null)
+      .forEach(e => {
+        const key = `${(e.description || e.category)}__${e.installmentTotal}`
+        if (!map[key] || e.installmentNumber > map[key].lastPaid) {
+          map[key] = {
+            key,
+            name:         e.description || EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category,
+            category:     e.category,
+            amount:       e.amount,
+            lastPaid:     e.installmentNumber,
+            total:        e.installmentTotal,
+          }
+        }
+      })
+    return Object.values(map).sort((a, b) => {
+      // Activos primero (no terminados), luego por nombre
+      const aDone = a.lastPaid >= a.total
+      const bDone = b.lastPaid >= b.total
+      if (aDone !== bDone) return aDone ? 1 : -1
+      return a.name.localeCompare(b.name)
+    })
+  }, [expenses])
 
   return (
     <div>
@@ -539,6 +560,55 @@ function TabGastos({ userId, onRefreshSummary }) {
               </span>
             )
           })}
+        </div>
+      )}
+
+      {/* ── Panel: planes en cuotas (derivado de los gastos registrados) ── */}
+      {!loading && installmentPlans.length > 0 && (
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Planes en cuotas activos
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {installmentPlans.map(plan => {
+              const pct    = Math.min(100, Math.round((plan.lastPaid / plan.total) * 100))
+              const done   = plan.lastPaid >= plan.total
+              const left   = plan.total - plan.lastPaid
+              const color  = CATEGORY_COLORS[plan.category] ?? '#94a3b8'
+              return (
+                <div key={plan.key} className={`rounded-xl border p-4 transition-opacity
+                  ${done
+                    ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20 opacity-60'
+                    : 'border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/20'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg">{EXPENSE_CATEGORIES.find(c => c.value === plan.category)?.emoji ?? '📦'}</span>
+                      <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm truncate">{plan.name}</p>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ml-2
+                      ${done
+                        ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                        : 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300'}`}>
+                      {done ? '✓ Saldada' : `Cuota ${plan.lastPaid}/${plan.total}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                    <span>{fmt(plan.amount)}/mes</span>
+                    {!done && <span>{left} cuota{left !== 1 ? 's' : ''} restante{left !== 1 ? 's' : ''} · {fmt(left * plan.amount)}</span>}
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${done ? 'bg-green-500' : 'bg-orange-400'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Basado en los pagos registrados como "En cuotas". El progreso avanza cuando agregas cada cuota mensual.
+          </p>
         </div>
       )}
 
@@ -742,198 +812,6 @@ function TabGastos({ userId, onRefreshSummary }) {
           <ModalButtons onClose={() => setModal(null)} onSave={handleSave} saving={saving} />
         </Modal>
       )}
-    </div>
-  )
-}
-
-// ─── TAB: Cuotas ─────────────────────────────────────────────────────────────
-
-function TabCuotas({ userId, onRefreshSummary }) {
-  const [installments, setInstallments] = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [saving,       setSaving]       = useState(false)
-  const [modal,        setModal]        = useState(null)
-  const [error,        setError]        = useState('')
-  const [form,         setForm]         = useState({ description: '', totalAmount: '', installmentAmount: '', totalInstallments: '', paidInstallments: '0', dueDay: '' })
-
-  const load = useCallback(() => {
-    setLoading(true)
-    api.getFinanceInstallments(userId)
-      .then(data => setInstallments(data || []))
-      .catch(() => setInstallments([]))
-      .finally(() => setLoading(false))
-  }, [userId])
-
-  useEffect(() => { load() }, [load])
-
-  const openNew  = () => { setError(''); setForm({ description: '', totalAmount: '', installmentAmount: '', totalInstallments: '', paidInstallments: '0', dueDay: '' }); setModal('new') }
-  const openEdit = (item) => {
-    setError('')
-    setForm({ description: item.description, totalAmount: item.totalAmount, installmentAmount: item.installmentAmount, totalInstallments: item.totalInstallments, paidInstallments: item.paidInstallments, dueDay: item.dueDay ?? '' })
-    setModal(item)
-  }
-
-  const handleSave = async () => {
-    setError('')
-    const data = {
-      description:        form.description,
-      totalAmount:        parseFloat(form.totalAmount),
-      installmentAmount:  parseFloat(form.installmentAmount),
-      totalInstallments:  parseInt(form.totalInstallments),
-      paidInstallments:   parseInt(form.paidInstallments) || 0,
-      dueDay:             form.dueDay ? parseInt(form.dueDay) : null,
-    }
-    if (!data.description) { setError('Escribe una descripción.'); return }
-    if (isNaN(data.totalAmount) || data.totalAmount <= 0) { setError('Monto total inválido.'); return }
-    if (isNaN(data.installmentAmount) || data.installmentAmount <= 0) { setError('Monto por cuota inválido.'); return }
-    if (isNaN(data.totalInstallments) || data.totalInstallments <= 0) { setError('Número de cuotas inválido.'); return }
-    setSaving(true)
-    try {
-      if (modal === 'new') await api.createFinanceInstallment(userId, data)
-      else                  await api.updateFinanceInstallment(modal.id, userId, data)
-      setModal(null)
-      load()
-      onRefreshSummary()
-    } catch (e) {
-      setError(e.message || 'No se pudo guardar. Intenta de nuevo.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handlePay = async (id) => {
-    try {
-      await api.payFinanceInstallment(id, userId)
-      load()
-      onRefreshSummary()
-    } catch (e) {
-      alert('Error al registrar pago: ' + (e.message || 'error desconocido'))
-    }
-  }
-
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta cuota?')) return
-    try {
-      await api.deleteFinanceInstallment(id, userId)
-      load()
-      onRefreshSummary()
-    } catch (e) {
-      alert('No se pudo eliminar: ' + (e.message || 'error desconocido'))
-    }
-  }
-
-  const active   = installments.filter(i => i.paidInstallments < i.totalInstallments)
-  const finished = installments.filter(i => i.paidInstallments >= i.totalInstallments)
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Mis Cuotas</h2>
-          {!loading && installments.length > 0 && (
-            <p className="text-sm text-gray-400">{active.length} activa{active.length !== 1 ? 's' : ''} · {finished.length} saldada{finished.length !== 1 ? 's' : ''}</p>
-          )}
-        </div>
-        <button onClick={openNew} className="btn-primary flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Agregar cuota
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="space-y-4">{[1,2].map(i => <LoadingRow key={i} />)}</div>
-      ) : installments.length === 0 ? (
-        <EmptyState
-          icon={CreditCard}
-          text="Aún no tienes cuotas registradas"
-          sub="Agrega tus deudas en cuotas para saber cuánto te queda por pagar."
-          onAdd={openNew}
-          addLabel="Agregar primera cuota"
-        />
-      ) : (
-        <div className="space-y-4">
-          {/* Activas primero */}
-          {active.map((item) => <CuotaCard key={item.id} item={item} onPay={handlePay} onEdit={openEdit} onDelete={handleDelete} />)}
-          {/* Saldadas al final, colapsables */}
-          {finished.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-6 mb-3">Saldadas ({finished.length})</p>
-              {finished.map((item) => <CuotaCard key={item.id} item={item} onPay={handlePay} onEdit={openEdit} onDelete={handleDelete} />)}
-            </div>
-          )}
-        </div>
-      )}
-
-      {modal && (
-        <Modal title={modal === 'new' ? 'Nueva cuota / deuda' : 'Editar cuota'} onClose={() => setModal(null)}>
-          <ErrorBanner msg={error} />
-          <FormField label="Descripción" required>
-            <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-              placeholder="Ej: Celular, TV, Tarjeta Visa..." className={inputCls} />
-          </FormField>
-          <FormField label="Monto total" required>
-            <input type="number" min="0" step="0.01" value={form.totalAmount} onChange={e => setForm({ ...form, totalAmount: e.target.value })}
-              placeholder="0" className={inputCls} />
-          </FormField>
-          <FormField label="Monto por cuota" required>
-            <input type="number" min="0" step="0.01" value={form.installmentAmount} onChange={e => setForm({ ...form, installmentAmount: e.target.value })}
-              placeholder="0" className={inputCls} />
-          </FormField>
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Total cuotas" required>
-              <input type="number" min="1" value={form.totalInstallments} onChange={e => setForm({ ...form, totalInstallments: e.target.value })}
-                placeholder="12" className={inputCls} />
-            </FormField>
-            <FormField label="Cuotas ya pagadas">
-              <input type="number" min="0" value={form.paidInstallments} onChange={e => setForm({ ...form, paidInstallments: e.target.value })}
-                placeholder="0" className={inputCls} />
-            </FormField>
-          </div>
-          <FormField label="Día de vencimiento (opcional)">
-            <input type="number" min="1" max="31" value={form.dueDay} onChange={e => setForm({ ...form, dueDay: e.target.value })}
-              placeholder="Ej: 15" className={inputCls} />
-          </FormField>
-          <ModalButtons onClose={() => setModal(null)} onSave={handleSave} saving={saving} />
-        </Modal>
-      )}
-    </div>
-  )
-}
-
-function CuotaCard({ item, onPay, onEdit, onDelete }) {
-  const pending = item.totalInstallments - item.paidInstallments
-  const pct     = Math.min(100, Math.round((item.paidInstallments / item.totalInstallments) * 100))
-  const isDone  = pending === 0
-  return (
-    <div className={`card transition-opacity ${isDone ? 'opacity-60' : ''}`}>
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <p className="font-semibold text-gray-900 dark:text-gray-50">{item.description}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {fmt(item.installmentAmount)}/cuota
-            {item.dueDay ? ` · vence día ${item.dueDay}` : ''}
-            {!isDone ? ` · ${fmt(pending * item.installmentAmount)} restante` : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 ml-2">
-          {!isDone && (
-            <button onClick={() => onPay(item.id)} title="Registrar pago de cuota"
-              className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-950 text-green-600 flex items-center justify-center hover:bg-green-200 transition-colors">
-              <Check className="h-4 w-4" />
-            </button>
-          )}
-          <button onClick={() => onEdit(item)}    className="p-1 text-gray-400 hover:text-primary-600 transition-colors"><Pencil className="h-4 w-4" /></button>
-          <button onClick={() => onDelete(item.id)} className="p-1 text-gray-400 hover:text-red-500  transition-colors"><Trash2  className="h-4 w-4" /></button>
-        </div>
-      </div>
-      <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-2">
-        <span>{item.paidInstallments} de {item.totalInstallments} cuotas</span>
-        <span className={`font-semibold ${isDone ? 'text-green-600 dark:text-green-400' : 'text-orange-500'}`}>
-          {isDone ? '✓ Saldada' : `${pending} pendiente${pending !== 1 ? 's' : ''}`}
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-        <div className="bg-primary-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
-      </div>
     </div>
   )
 }
@@ -1207,7 +1085,6 @@ function MyFinances() {
           {tab === 'resumen'  && <TabResumen  summary={summary} />}
           {tab === 'ingresos' && <TabIngresos userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'gastos'   && <TabGastos   userId={user.userId} onRefreshSummary={loadSummary} />}
-          {tab === 'cuotas'   && <TabCuotas   userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'metas'    && <TabMetas    userId={user.userId} onRefreshSummary={loadSummary} />}
         </>
       )}
