@@ -827,7 +827,7 @@ function TabMetas({ userId, onRefreshSummary }) {
   const [addAmount, setAddAmount] = useState('')
   const [addError,  setAddError]  = useState('')
   const [error,     setError]     = useState('')
-  const [form,      setForm]      = useState({ name: '', targetAmount: '', currentAmount: '0', targetDate: '' })
+  const [form,      setForm]      = useState({ name: '', targetAmount: '', currentAmount: '0', targetDate: '', targetMonths: '' })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -839,10 +839,10 @@ function TabMetas({ userId, onRefreshSummary }) {
 
   useEffect(() => { load() }, [load])
 
-  const openNew  = () => { setError(''); setForm({ name: '', targetAmount: '', currentAmount: '0', targetDate: '' }); setModal('new') }
+  const openNew  = () => { setError(''); setForm({ name: '', targetAmount: '', currentAmount: '0', targetDate: '', targetMonths: '' }); setModal('new') }
   const openEdit = (item) => {
     setError('')
-    setForm({ name: item.name, targetAmount: item.targetAmount, currentAmount: item.currentAmount, targetDate: item.targetDate ?? '' })
+    setForm({ name: item.name, targetAmount: item.targetAmount, currentAmount: item.currentAmount, targetDate: item.targetDate ?? '', targetMonths: '' })
     setModal(item)
   }
 
@@ -926,6 +926,10 @@ function TabMetas({ userId, onRefreshSummary }) {
             const daysLeft = item.targetDate
               ? Math.ceil((new Date(item.targetDate) - new Date()) / (1000 * 60 * 60 * 24))
               : null
+            const remaining      = item.targetAmount - item.currentAmount
+            const showPlan       = !done && daysLeft !== null && daysLeft > 0 && remaining > 0
+            const monthlyNeeded  = showPlan ? Math.ceil(remaining / (daysLeft / 30.44)) : null
+            const weeklyNeeded   = showPlan ? Math.ceil(remaining / (daysLeft / 7))     : null
             return (
               <div key={item.id} className="card">
                 <div className="flex items-start justify-between mb-3">
@@ -960,6 +964,21 @@ function TabMetas({ userId, onRefreshSummary }) {
                   <div className={`h-3 rounded-full transition-all ${done ? 'bg-green-500' : 'bg-primary-500'}`} style={{ width: `${pct}%` }} />
                 </div>
                 <p className="text-right text-xs text-gray-400 mt-1">{pct}%{done ? ' · ✓ Meta alcanzada' : ''}</p>
+                {showPlan && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Ahorro sugerido para llegar a tiempo</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-primary-50 dark:bg-primary-950/40 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-400">Mensual</p>
+                        <p className="text-sm font-bold text-primary-700 dark:text-primary-300">{fmt(monthlyNeeded)}</p>
+                      </div>
+                      <div className="rounded-lg bg-primary-50 dark:bg-primary-950/40 px-3 py-2 text-center">
+                        <p className="text-xs text-gray-400">Semanal</p>
+                        <p className="text-sm font-bold text-primary-700 dark:text-primary-300">{fmt(weeklyNeeded)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -982,9 +1001,39 @@ function TabMetas({ userId, onRefreshSummary }) {
             <input type="number" min="0" step="0.01" value={form.currentAmount} onChange={e => setForm({ ...form, currentAmount: e.target.value })}
               placeholder="0" className={inputCls} />
           </FormField>
-          <FormField label="Fecha límite (opcional)">
-            <input type="date" value={form.targetDate} onChange={e => setForm({ ...form, targetDate: e.target.value })} className={inputCls} />
-          </FormField>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Plazo para la meta <span className="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Número de meses</p>
+                <input
+                  type="number" min="1" max="360"
+                  value={form.targetMonths}
+                  onChange={e => {
+                    const months = parseInt(e.target.value)
+                    if (!isNaN(months) && months > 0) {
+                      const d = new Date()
+                      d.setMonth(d.getMonth() + months)
+                      setForm({ ...form, targetMonths: e.target.value, targetDate: d.toISOString().slice(0, 10) })
+                    } else {
+                      setForm({ ...form, targetMonths: e.target.value, targetDate: '' })
+                    }
+                  }}
+                  placeholder="Ej: 10"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1">O fecha exacta</p>
+                <input type="date" value={form.targetDate} onChange={e => setForm({ ...form, targetDate: e.target.value, targetMonths: '' })} className={inputCls} />
+              </div>
+            </div>
+            {form.targetDate && (
+              <p className="text-xs text-gray-400 mt-1">Fecha objetivo: {fmtDate(form.targetDate)}</p>
+            )}
+          </div>
           <ModalButtons onClose={() => setModal(null)} onSave={handleSave} saving={saving} />
         </Modal>
       )}
