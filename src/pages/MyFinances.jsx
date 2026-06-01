@@ -235,13 +235,23 @@ function TabResumen({ summary }) {
 
 // ─── TAB: Ingresos ───────────────────────────────────────────────────────────
 
+const INCOME_FREQ_ONCE      = 'once'
+const INCOME_FREQ_RECURRING = 'recurring'
+const INCOME_FREQ_MONTHS    = 'months'
+
+function incomeFreqOf(item) {
+  if (item.recurring)      return INCOME_FREQ_RECURRING
+  if (item.durationMonths) return INCOME_FREQ_MONTHS
+  return INCOME_FREQ_ONCE
+}
+
 function TabIngresos({ userId, onRefreshSummary }) {
   const [incomes, setIncomes]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [saving,  setSaving]    = useState(false)
   const [modal,   setModal]     = useState(null)
   const [error,   setError]     = useState('')
-  const [form,    setForm]      = useState({ type: 'SALARY', description: '', amount: '', date: today() })
+  const [form,    setForm]      = useState({ type: 'SALARY', description: '', amount: '', date: today(), incomeFreq: INCOME_FREQ_ONCE, durationMonths: '' })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -253,13 +263,21 @@ function TabIngresos({ userId, onRefreshSummary }) {
 
   useEffect(() => { load() }, [load])
 
-  const openNew  = () => { setError(''); setForm({ type: 'SALARY', description: '', amount: '', date: today() }); setModal('new') }
-  const openEdit = (item) => { setError(''); setForm({ type: item.type, description: item.description ?? '', amount: item.amount, date: item.date ?? today() }); setModal(item) }
+  const openNew  = () => { setError(''); setForm({ type: 'SALARY', description: '', amount: '', date: today(), incomeFreq: INCOME_FREQ_ONCE, durationMonths: '' }); setModal('new') }
+  const openEdit = (item) => { setError(''); setForm({ type: item.type, description: item.description ?? '', amount: item.amount, date: item.date ?? today(), incomeFreq: incomeFreqOf(item), durationMonths: item.durationMonths ?? '' }); setModal(item) }
 
   const handleSave = async () => {
     setError('')
-    const data = { ...form, amount: parseFloat(form.amount) }
+    const data = {
+      type:           form.type,
+      description:    form.description,
+      amount:         parseFloat(form.amount),
+      date:           form.date,
+      recurring:      form.incomeFreq === INCOME_FREQ_RECURRING,
+      durationMonths: form.incomeFreq === INCOME_FREQ_MONTHS ? parseInt(form.durationMonths) || null : null,
+    }
     if (!data.amount || isNaN(data.amount) || data.amount <= 0) { setError('Ingresa un monto válido mayor a 0.'); return }
+    if (form.incomeFreq === INCOME_FREQ_MONTHS && (!data.durationMonths || data.durationMonths < 1)) { setError('Indica cuántos meses recibirás este ingreso.'); return }
     setSaving(true)
     try {
       if (modal === 'new') await api.createFinanceIncome(userId, data)
@@ -323,9 +341,21 @@ function TabIngresos({ userId, onRefreshSummary }) {
                   <TrendingUp className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-medium text-gray-900 dark:text-gray-50 truncate">
-                    {item.description || (item.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra')}
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-gray-900 dark:text-gray-50 truncate">
+                      {item.description || (item.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra')}
+                    </p>
+                    {item.recurring && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
+                        <RefreshCw className="h-3 w-3" /> Mensual
+                      </span>
+                    )}
+                    {item.durationMonths && !item.recurring && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 shrink-0">
+                        {item.durationMonths} mes{item.durationMonths !== 1 ? 'es' : ''}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400">
                     {item.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'} · {fmtDate(item.date)}
                   </p>
@@ -362,6 +392,64 @@ function TabIngresos({ userId, onRefreshSummary }) {
           <FormField label="Fecha" required>
             <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className={inputCls} />
           </FormField>
+
+          {/* Frecuencia del ingreso */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frecuencia</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: INCOME_FREQ_ONCE,      label: 'Único',     desc: 'Un solo ingreso',       icon: '💵' },
+                { value: INCOME_FREQ_RECURRING, label: 'Periódico', desc: 'Se repite cada mes',    icon: '🔄' },
+                { value: INCOME_FREQ_MONTHS,    label: 'Por meses', desc: 'Durante X meses',       icon: '📅' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, incomeFreq: opt.value })}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+                    form.incomeFreq === opt.value
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <span className="text-xl">{opt.icon}</span>
+                  <span className={`text-xs font-semibold ${form.incomeFreq === opt.value ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {opt.label}
+                  </span>
+                  <span className="text-xs text-gray-400 leading-tight">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {form.incomeFreq === INCOME_FREQ_MONTHS && (
+            <div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 p-4 mb-4">
+              <p className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-3">📅 ¿Por cuántos meses recibirás este ingreso?</p>
+              <FormField label="Número de meses">
+                <input
+                  type="number" min="1"
+                  value={form.durationMonths}
+                  onChange={e => setForm({ ...form, durationMonths: e.target.value })}
+                  placeholder="Ej: 6"
+                  className={inputCls}
+                />
+              </FormField>
+              {form.durationMonths && parseInt(form.durationMonths) > 0 && (
+                <p className="text-xs text-purple-600 dark:text-purple-400 -mt-2">
+                  Recibirás este ingreso durante {form.durationMonths} mes{parseInt(form.durationMonths) !== 1 ? 'es' : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          {form.incomeFreq === INCOME_FREQ_RECURRING && (
+            <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 mb-4">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                🔄 Este ingreso se marcará como <strong>periódico mensual</strong>. Recuerda registrarlo cada mes cuando lo recibas.
+              </p>
+            </div>
+          )}
+
           <ModalButtons onClose={() => setModal(null)} onSave={handleSave} saving={saving} />
         </Modal>
       )}
