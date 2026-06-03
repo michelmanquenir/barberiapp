@@ -213,6 +213,33 @@ function TabResumen({ summary, userId, onShowGastos }) {
   }))
 
   const balance = summary.monthlyBalance ?? 0
+  const income  = summary.monthlyIncome  ?? 0
+
+  const savingsRate = income > 0 ? Math.round((balance / income) * 100) : null
+
+  const savingsStatus =
+    income === 0    ? 'nodata'    :
+    balance < 0     ? 'deficit'   :
+    savingsRate < 10 ? 'low'      :
+    savingsRate < 20 ? 'fair'     :
+    savingsRate < 35 ? 'good'     :
+                       'excellent'
+
+  const SAVINGS_CONFIG = {
+    nodata:    { label: '—',          barColor: 'bg-gray-300 dark:bg-gray-600',  zone: 'text-gray-500 dark:text-gray-400',        bg: 'bg-gray-50 dark:bg-gray-800/60',           msg: 'Agrega tus ingresos del mes para calcular tu tasa de ahorro.' },
+    deficit:   { label: 'Déficit',    barColor: 'bg-red-500',                    zone: 'text-red-600 dark:text-red-400',           bg: 'bg-red-50 dark:bg-red-950/40',             msg: 'Estás gastando más de lo que ingresas. Revisa tus gastos fijos y periódicos para revertir esta situación.' },
+    low:       { label: 'Bajo',       barColor: 'bg-orange-400',                 zone: 'text-orange-600 dark:text-orange-400',     bg: 'bg-orange-50 dark:bg-orange-950/40',       msg: 'Ahorro bajo. Intenta destinar al menos el 10% de tus ingresos mensuales al ahorro.' },
+    fair:      { label: 'Regular',    barColor: 'bg-yellow-400',                 zone: 'text-yellow-600 dark:text-yellow-500',     bg: 'bg-yellow-50 dark:bg-yellow-950/40',       msg: 'Vas por buen camino, pero puedes mejorar. La meta recomendada es superar el 20% de ahorro.' },
+    good:      { label: 'Bueno',      barColor: 'bg-primary-500',                zone: 'text-primary-600 dark:text-primary-400',   bg: 'bg-primary-50 dark:bg-primary-950/40',     msg: 'Buen ritmo de ahorro. Considera asignar parte a tus metas para sacarle más partido.' },
+    excellent: { label: 'Excelente',  barColor: 'bg-green-500',                  zone: 'text-green-600 dark:text-green-400',       bg: 'bg-green-50 dark:bg-green-950/40',         msg: '¡Excelente disciplina financiera! Estás ahorrando más del 35% de tus ingresos.' },
+  }
+  const cfg = SAVINGS_CONFIG[savingsStatus]
+
+  const barPct = savingsStatus === 'deficit'
+    ? 100
+    : savingsStatus === 'nodata'
+    ? 0
+    : Math.min(100, savingsRate)
 
   return (
     <div className="space-y-6">
@@ -245,6 +272,64 @@ function TabResumen({ summary, userId, onShowGastos }) {
           color="bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400"
           sub="en todas tus metas"
         />
+      </div>
+
+      {/* Indicador de tasa de ahorro */}
+      <div className="card">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-50">Tasa de ahorro</h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {savingsStatus === 'nodata'
+                ? 'Sin datos de ingresos'
+                : balance >= 0
+                  ? `Podrías guardar ${fmt(balance)} este mes`
+                  : `Te faltan ${fmt(Math.abs(balance))} para cubrir tus gastos`}
+            </p>
+          </div>
+          <div className="text-right shrink-0 ml-4">
+            <p className={`text-3xl font-bold leading-none ${cfg.zone}`}>
+              {savingsStatus === 'nodata' ? '—'
+               : savingsStatus === 'deficit' ? `−${Math.abs(savingsRate)}%`
+               : `${savingsRate}%`}
+            </p>
+            <p className={`text-xs font-semibold mt-1 ${cfg.zone}`}>{cfg.label}</p>
+          </div>
+        </div>
+
+        {/* Barra con zonas de referencia */}
+        <div className="relative mb-1">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div
+              className={`h-3 rounded-full transition-all duration-700 ${savingsStatus === 'deficit' ? 'bg-red-500' : cfg.barColor}`}
+              style={{ width: `${barPct}%` }}
+            />
+          </div>
+          {/* Marcas de zona: 10%, 20%, 35% */}
+          {[10, 20, 35].map(mark => (
+            <div
+              key={mark}
+              className="absolute top-0 h-3 w-0.5 bg-white dark:bg-gray-900 opacity-70"
+              style={{ left: `${mark}%` }}
+            />
+          ))}
+        </div>
+        {/* Etiquetas de zona */}
+        <div className="relative h-4 mb-4 text-xs text-gray-400">
+          <span className="absolute left-0">0%</span>
+          <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>10%</span>
+          <span className="absolute" style={{ left: '20%', transform: 'translateX(-50%)' }}>20%</span>
+          <span className="absolute" style={{ left: '35%', transform: 'translateX(-50%)' }}>35%</span>
+          <span className="absolute right-0">100%</span>
+        </div>
+
+        {/* Mensaje de estado */}
+        <div className={`flex items-start gap-2 px-3 py-2.5 rounded-lg ${cfg.bg}`}>
+          {savingsStatus === 'deficit' || savingsStatus === 'low'
+            ? <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />
+            : <TrendingUp   className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />}
+          <p className={`text-sm ${cfg.zone}`}>{cfg.msg}</p>
+        </div>
       </div>
 
       {/* Gráficos */}
