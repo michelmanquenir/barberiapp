@@ -143,7 +143,64 @@ function SummaryCard({ icon: Icon, label, value, color, sub }) {
 
 // ─── TAB: Resumen ────────────────────────────────────────────────────────────
 
-function TabResumen({ summary }) {
+function getThisMonthExpenses(expenses) {
+  const now  = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth(), 1)
+  const to   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
+  const before  = d => new Date(d + 'T00:00:00') <= to
+
+  const result = []
+
+  // Gastos normales del mes
+  expenses.forEach(e => {
+    if (e.installmentNumber != null || e.recurring) return
+    if (inRange(e.date)) result.push(e)
+  })
+
+  // Gastos periódicos activos
+  expenses.forEach(e => {
+    if (!e.recurring || !before(e.date)) return
+    result.push(e)
+  })
+
+  // Planes en cuotas: una entrada por plan activo
+  const latestByPlan = {}
+  const currentMonthByPlan = {}
+  expenses.forEach(e => {
+    if (e.installmentNumber == null || !before(e.date)) return
+    const key = `${e.category}|${e.installmentTotal}|${e.description ?? ''}`
+    if (!latestByPlan[key] || e.installmentNumber > latestByPlan[key].installmentNumber)
+      latestByPlan[key] = e
+    if (inRange(e.date) && (!currentMonthByPlan[key] || e.installmentNumber > currentMonthByPlan[key].installmentNumber))
+      currentMonthByPlan[key] = e
+  })
+  Object.keys(latestByPlan).forEach(key => {
+    const latest = latestByPlan[key]
+    if (latest.installmentNumber >= latest.installmentTotal) return
+    result.push(currentMonthByPlan[key] ?? latest)
+  })
+
+  return result.sort((a, b) => b.amount - a.amount)
+}
+
+function TabResumen({ summary, userId, onShowGastos }) {
+  const [expenses,        setExpenses]        = useState([])
+  const [loadingExpenses, setLoadingExpenses] = useState(true)
+  const [detailOpen,      setDetailOpen]      = useState(false)
+
+  useEffect(() => {
+    if (!userId) return
+    api.getFinanceExpenses(userId)
+      .then(data => setExpenses(data || []))
+      .catch(() => setExpenses([]))
+      .finally(() => setLoadingExpenses(false))
+  }, [userId])
+
+  const monthExpenses = useMemo(() => getThisMonthExpenses(expenses), [expenses])
+
+  const monthLabel = new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
+
   const barData = [
     { name: 'Ingresos', value: summary.monthlyIncome  ?? 0 },
     { name: 'Gastos',   value: summary.monthlyExpenses ?? 0 },
@@ -227,6 +284,86 @@ function TabResumen({ summary }) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Detalle de gastos del mes */}
+      <div className="card">
+        <button
+          onClick={() => setDetailOpen(v => !v)}
+          className="w-full flex items-center justify-between"
+        >
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-left">
+              Detalle de gastos
+            </h3>
+            <p className="text-xs text-gray-400 text-left capitalize">{monthLabel}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {!loadingExpenses && (
+              <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                {monthExpenses.length} item{monthExpenses.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform ${detailOpen ? 'rotate-90' : ''}`} />
+          </div>
+        </button>
+
+        {detailOpen && (
+          <div className="mt-4">
+            {loadingExpenses ? (
+              <div className="space-y-3">{[1,2,3].map(i => <LoadingRow key={i} />)}</div>
+            ) : monthExpenses.length === 0 ? (
+              <div className="flex flex-col items-center py-8 text-gray-400">
+                <AlertCircle className="h-8 w-8 mb-2" />
+                <p className="text-sm">Sin gastos registrados este mes</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {monthExpenses.map((item, idx) => {
+                  const cat   = EXPENSE_CATEGORIES.find(c => c.value === item.category)
+                  const color = CATEGORY_COLORS[item.category] ?? '#94a3b8'
+                  const isRecurring   = item.recurring
+                  const isInstallment = item.installmentNumber != null
+                  return (
+                    <div key={item.id ?? idx} className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
+                        style={{ backgroundColor: color + '22' }}>
+                        {cat?.emoji ?? '📦'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
+                            {item.description || cat?.label}
+                          </p>
+                          {isRecurring && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
+                              <RefreshCw className="h-2.5 w-2.5" /> Mensual
+                            </span>
+                          )}
+                          {isInstallment && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 shrink-0">
+                              Cuota {item.installmentNumber}/{item.installmentTotal}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400">{cat?.label} · {fmtDate(item.date)}</p>
+                      </div>
+                      <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
+                        -{fmt(item.amount)}
+                      </span>
+                    </div>
+                  )
+                })}
+                <button
+                  onClick={onShowGastos}
+                  className="w-full mt-2 py-2 text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  Ver todos los gastos →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
     </div>
@@ -1219,7 +1356,7 @@ function MyFinances() {
         </div>
       ) : (
         <>
-          {tab === 'resumen'  && <TabResumen  summary={summary} />}
+          {tab === 'resumen'  && <TabResumen  summary={summary} userId={user.userId} onShowGastos={() => setTab('gastos')} />}
           {tab === 'ingresos' && <TabIngresos userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'gastos'   && <TabGastos   userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'metas'    && <TabMetas    userId={user.userId} onRefreshSummary={loadSummary} />}
