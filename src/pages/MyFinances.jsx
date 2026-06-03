@@ -766,6 +766,15 @@ function expenseTypeOf(item) {
   return EXPENSE_TYPE_NORMAL
 }
 
+// Calcula la próxima fecha de facturación basada en el día del mes
+function fmtNextBillingDate(billingDay) {
+  if (!billingDay || billingDay < 1 || billingDay > 31) return null
+  const now = new Date()
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), billingDay)
+  const d = thisMonth >= now ? thisMonth : new Date(now.getFullYear(), now.getMonth() + 1, billingDay)
+  return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })
+}
+
 function buildFormFromItem(item) {
   return {
     category:           item.category,
@@ -775,6 +784,7 @@ function buildFormFromItem(item) {
     expenseType:        expenseTypeOf(item),
     installmentNumber:  item.installmentNumber ?? '',
     installmentTotal:   item.installmentTotal  ?? '',
+    billingDay:         item.billingDay ?? '',
   }
 }
 
@@ -787,18 +797,22 @@ function buildEmptyForm() {
     expenseType:        EXPENSE_TYPE_NORMAL,
     installmentNumber:  '',
     installmentTotal:   '',
+    billingDay:         '',
   }
 }
 
 function formToPayload(form) {
+  const isInstallment = form.expenseType === EXPENSE_TYPE_INSTALLMENT
   return {
     category:           form.category,
     description:        form.description,
     amount:             parseFloat(form.amount),
     date:               form.date,
     recurring:          form.expenseType === EXPENSE_TYPE_RECURRING,
-    installmentNumber:  form.expenseType === EXPENSE_TYPE_INSTALLMENT ? parseInt(form.installmentNumber) || null : null,
-    installmentTotal:   form.expenseType === EXPENSE_TYPE_INSTALLMENT ? parseInt(form.installmentTotal)  || null : null,
+    // Usar !== '' para que cuota 0 no se convierta en null
+    installmentNumber:  isInstallment && form.installmentNumber !== '' ? parseInt(form.installmentNumber) : null,
+    installmentTotal:   isInstallment && form.installmentTotal  !== '' ? parseInt(form.installmentTotal)  : null,
+    billingDay:         isInstallment && form.billingDay !== '' ? parseInt(form.billingDay) : null,
   }
 }
 
@@ -842,6 +856,7 @@ function TabGastos({ userId, onRefreshSummary }) {
       expenseType:       EXPENSE_TYPE_INSTALLMENT,
       installmentNumber: String((item.installmentNumber ?? 0) + 1),
       installmentTotal:  String(item.installmentTotal ?? ''),
+      billingDay:        String(item.billingDay ?? ''),
     })
   }
 
@@ -853,7 +868,7 @@ function TabGastos({ userId, onRefreshSummary }) {
       return
     }
     if (form.expenseType === EXPENSE_TYPE_INSTALLMENT) {
-      if (!data.installmentNumber || data.installmentNumber < 1) { setError('Número de cuota actual inválido.'); return }
+      if (data.installmentNumber == null || isNaN(data.installmentNumber) || data.installmentNumber < 0) { setError('Número de cuota inválido (mínimo 0).'); return }
       if (!data.installmentTotal  || data.installmentTotal  < 1) { setError('Total de cuotas inválido.'); return }
       if (data.installmentNumber > data.installmentTotal)       { setError('La cuota actual no puede ser mayor al total.'); return }
     }
@@ -899,11 +914,12 @@ function TabGastos({ userId, onRefreshSummary }) {
         if (!map[key] || e.installmentNumber > map[key].lastPaid) {
           map[key] = {
             key,
-            name:         e.description || EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category,
-            category:     e.category,
-            amount:       e.amount,
-            lastPaid:     e.installmentNumber,
-            total:        e.installmentTotal,
+            name:       e.description || EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category,
+            category:   e.category,
+            amount:     e.amount,
+            lastPaid:   e.installmentNumber,
+            total:      e.installmentTotal,
+            billingDay: e.billingDay ?? null,
           }
         }
       })
@@ -980,6 +996,11 @@ function TabGastos({ userId, onRefreshSummary }) {
                     <span>{fmt(plan.amount)}/mes</span>
                     {!done && <span>{left} cuota{left !== 1 ? 's' : ''} restante{left !== 1 ? 's' : ''} · {fmt(left * plan.amount)}</span>}
                   </div>
+                  {plan.billingDay && !done && (
+                    <p className="text-xs text-gray-400 mb-1.5">
+                      Próx. facturación: <span className="font-medium text-orange-600 dark:text-orange-400">{fmtNextBillingDate(plan.billingDay)}</span>
+                    </p>
+                  )}
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                     <div
                       className={`h-1.5 rounded-full transition-all ${done ? 'bg-green-500' : 'bg-orange-400'}`}
@@ -1044,15 +1065,20 @@ function TabGastos({ userId, onRefreshSummary }) {
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
                             isLastInstallment
                               ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300'
-                              : 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300'
+                              : item.installmentNumber === 0
+                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                : 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300'
                           }`}>
                             <ChevronRight className="h-3 w-3" />
-                            Cuota {item.installmentNumber}/{item.installmentTotal}
+                            {item.installmentNumber === 0 ? 'Sin facturar' : `Cuota ${item.installmentNumber}/${item.installmentTotal}`}
                             {isLastInstallment && ' ✓'}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400">{cat?.label} · {fmtDate(item.date)}</p>
+                      <p className="text-xs text-gray-400">
+                        {cat?.label} · {fmtDate(item.date)}
+                        {item.billingDay && ` · Factura el ${fmtNextBillingDate(item.billingDay)}`}
+                      </p>
                     </div>
                   </div>
 
@@ -1161,27 +1187,44 @@ function TabGastos({ userId, onRefreshSummary }) {
             <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 p-4 mb-4">
               <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3">📅 Detalle de cuotas</p>
               <div className="grid grid-cols-2 gap-3">
-                <FormField label="Cuota actual (voy en la…)">
+                <FormField label="N° de cuota actual">
                   <input
-                    type="number" min="1" value={form.installmentNumber}
+                    type="number" min="0" value={form.installmentNumber}
                     onChange={e => setForm({ ...form, installmentNumber: e.target.value })}
-                    placeholder="Ej: 10" className={inputCls}
+                    placeholder="0 = sin facturar" className={inputCls}
                   />
                 </FormField>
                 <FormField label="Total de cuotas">
                   <input
                     type="number" min="1" value={form.installmentTotal}
                     onChange={e => setForm({ ...form, installmentTotal: e.target.value })}
-                    placeholder="Ej: 30" className={inputCls}
+                    placeholder="Ej: 12" className={inputCls}
                   />
                 </FormField>
               </div>
-              {form.installmentNumber && form.installmentTotal && (
+              {form.installmentNumber !== '' && form.installmentTotal && (
                 <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                  Vas en la cuota {form.installmentNumber} de {form.installmentTotal}
-                  {' · '}quedan {Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar
+                  {parseInt(form.installmentNumber) === 0
+                    ? `Compra registrada · aún sin facturar · ${form.installmentTotal} cuotas totales`
+                    : `Cuota ${form.installmentNumber} de ${form.installmentTotal} · quedan ${Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar`}
                 </p>
               )}
+
+              {/* Día de facturación */}
+              <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-700">
+                <FormField label="Día de facturación tarjeta (opcional)">
+                  <input
+                    type="number" min="1" max="31" value={form.billingDay}
+                    onChange={e => setForm({ ...form, billingDay: e.target.value })}
+                    placeholder="Ej: 19" className={inputCls}
+                  />
+                </FormField>
+                {form.billingDay && parseInt(form.billingDay) >= 1 && parseInt(form.billingDay) <= 31 && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400 -mt-2">
+                    Próxima facturación: <strong>{fmtNextBillingDate(parseInt(form.billingDay))}</strong>
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
