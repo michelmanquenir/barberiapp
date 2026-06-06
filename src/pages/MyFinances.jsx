@@ -196,13 +196,9 @@ function getThisMonthIncomes(incomes) {
   return result.sort((a, b) => b.amount - a.amount)
 }
 
-function TabResumen({ summary, userId, onShowGastos, onShowIngresos }) {
+function TabResumen({ summary, userId, onShowGastos }) {
   const [expenses,        setExpenses]        = useState([])
   const [loadingExpenses, setLoadingExpenses] = useState(true)
-  const [expDetailOpen,   setExpDetailOpen]   = useState(false)
-  const [incomes,         setIncomes]         = useState([])
-  const [loadingIncomes,  setLoadingIncomes]  = useState(true)
-  const [incDetailOpen,   setIncDetailOpen]   = useState(false)
 
   useEffect(() => {
     if (!userId) return
@@ -210,22 +206,15 @@ function TabResumen({ summary, userId, onShowGastos, onShowIngresos }) {
       .then(data => setExpenses(data || []))
       .catch(() => setExpenses([]))
       .finally(() => setLoadingExpenses(false))
-    api.getFinanceIncomes(userId)
-      .then(data => setIncomes(data || []))
-      .catch(() => setIncomes([]))
-      .finally(() => setLoadingIncomes(false))
   }, [userId])
 
   const monthExpenses = useMemo(() => getThisMonthExpenses(expenses), [expenses])
-  const monthIncomes  = useMemo(() => getThisMonthIncomes(incomes),   [incomes])
-
-  const monthLabel = new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
+  const monthLabel    = new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
 
   const barData = [
     { name: 'Ingresos', value: summary.monthlyIncome  ?? 0 },
     { name: 'Gastos',   value: summary.monthlyExpenses ?? 0 },
   ]
-
   const pieData = Object.entries(summary.expensesByCategory ?? {}).map(([cat, val]) => ({
     name:  EXPENSE_CATEGORIES.find(c => c.value === cat)?.label ?? cat,
     value: val,
@@ -236,128 +225,114 @@ function TabResumen({ summary, userId, onShowGastos, onShowIngresos }) {
   const income  = summary.monthlyIncome  ?? 0
 
   const savingsRate = income > 0 ? Math.round((balance / income) * 100) : null
-
   const savingsStatus =
-    income === 0    ? 'nodata'    :
-    balance < 0     ? 'deficit'   :
-    savingsRate < 10 ? 'low'      :
-    savingsRate < 20 ? 'fair'     :
-    savingsRate < 35 ? 'good'     :
+    income === 0     ? 'nodata'    :
+    balance < 0      ? 'deficit'   :
+    savingsRate < 10 ? 'low'       :
+    savingsRate < 20 ? 'fair'      :
+    savingsRate < 35 ? 'good'      :
                        'excellent'
 
   const SAVINGS_CONFIG = {
-    nodata:    { label: '—',          barColor: 'bg-gray-300 dark:bg-gray-600',  zone: 'text-gray-500 dark:text-gray-400',        bg: 'bg-gray-50 dark:bg-gray-800/60',           msg: 'Agrega tus ingresos del mes para calcular tu tasa de ahorro.' },
-    deficit:   { label: 'Déficit',    barColor: 'bg-red-500',                    zone: 'text-red-600 dark:text-red-400',           bg: 'bg-red-50 dark:bg-red-950/40',             msg: 'Estás gastando más de lo que ingresas. Revisa tus gastos fijos y periódicos para revertir esta situación.' },
-    low:       { label: 'Bajo',       barColor: 'bg-orange-400',                 zone: 'text-orange-600 dark:text-orange-400',     bg: 'bg-orange-50 dark:bg-orange-950/40',       msg: 'Ahorro bajo. Intenta destinar al menos el 10% de tus ingresos mensuales al ahorro.' },
-    fair:      { label: 'Regular',    barColor: 'bg-yellow-400',                 zone: 'text-yellow-600 dark:text-yellow-500',     bg: 'bg-yellow-50 dark:bg-yellow-950/40',       msg: 'Vas por buen camino, pero puedes mejorar. La meta recomendada es superar el 20% de ahorro.' },
-    good:      { label: 'Bueno',      barColor: 'bg-primary-500',                zone: 'text-primary-600 dark:text-primary-400',   bg: 'bg-primary-50 dark:bg-primary-950/40',     msg: 'Buen ritmo de ahorro. Considera asignar parte a tus metas para sacarle más partido.' },
-    excellent: { label: 'Excelente',  barColor: 'bg-green-500',                  zone: 'text-green-600 dark:text-green-400',       bg: 'bg-green-50 dark:bg-green-950/40',         msg: '¡Excelente disciplina financiera! Estás ahorrando más del 35% de tus ingresos.' },
+    nodata:    { label: '—',         barColor: 'bg-gray-300 dark:bg-gray-600', zone: 'text-gray-500 dark:text-gray-400',      bg: 'bg-gray-50 dark:bg-gray-800/60',        msg: 'Agrega tus ingresos del mes para calcular tu tasa de ahorro.' },
+    deficit:   { label: 'Déficit',   barColor: 'bg-red-500',                   zone: 'text-red-600 dark:text-red-400',        bg: 'bg-red-50 dark:bg-red-950/40',          msg: 'Estás gastando más de lo que ingresas. Revisa tus gastos para revertir esta situación.' },
+    low:       { label: 'Bajo',      barColor: 'bg-orange-400',                zone: 'text-orange-600 dark:text-orange-400',  bg: 'bg-orange-50 dark:bg-orange-950/40',    msg: 'Intenta destinar al menos el 10 % de tus ingresos al ahorro.' },
+    fair:      { label: 'Regular',   barColor: 'bg-yellow-400',                zone: 'text-yellow-600 dark:text-yellow-500',  bg: 'bg-yellow-50 dark:bg-yellow-950/40',    msg: 'Vas por buen camino. La meta recomendada es superar el 20 % de ahorro.' },
+    good:      { label: 'Bueno',     barColor: 'bg-primary-500',               zone: 'text-primary-600 dark:text-primary-400',bg: 'bg-primary-50 dark:bg-primary-950/40',  msg: 'Buen ritmo. Considera asignar parte a tus metas de ahorro.' },
+    excellent: { label: 'Excelente', barColor: 'bg-green-500',                 zone: 'text-green-600 dark:text-green-400',    bg: 'bg-green-50 dark:bg-green-950/40',      msg: '¡Excelente! Estás ahorrando más del 35 % de tus ingresos.' },
   }
-  const cfg = SAVINGS_CONFIG[savingsStatus]
+  const cfg    = SAVINGS_CONFIG[savingsStatus]
+  const barPct = savingsStatus === 'deficit' ? 100 : savingsStatus === 'nodata' ? 0 : Math.min(100, savingsRate)
 
-  const barPct = savingsStatus === 'deficit'
-    ? 100
-    : savingsStatus === 'nodata'
-    ? 0
-    : Math.min(100, savingsRate)
-
+  // ── JSX ────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Tarjetas */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard
-          icon={TrendingUp}
-          label="Ingresos del mes"
-          value={summary.monthlyIncome}
-          color="bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400"
-        />
-        <SummaryCard
-          icon={TrendingDown}
-          label="Gastos del mes"
-          value={summary.monthlyExpenses}
-          color="bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400"
-        />
-        <SummaryCard
-          icon={DollarSign}
-          label="Para gastar"
-          value={balance}
-          color={balance >= 0
-            ? 'bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400'
-            : 'bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400'}
-          sub={balance >= 0 ? `de ${fmt(income)} en ingresos` : 'gastas más de lo que ingresas'}
-        />
-        <SummaryCard
-          icon={PiggyBank}
-          label="Total ahorrado"
-          value={summary.totalSavings}
-          color="bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400"
-          sub="en todas tus metas"
-        />
-      </div>
+    // En desktop: 2 columnas. En móvil: todo apilado.
+    <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start space-y-6 lg:space-y-0">
 
-      {/* Indicador de tasa de ahorro */}
-      <div className="card">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-50">Ahorro esperado</h3>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {savingsStatus === 'nodata'
-                ? 'Sin datos de ingresos'
-                : balance >= 0
-                  ? `Podrías guardar ${fmt(balance)} este mes`
-                  : `Te faltan ${fmt(Math.abs(balance))} para cubrir tus gastos`}
-            </p>
+      {/* ════════════════════ COLUMNA IZQUIERDA ════════════════════ */}
+      <div className="space-y-5">
+
+        {/* Tarjetas — siempre 2x2 */}
+        <div className="grid grid-cols-2 gap-3">
+          <SummaryCard
+            icon={TrendingUp}
+            label="Ingresos del mes"
+            value={summary.monthlyIncome}
+            color="bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400"
+          />
+          <SummaryCard
+            icon={TrendingDown}
+            label="Gastos del mes"
+            value={summary.monthlyExpenses}
+            color="bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400"
+          />
+          <SummaryCard
+            icon={DollarSign}
+            label="Balance"
+            value={balance}
+            color={balance >= 0
+              ? 'bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400'
+              : 'bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400'}
+            sub={balance >= 0 ? 'disponible este mes' : 'gastas más de lo que ingresa'}
+          />
+          <SummaryCard
+            icon={PiggyBank}
+            label="Total ahorrado"
+            value={summary.totalSavings}
+            color="bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400"
+            sub="en todas tus metas"
+          />
+        </div>
+
+        {/* Indicador de tasa de ahorro */}
+        <div className="card">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-50">Tasa de ahorro</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {savingsStatus === 'nodata'
+                  ? 'Sin datos de ingresos'
+                  : balance >= 0
+                    ? `Podrías guardar ${fmt(balance)} este mes`
+                    : `Te faltan ${fmt(Math.abs(balance))} para cubrir tus gastos`}
+              </p>
+            </div>
+            <div className="text-right shrink-0 ml-4">
+              <p className={`text-3xl font-bold leading-none ${cfg.zone}`}>
+                {savingsStatus === 'nodata' ? '—'
+                 : savingsStatus === 'deficit' ? `−${Math.abs(savingsRate)}%`
+                 : `${savingsRate}%`}
+              </p>
+              <p className={`text-xs font-semibold mt-1 ${cfg.zone}`}>{cfg.label}</p>
+            </div>
           </div>
-          <div className="text-right shrink-0 ml-4">
-            <p className={`text-3xl font-bold leading-none ${cfg.zone}`}>
-              {savingsStatus === 'nodata' ? '—'
-               : savingsStatus === 'deficit' ? `−${Math.abs(savingsRate)}%`
-               : `${savingsRate}%`}
-            </p>
-            <p className={`text-xs font-semibold mt-1 ${cfg.zone}`}>{cfg.label}</p>
+          <div className="relative mb-1">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+              <div className={`h-3 rounded-full transition-all duration-700 ${cfg.barColor}`} style={{ width: `${barPct}%` }} />
+            </div>
+            {[10, 20, 35].map(mark => (
+              <div key={mark} className="absolute top-0 h-3 w-0.5 bg-white dark:bg-gray-900 opacity-70" style={{ left: `${mark}%` }} />
+            ))}
+          </div>
+          <div className="relative h-4 mb-4 text-xs text-gray-400">
+            <span className="absolute left-0">0%</span>
+            <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>10%</span>
+            <span className="absolute" style={{ left: '20%', transform: 'translateX(-50%)' }}>20%</span>
+            <span className="absolute" style={{ left: '35%', transform: 'translateX(-50%)' }}>35%</span>
+            <span className="absolute right-0">100%</span>
+          </div>
+          <div className={`flex items-start gap-2 px-3 py-2.5 rounded-lg ${cfg.bg}`}>
+            {savingsStatus === 'deficit' || savingsStatus === 'low'
+              ? <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />
+              : <TrendingUp   className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />}
+            <p className={`text-sm ${cfg.zone}`}>{cfg.msg}</p>
           </div>
         </div>
 
-        {/* Barra con zonas de referencia */}
-        <div className="relative mb-1">
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-            <div
-              className={`h-3 rounded-full transition-all duration-700 ${savingsStatus === 'deficit' ? 'bg-red-500' : cfg.barColor}`}
-              style={{ width: `${barPct}%` }}
-            />
-          </div>
-          {/* Marcas de zona: 10%, 20%, 35% */}
-          {[10, 20, 35].map(mark => (
-            <div
-              key={mark}
-              className="absolute top-0 h-3 w-0.5 bg-white dark:bg-gray-900 opacity-70"
-              style={{ left: `${mark}%` }}
-            />
-          ))}
-        </div>
-        {/* Etiquetas de zona */}
-        <div className="relative h-4 mb-4 text-xs text-gray-400">
-          <span className="absolute left-0">0%</span>
-          <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>10%</span>
-          <span className="absolute" style={{ left: '20%', transform: 'translateX(-50%)' }}>20%</span>
-          <span className="absolute" style={{ left: '35%', transform: 'translateX(-50%)' }}>35%</span>
-          <span className="absolute right-0">100%</span>
-        </div>
-
-        {/* Mensaje de estado */}
-        <div className={`flex items-start gap-2 px-3 py-2.5 rounded-lg ${cfg.bg}`}>
-          {savingsStatus === 'deficit' || savingsStatus === 'low'
-            ? <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />
-            : <TrendingUp   className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />}
-          <p className={`text-sm ${cfg.zone}`}>{cfg.msg}</p>
-        </div>
-      </div>
-
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Gráfico de barras: Ingresos vs Gastos */}
         <div className="card">
           <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Ingresos vs Gastos</h3>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={200}>
             <BarChart data={barData}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -371,12 +346,13 @@ function TabResumen({ summary, userId, onShowGastos, onShowIngresos }) {
           </ResponsiveContainer>
         </div>
 
+        {/* Gráfico de torta: Gastos por categoría */}
         <div className="card">
           <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Gastos por categoría</h3>
           {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}>
                   {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
                 <Tooltip formatter={(v) => fmt(v)} />
@@ -384,126 +360,69 @@ function TabResumen({ summary, userId, onShowGastos, onShowIngresos }) {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+            <div className="flex flex-col items-center justify-center h-44 text-gray-400">
               <AlertCircle className="h-8 w-8 mb-2" />
-              <p className="text-sm">Sin gastos registrados este mes</p>
+              <p className="text-sm">Sin gastos este mes</p>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Detalle de ingresos del mes */}
-      <div className="card">
-        <button onClick={() => setIncDetailOpen(v => !v)} className="w-full flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-left">Detalle de ingresos</h3>
-            <p className="text-xs text-gray-400 text-left capitalize">{monthLabel}</p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {!loadingIncomes && (
-              <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                {monthIncomes.length} item{monthIncomes.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform ${incDetailOpen ? 'rotate-90' : ''}`} />
-          </div>
-        </button>
-        {incDetailOpen && (
-          <div className="mt-4">
-            {loadingIncomes ? (
-              <div className="space-y-3">{[1,2].map(i => <LoadingRow key={i} />)}</div>
-            ) : monthIncomes.length === 0 ? (
-              <div className="flex flex-col items-center py-8 text-gray-400">
-                <AlertCircle className="h-8 w-8 mb-2" />
-                <p className="text-sm">Sin ingresos registrados este mes</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {monthIncomes.map((item, idx) => (
-                  <div key={item.id ?? idx} className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0
-                      ${item.type === 'SALARY'
-                        ? 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
-                        : 'bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400'}`}>
-                      <TrendingUp className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
-                          {item.description || (item.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra')}
-                        </p>
-                        {item.recurring && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
-                            <RefreshCw className="h-2.5 w-2.5" /> Mensual
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        {item.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'} · {fmtDate(item.date)}
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold text-green-600 dark:text-green-400 shrink-0">
-                      +{fmt(item.amount)}
-                    </span>
-                  </div>
-                ))}
-                <button onClick={onShowIngresos} className="w-full mt-2 py-2 text-sm text-primary-600 dark:text-primary-400 hover:underline">
-                  Ver todos los ingresos →
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      </div>{/* fin columna izquierda */}
 
-      {/* Detalle de gastos del mes */}
-      <div className="card">
-        <button onClick={() => setExpDetailOpen(v => !v)} className="w-full flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-left">Detalle de gastos</h3>
-            <p className="text-xs text-gray-400 text-left capitalize">{monthLabel}</p>
+      {/* ════════════════════ COLUMNA DERECHA ════════════════════ */}
+      <div className="mt-6 lg:mt-0">
+        {/* sticky: se queda fija mientras scrolleas la columna izquierda */}
+        <div className="lg:sticky lg:top-20 card !p-0 overflow-hidden">
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-50">Gastos del mes</h3>
+              <p className="text-xs text-gray-400 capitalize">{monthLabel}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-bold text-red-600 dark:text-red-400">
+                -{fmt(monthExpenses.reduce((s, e) => s + (e.amount || 0), 0))}
+              </p>
+              <p className="text-xs text-gray-400">{monthExpenses.length} ítem{monthExpenses.length !== 1 ? 's' : ''}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {!loadingExpenses && (
-              <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                {monthExpenses.length} item{monthExpenses.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform ${expDetailOpen ? 'rotate-90' : ''}`} />
-          </div>
-        </button>
-        {expDetailOpen && (
-          <div className="mt-4">
+
+          {/* Lista con scroll propio */}
+          <div className="overflow-y-auto max-h-[calc(100vh-16rem)] lg:max-h-[72vh]">
             {loadingExpenses ? (
-              <div className="space-y-3">{[1,2,3].map(i => <LoadingRow key={i} />)}</div>
+              <div className="space-y-3 p-4">
+                {[1, 2, 3, 4].map(i => <LoadingRow key={i} />)}
+              </div>
             ) : monthExpenses.length === 0 ? (
-              <div className="flex flex-col items-center py-8 text-gray-400">
-                <AlertCircle className="h-8 w-8 mb-2" />
-                <p className="text-sm">Sin gastos registrados este mes</p>
+              <div className="flex flex-col items-center py-16 text-gray-400">
+                <AlertCircle className="h-10 w-10 mb-3" />
+                <p className="font-medium text-gray-600 dark:text-gray-400">Sin gastos este mes</p>
+                <p className="text-sm mt-1">Agrega tus gastos en la pestaña "Gastos"</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
                 {monthExpenses.map((item, idx) => {
                   const cat   = EXPENSE_CATEGORIES.find(c => c.value === item.category)
                   const color = CATEGORY_COLORS[item.category] ?? '#94a3b8'
                   return (
-                    <div key={item.id ?? idx} className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
+                    <div key={item.id ?? idx} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
                         style={{ backgroundColor: color + '22' }}>
                         {cat?.emoji ?? '📦'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
                             {item.description || cat?.label}
                           </p>
                           {item.recurring && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
                               <RefreshCw className="h-2.5 w-2.5" /> Mensual
                             </span>
                           )}
                           {item.installmentNumber != null && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 shrink-0">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 shrink-0">
                               Cuota {item.installmentNumber}/{item.installmentTotal}
                             </span>
                           )}
@@ -516,14 +435,22 @@ function TabResumen({ summary, userId, onShowGastos, onShowIngresos }) {
                     </div>
                   )
                 })}
-                <button onClick={onShowGastos} className="w-full mt-2 py-2 text-sm text-primary-600 dark:text-primary-400 hover:underline">
-                  Ver todos los gastos →
-                </button>
               </div>
             )}
           </div>
-        )}
-      </div>
+
+          {/* Footer con link */}
+          {!loadingExpenses && monthExpenses.length > 0 && (
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
+              <button onClick={onShowGastos}
+                className="w-full text-sm text-primary-600 dark:text-primary-400 hover:underline text-center">
+                Ver y gestionar todos los gastos →
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>{/* fin columna derecha */}
 
     </div>
   )
@@ -1531,7 +1458,7 @@ function MyFinances() {
   useEffect(() => { loadSummary() }, [loadSummary])
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-950 flex items-center justify-center">
@@ -1564,7 +1491,7 @@ function MyFinances() {
         </div>
       ) : (
         <>
-          {tab === 'resumen'  && <TabResumen  summary={summary} userId={user.userId} onShowGastos={() => setTab('gastos')} onShowIngresos={() => setTab('ingresos')} />}
+          {tab === 'resumen'  && <TabResumen  summary={summary} userId={user.userId} onShowGastos={() => setTab('gastos')} />}
           {tab === 'ingresos' && <TabIngresos userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'gastos'   && <TabGastos   userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'metas'    && <TabMetas    userId={user.userId} onRefreshSummary={loadSummary} />}
