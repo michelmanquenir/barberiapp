@@ -177,7 +177,22 @@ function getThisMonthExpenses(expenses) {
     result.push(currentMonthByPlan[key] ?? latest)
   })
 
-  return result.sort((a, b) => b.amount - a.amount)
+  const groupOf = e => e.recurring ? 0 : e.installmentNumber != null ? 1 : 2
+
+  return result.sort((a, b) => {
+    const gA = groupOf(a), gB = groupOf(b)
+    if (gA !== gB) return gA - gB
+
+    // Dentro de cuotas: el que le queden menos cuotas va primero
+    if (gA === 1) {
+      const remA = (a.installmentTotal ?? 0) - (a.installmentNumber ?? 0)
+      const remB = (b.installmentTotal ?? 0) - (b.installmentNumber ?? 0)
+      if (remA !== remB) return remA - remB
+    }
+
+    // Desempate: mayor monto primero
+    return b.amount - a.amount
+  })
 }
 
 function getThisMonthIncomes(incomes) {
