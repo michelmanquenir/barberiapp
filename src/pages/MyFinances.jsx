@@ -159,7 +159,6 @@ function computePeriodDates(year, month, billingDay) {
 
 function getPeriodExpenses(expenses, from, to) {
   const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
-  const before  = d => new Date(d + 'T00:00:00') <= to
   const result  = []
 
   // Normal expenses in range
@@ -174,20 +173,29 @@ function getPeriodExpenses(expenses, from, to) {
     result.push(e)
   })
 
-  // Installment plans
-  const latestByPlan       = {}
+  // Installment plans: collect all entries regardless of date
+  const latestByPlan        = {}
+  const earliestByPlan      = {}
   const currentPeriodByPlan = {}
   expenses.forEach(e => {
-    if (e.installmentNumber == null || !before(e.date)) return
+    if (e.installmentNumber == null) return
     const key = `${e.category}|${e.installmentTotal}|${e.description ?? ''}`
-    if (!latestByPlan[key] || e.installmentNumber > latestByPlan[key].installmentNumber)
+    if (!latestByPlan[key]   || e.installmentNumber > latestByPlan[key].installmentNumber)
       latestByPlan[key] = e
+    if (!earliestByPlan[key] || e.installmentNumber < earliestByPlan[key].installmentNumber)
+      earliestByPlan[key] = e
     if (inRange(e.date) && (!currentPeriodByPlan[key] || e.installmentNumber > currentPeriodByPlan[key].installmentNumber))
       currentPeriodByPlan[key] = e
   })
   Object.keys(latestByPlan).forEach(key => {
-    const latest = latestByPlan[key]
-    if (latest.installmentNumber >= latest.installmentTotal) return
+    const latest   = latestByPlan[key]
+    const earliest = earliestByPlan[key]
+    if ((latest.installmentNumber ?? 0) >= (latest.installmentTotal ?? 1)) return
+    // Estimate plan start from earliest known entry (back-project if needed)
+    const earlyDt    = new Date(earliest.date + 'T00:00:00')
+    const backMonths = earliest.installmentNumber <= 1 ? 0 : earliest.installmentNumber - 1
+    const planStart  = new Date(earlyDt.getFullYear(), earlyDt.getMonth() - backMonths, earlyDt.getDate())
+    if (planStart > to) return
     result.push(currentPeriodByPlan[key] ?? latest)
   })
 
@@ -216,7 +224,6 @@ function getPeriodIncomes(incomes, from, to) {
 
 function calcPeriodSummary(expenses, incomes, from, to) {
   const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
-  const before  = d => new Date(d + 'T00:00:00') <= to
 
   let monthlyExpenses = 0
   const expensesByCategory = {}
@@ -235,19 +242,28 @@ function calcPeriodSummary(expenses, incomes, from, to) {
     expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount
   })
 
-  // 3. Installments
-  const latestByPlan       = {}
+  // 3. Installments: collect all entries regardless of date
+  const latestByPlan        = {}
+  const earliestByPlan      = {}
   const currentPeriodByPlan = {}
   expenses.forEach(e => {
-    if (e.installmentNumber == null || !before(e.date)) return
+    if (e.installmentNumber == null) return
     const key = `${e.category}|${e.installmentTotal}|${e.description ?? ''}`
-    if (!latestByPlan[key] || e.installmentNumber > latestByPlan[key].installmentNumber)
+    if (!latestByPlan[key]   || e.installmentNumber > latestByPlan[key].installmentNumber)
       latestByPlan[key] = e
+    if (!earliestByPlan[key] || e.installmentNumber < earliestByPlan[key].installmentNumber)
+      earliestByPlan[key] = e
     if (inRange(e.date) && (!currentPeriodByPlan[key] || e.installmentNumber > currentPeriodByPlan[key].installmentNumber))
       currentPeriodByPlan[key] = e
   })
   Object.entries(latestByPlan).forEach(([key, latest]) => {
-    if (latest.installmentNumber >= latest.installmentTotal) return
+    const earliest = earliestByPlan[key]
+    if ((latest.installmentNumber ?? 0) >= (latest.installmentTotal ?? 1)) return
+    // Estimate plan start from earliest known entry
+    const earlyDt    = new Date(earliest.date + 'T00:00:00')
+    const backMonths = earliest.installmentNumber <= 1 ? 0 : earliest.installmentNumber - 1
+    const planStart  = new Date(earlyDt.getFullYear(), earlyDt.getMonth() - backMonths, earlyDt.getDate())
+    if (planStart > to) return
     const toCount = currentPeriodByPlan[key] ?? latest
     monthlyExpenses += toCount.amount
     expensesByCategory[toCount.category] = (expensesByCategory[toCount.category] || 0) + toCount.amount
