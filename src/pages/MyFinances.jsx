@@ -168,9 +168,9 @@ function getPeriodExpenses(expenses, from, to) {
     if (inRange(e.date)) result.push(e)
   })
 
-  // Recurring (registered before end of period)
+  // Recurring: aparece en TODOS los períodos sin restricción de fecha de registro
   expenses.forEach(e => {
-    if (!e.recurring || !before(e.date)) return
+    if (!e.recurring) return
     result.push(e)
   })
 
@@ -207,10 +207,10 @@ function getPeriodExpenses(expenses, from, to) {
 
 function getPeriodIncomes(incomes, from, to) {
   const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
-  const before  = d => new Date(d + 'T00:00:00') <= to
   const result  = []
   incomes.forEach(i => { if (!i.recurring && inRange(i.date)) result.push(i) })
-  incomes.forEach(i => { if (i.recurring && before(i.date)) result.push(i) })
+  // Periódico: aparece en TODOS los períodos sin restricción de fecha de registro
+  incomes.forEach(i => { if (i.recurring) result.push(i) })
   return result.sort((a, b) => b.amount - a.amount)
 }
 
@@ -228,9 +228,9 @@ function calcPeriodSummary(expenses, incomes, from, to) {
     expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount
   })
 
-  // 2. Recurring
+  // 2. Periódicos: aparecen en TODOS los períodos (sin restricción de fecha de registro)
   expenses.forEach(e => {
-    if (!e.recurring || !before(e.date)) return
+    if (!e.recurring) return
     monthlyExpenses += e.amount
     expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount
   })
@@ -261,8 +261,9 @@ function calcPeriodSummary(expenses, incomes, from, to) {
     monthlyIncome += i.amount
     incomesByType[i.type] = (incomesByType[i.type] || 0) + i.amount
   })
+  // Periódicos: aparecen en TODOS los períodos (sin restricción de fecha de registro)
   incomes.forEach(i => {
-    if (!i.recurring || !before(i.date)) return
+    if (!i.recurring) return
     monthlyIncome += i.amount
     incomesByType[i.type] = (incomesByType[i.type] || 0) + i.amount
   })
