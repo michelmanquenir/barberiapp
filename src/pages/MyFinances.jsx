@@ -394,10 +394,12 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
 // ─── TAB: Resumen ────────────────────────────────────────────────────────────
 
 function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
-  const [expenses, setExpenses] = useState([])
-  const [incomes,  setIncomes]  = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [exporting, setExporting] = useState(null) // 'excel' | 'pdf' | null
+  const [expenses,   setExpenses]   = useState([])
+  const [incomes,    setIncomes]    = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [exporting,  setExporting]  = useState(null) // 'excel' | 'pdf' | null
+  const [editItem,   setEditItem]   = useState(null) // expense being edited
+  const [deletingId, setDeletingId] = useState(null) // id being deleted
 
   // Period navigation
   const nowDate = new Date()
@@ -422,6 +424,26 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
     }).catch(() => { setExpenses([]); setIncomes([]) })
     .finally(() => setLoading(false))
   }, [userId])
+
+  const refreshExpenses = useCallback(() => {
+    api.getFinanceExpenses(userId)
+      .then(data => setExpenses(data || []))
+      .catch(() => {})
+  }, [userId])
+
+  const handleDeleteExpense = async (item) => {
+    const label = item.description || EXPENSE_CATEGORIES.find(c => c.value === item.category)?.label || 'este gasto'
+    if (!confirm(`¿Eliminar "${label}"?`)) return
+    setDeletingId(item.id)
+    try {
+      await api.deleteFinanceExpense(item.id, userId)
+      setExpenses(prev => prev.filter(e => e.id !== item.id))
+    } catch {
+      alert('No se pudo eliminar el gasto. Intenta de nuevo.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   // Compute period date range
   const { from: periodFrom, to: periodTo } = useMemo(
@@ -732,10 +754,11 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {periodExpenses.map((item, idx) => {
-                    const cat   = EXPENSE_CATEGORIES.find(c => c.value === item.category)
-                    const color = CATEGORY_COLORS[item.category] ?? '#94a3b8'
+                    const cat        = EXPENSE_CATEGORIES.find(c => c.value === item.category)
+                    const color      = CATEGORY_COLORS[item.category] ?? '#94a3b8'
+                    const isDeleting = deletingId === item.id
                     return (
-                      <div key={item.id ?? idx} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
+                      <div key={item.id ?? idx} className="group flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
                           style={{ backgroundColor: color + '22' }}>
                           {cat?.emoji ?? '📦'}
@@ -761,6 +784,24 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                         <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
                           -{fmt(item.amount)}
                         </span>
+                        {/* Editar / Eliminar */}
+                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setEditItem(item)}
+                            title="Editar"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950 transition-colors">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteExpense(item)}
+                            title="Eliminar"
+                            disabled={isDeleting}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-40">
+                            {isDeleting
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <Trash2  className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
@@ -780,6 +821,16 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
         </div>{/* fin columna derecha */}
 
       </div>
+
+      {/* ── Modal: Editar gasto ────────────────────────────────────── */}
+      {editItem && (
+        <EditExpenseModal
+          userId={userId}
+          item={editItem}
+          onClose={() => setEditItem(null)}
+          onSaved={refreshExpenses}
+        />
+      )}
 
       {/* ── Modal: Día de corte ─────────────────────────────────────── */}
       {showBillingModal && (
@@ -1078,6 +1129,25 @@ function formToPayload(form) {
   }
 }
 
+function expenseTypeOf(item) {
+  if (item.recurring) return EXPENSE_TYPE_RECURRING
+  if (item.installmentNumber != null) return EXPENSE_TYPE_INSTALLMENT
+  return EXPENSE_TYPE_NORMAL
+}
+
+function expenseToForm(item) {
+  return {
+    category:          item.category ?? 'COMIDA',
+    description:       item.description ?? '',
+    amount:            String(item.amount ?? ''),
+    date:              item.date ?? today(),
+    expenseType:       expenseTypeOf(item),
+    installmentNumber: item.installmentNumber != null ? String(item.installmentNumber) : '',
+    installmentTotal:  item.installmentTotal  != null ? String(item.installmentTotal)  : '',
+    billingDay:        item.billingDay        != null ? String(item.billingDay)        : '',
+  }
+}
+
 // ─── Modal: Nuevo gasto ──────────────────────────────────────────────────────
 
 function NewExpenseModal({ userId, onClose, onSaved }) {
@@ -1211,6 +1281,148 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
         <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 mb-4">
           <p className="text-sm text-blue-700 dark:text-blue-300">
             🔄 Este gasto se marcará como <strong>periódico mensual</strong>. Recuerda registrarlo cada mes cuando lo pagues.
+          </p>
+        </div>
+      )}
+
+      <ModalButtons onClose={onClose} onSave={handleSave} saving={saving} />
+    </Modal>
+  )
+}
+
+// ─── Modal: Editar gasto ─────────────────────────────────────────────────────
+
+function EditExpenseModal({ userId, item, onClose, onSaved }) {
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState('')
+  const [form,   setForm]   = useState(() => expenseToForm(item))
+
+  const handleSave = async () => {
+    setError('')
+    const data = formToPayload(form)
+    if (!data.amount || isNaN(data.amount) || data.amount <= 0) {
+      setError('Ingresa un monto válido mayor a 0.')
+      return
+    }
+    if (form.expenseType === EXPENSE_TYPE_INSTALLMENT) {
+      if (data.installmentNumber == null || isNaN(data.installmentNumber) || data.installmentNumber < 0) { setError('Número de cuota inválido (mínimo 0).'); return }
+      if (!data.installmentTotal  || data.installmentTotal  < 1) { setError('Total de cuotas inválido.'); return }
+      if (data.installmentNumber > data.installmentTotal)       { setError('La cuota actual no puede ser mayor al total.'); return }
+    }
+    setSaving(true)
+    try {
+      await api.updateFinanceExpense(item.id, userId, data)
+      onSaved()
+      onClose()
+    } catch (e) {
+      setError(e.message || 'No se pudo guardar. Intenta de nuevo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Editar gasto" onClose={onClose}>
+      <ErrorBanner msg={error} />
+
+      <FormField label="Categoría" required>
+        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={inputCls}>
+          {EXPENSE_CATEGORIES.map(c => (
+            <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
+          ))}
+        </select>
+      </FormField>
+
+      <FormField label="Descripción">
+        <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
+          placeholder="Ej: Supermercado, Celular Samsung, Netflix..." className={inputCls} />
+      </FormField>
+
+      <FormField label="Monto" required>
+        <input type="number" min="0" step="0.01" value={form.amount}
+          onChange={e => setForm({ ...form, amount: e.target.value })}
+          placeholder="0" className={inputCls} />
+      </FormField>
+
+      <FormField label="Fecha" required>
+        <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className={inputCls} />
+      </FormField>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de gasto</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { value: EXPENSE_TYPE_NORMAL,      label: 'Normal',    desc: 'Un pago único',           icon: '💸' },
+            { value: EXPENSE_TYPE_RECURRING,   label: 'Periódico', desc: 'Se repite cada mes',      icon: '🔄' },
+            { value: EXPENSE_TYPE_INSTALLMENT, label: 'En cuotas', desc: 'Parte de un plan cuotas', icon: '📅' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setForm({ ...form, expenseType: opt.value })}
+              className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+                form.expenseType === opt.value
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <span className="text-xl">{opt.icon}</span>
+              <span className={`text-xs font-semibold ${form.expenseType === opt.value ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                {opt.label}
+              </span>
+              <span className="text-xs text-gray-400 leading-tight">{opt.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {form.expenseType === EXPENSE_TYPE_INSTALLMENT && (
+        <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 p-4 mb-4">
+          <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3">📅 Detalle de cuotas</p>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="N° de cuota actual">
+              <input
+                type="number" min="0" value={form.installmentNumber}
+                onChange={e => setForm({ ...form, installmentNumber: e.target.value })}
+                placeholder="0 = sin facturar" className={inputCls}
+              />
+            </FormField>
+            <FormField label="Total de cuotas">
+              <input
+                type="number" min="1" value={form.installmentTotal}
+                onChange={e => setForm({ ...form, installmentTotal: e.target.value })}
+                placeholder="Ej: 12" className={inputCls}
+              />
+            </FormField>
+          </div>
+          {form.installmentNumber !== '' && form.installmentTotal && (
+            <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+              {parseInt(form.installmentNumber) === 0
+                ? `Compra registrada · aún sin facturar · ${form.installmentTotal} cuotas totales`
+                : `Cuota ${form.installmentNumber} de ${form.installmentTotal} · quedan ${Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar`}
+            </p>
+          )}
+          <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-700">
+            <FormField label="Día de facturación tarjeta (opcional)">
+              <input
+                type="number" min="1" max="31" value={form.billingDay}
+                onChange={e => setForm({ ...form, billingDay: e.target.value })}
+                placeholder="Ej: 19" className={inputCls}
+              />
+            </FormField>
+            {form.billingDay && parseInt(form.billingDay) >= 1 && parseInt(form.billingDay) <= 31 && (
+              <p className="text-xs text-orange-600 dark:text-orange-400 -mt-2">
+                Próxima facturación: <strong>{fmtNextBillingDate(parseInt(form.billingDay))}</strong>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {form.expenseType === EXPENSE_TYPE_RECURRING && (
+        <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 mb-4">
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            🔄 Este gasto se marcará como <strong>periódico mensual</strong>.
           </p>
         </div>
       )}
