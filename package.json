@@ -15,6 +15,8 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.562.0",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
@@ -22,7 +24,8 @@
     "react-router-dom": "^7.11.0",
     "recharts": "^3.8.1",
     "sweetalert2": "^11.26.22",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

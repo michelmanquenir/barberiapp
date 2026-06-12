@@ -3,7 +3,8 @@ import {
   TrendingUp, TrendingDown, PiggyBank,
   Plus, Trash2, Pencil, Check, X,
   DollarSign, Target, AlertCircle, Loader2,
-  ArrowUpCircle, RefreshCw, ChevronRight,
+  ArrowUpCircle, RefreshCw, ChevronRight, ChevronLeft,
+  Settings, Download,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -140,98 +141,358 @@ function SummaryCard({ icon: Icon, label, value, color, sub }) {
   )
 }
 
-// ─── TAB: Resumen ────────────────────────────────────────────────────────────
+// ─── Period helpers ──────────────────────────────────────────────────────────
 
-function getThisMonthExpenses(expenses) {
-  const now  = new Date()
-  const from = new Date(now.getFullYear(), now.getMonth(), 1)
-  const to   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+function computePeriodDates(year, month, billingDay) {
+  // billingDay = 1 → calendar month; billingDay = 19 → 19th prev to 19th current
+  if (!billingDay || billingDay <= 1) {
+    return {
+      from: new Date(year, month, 1),
+      to:   new Date(year, month + 1, 0),
+    }
+  }
+  return {
+    from: new Date(year, month - 1, billingDay),
+    to:   new Date(year, month, billingDay),
+  }
+}
+
+function getPeriodExpenses(expenses, from, to) {
   const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
   const before  = d => new Date(d + 'T00:00:00') <= to
+  const result  = []
 
-  const result = []
-
+  // Normal expenses in range
   expenses.forEach(e => {
     if (e.installmentNumber != null || e.recurring) return
     if (inRange(e.date)) result.push(e)
   })
 
+  // Recurring (registered before end of period)
   expenses.forEach(e => {
     if (!e.recurring || !before(e.date)) return
     result.push(e)
   })
 
-  const latestByPlan = {}
-  const currentMonthByPlan = {}
+  // Installment plans
+  const latestByPlan       = {}
+  const currentPeriodByPlan = {}
   expenses.forEach(e => {
     if (e.installmentNumber == null || !before(e.date)) return
     const key = `${e.category}|${e.installmentTotal}|${e.description ?? ''}`
     if (!latestByPlan[key] || e.installmentNumber > latestByPlan[key].installmentNumber)
       latestByPlan[key] = e
-    if (inRange(e.date) && (!currentMonthByPlan[key] || e.installmentNumber > currentMonthByPlan[key].installmentNumber))
-      currentMonthByPlan[key] = e
+    if (inRange(e.date) && (!currentPeriodByPlan[key] || e.installmentNumber > currentPeriodByPlan[key].installmentNumber))
+      currentPeriodByPlan[key] = e
   })
   Object.keys(latestByPlan).forEach(key => {
     const latest = latestByPlan[key]
     if (latest.installmentNumber >= latest.installmentTotal) return
-    result.push(currentMonthByPlan[key] ?? latest)
+    result.push(currentPeriodByPlan[key] ?? latest)
   })
 
+  // Sort: periódicos → cuotas (menos restantes primero) → normales
   const groupOf = e => e.recurring ? 0 : e.installmentNumber != null ? 1 : 2
-
   return result.sort((a, b) => {
     const gA = groupOf(a), gB = groupOf(b)
     if (gA !== gB) return gA - gB
-
-    // Dentro de cuotas: el que le queden menos cuotas va primero
     if (gA === 1) {
       const remA = (a.installmentTotal ?? 0) - (a.installmentNumber ?? 0)
       const remB = (b.installmentTotal ?? 0) - (b.installmentNumber ?? 0)
       if (remA !== remB) return remA - remB
     }
-
-    // Desempate: mayor monto primero
     return b.amount - a.amount
   })
 }
 
-function getThisMonthIncomes(incomes) {
-  const now  = new Date()
-  const from = new Date(now.getFullYear(), now.getMonth(), 1)
-  const to   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+function getPeriodIncomes(incomes, from, to) {
   const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
   const before  = d => new Date(d + 'T00:00:00') <= to
-  const result = []
+  const result  = []
   incomes.forEach(i => { if (!i.recurring && inRange(i.date)) result.push(i) })
   incomes.forEach(i => { if (i.recurring && before(i.date)) result.push(i) })
   return result.sort((a, b) => b.amount - a.amount)
 }
 
-function TabResumen({ summary, userId, onAddExpense }) {
-  const [expenses,        setExpenses]        = useState([])
-  const [loadingExpenses, setLoadingExpenses] = useState(true)
+function calcPeriodSummary(expenses, incomes, from, to) {
+  const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
+  const before  = d => new Date(d + 'T00:00:00') <= to
+
+  let monthlyExpenses = 0
+  const expensesByCategory = {}
+
+  // 1. Normal
+  expenses.forEach(e => {
+    if (e.installmentNumber != null || e.recurring || !inRange(e.date)) return
+    monthlyExpenses += e.amount
+    expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount
+  })
+
+  // 2. Recurring
+  expenses.forEach(e => {
+    if (!e.recurring || !before(e.date)) return
+    monthlyExpenses += e.amount
+    expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount
+  })
+
+  // 3. Installments
+  const latestByPlan       = {}
+  const currentPeriodByPlan = {}
+  expenses.forEach(e => {
+    if (e.installmentNumber == null || !before(e.date)) return
+    const key = `${e.category}|${e.installmentTotal}|${e.description ?? ''}`
+    if (!latestByPlan[key] || e.installmentNumber > latestByPlan[key].installmentNumber)
+      latestByPlan[key] = e
+    if (inRange(e.date) && (!currentPeriodByPlan[key] || e.installmentNumber > currentPeriodByPlan[key].installmentNumber))
+      currentPeriodByPlan[key] = e
+  })
+  Object.entries(latestByPlan).forEach(([key, latest]) => {
+    if (latest.installmentNumber >= latest.installmentTotal) return
+    const toCount = currentPeriodByPlan[key] ?? latest
+    monthlyExpenses += toCount.amount
+    expensesByCategory[toCount.category] = (expensesByCategory[toCount.category] || 0) + toCount.amount
+  })
+
+  // Incomes
+  let monthlyIncome = 0
+  const incomesByType = {}
+  incomes.forEach(i => {
+    if (i.recurring || !inRange(i.date)) return
+    monthlyIncome += i.amount
+    incomesByType[i.type] = (incomesByType[i.type] || 0) + i.amount
+  })
+  incomes.forEach(i => {
+    if (!i.recurring || !before(i.date)) return
+    monthlyIncome += i.amount
+    incomesByType[i.type] = (incomesByType[i.type] || 0) + i.amount
+  })
+
+  return {
+    monthlyExpenses,
+    monthlyIncome,
+    monthlyBalance: monthlyIncome - monthlyExpenses,
+    expensesByCategory,
+    incomesByType,
+  }
+}
+
+// ─── Export helpers ──────────────────────────────────────────────────────────
+
+async function exportToExcel(periodExpenses, periodIncomes, summary, periodLabel) {
+  const { utils, writeFile } = await import('xlsx')
+
+  const wb = utils.book_new()
+
+  // Sheet 1: Resumen
+  const summaryRows = [
+    ['Período', periodLabel],
+    ['Ingresos', summary.monthlyIncome ?? 0],
+    ['Gastos',   summary.monthlyExpenses ?? 0],
+    ['Balance',  summary.monthlyBalance  ?? 0],
+    ['Total ahorrado', summary.totalSavings ?? 0],
+  ]
+  const wsSummary = utils.aoa_to_sheet(summaryRows)
+  utils.book_append_sheet(wb, wsSummary, 'Resumen')
+
+  // Sheet 2: Gastos
+  const expHeaders = ['Fecha', 'Categoría', 'Descripción', 'Tipo', 'Cuota', 'Monto']
+  const expRows = periodExpenses.map(e => {
+    const cat  = EXPENSE_CATEGORIES.find(c => c.value === e.category)
+    const tipo = e.recurring ? 'Periódico' : e.installmentNumber != null ? 'En cuotas' : 'Normal'
+    const cuota = e.installmentNumber != null ? `${e.installmentNumber}/${e.installmentTotal}` : '-'
+    return [e.date, cat?.label ?? e.category, e.description ?? '', tipo, cuota, e.amount]
+  })
+  const wsExp = utils.aoa_to_sheet([expHeaders, ...expRows])
+  utils.book_append_sheet(wb, wsExp, 'Gastos')
+
+  // Sheet 3: Ingresos
+  const incHeaders = ['Fecha', 'Tipo', 'Descripción', 'Frecuencia', 'Monto']
+  const incRows = periodIncomes.map(i => {
+    const tipo = i.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'
+    const freq = i.recurring ? 'Periódico' : i.durationMonths ? `${i.durationMonths} meses` : 'Único'
+    return [i.date, tipo, i.description ?? '', freq, i.amount]
+  })
+  const wsInc = utils.aoa_to_sheet([incHeaders, ...incRows])
+  utils.book_append_sheet(wb, wsInc, 'Ingresos')
+
+  writeFile(wb, `finanzas_${periodLabel.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xlsx`)
+}
+
+async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) {
+  const { jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+
+  const doc = new jsPDF()
+
+  // Header
+  doc.setFontSize(20)
+  doc.setTextColor(40, 40, 40)
+  doc.text('Mis Finanzas', 14, 18)
+  doc.setFontSize(11)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Período: ${periodLabel}`, 14, 26)
+
+  // Summary table
+  doc.setFontSize(13)
+  doc.setTextColor(40, 40, 40)
+  doc.text('Resumen', 14, 38)
+  autoTable(doc, {
+    startY: 42,
+    head: [['Concepto', 'Monto']],
+    body: [
+      ['Ingresos del período', fmt(summary.monthlyIncome)],
+      ['Gastos del período',   fmt(summary.monthlyExpenses)],
+      ['Balance',              fmt(summary.monthlyBalance)],
+      ['Total ahorrado',       fmt(summary.totalSavings ?? 0)],
+    ],
+    theme: 'striped',
+    headStyles: { fillColor: [99, 102, 241] },
+    columnStyles: { 1: { halign: 'right' } },
+  })
+
+  // Expenses table
+  const expY = doc.lastAutoTable.finalY + 10
+  doc.setFontSize(13)
+  doc.text('Gastos del período', 14, expY)
+  autoTable(doc, {
+    startY: expY + 4,
+    head: [['Fecha', 'Categoría', 'Descripción', 'Tipo', 'Monto']],
+    body: periodExpenses.map(e => {
+      const cat  = EXPENSE_CATEGORIES.find(c => c.value === e.category)
+      const tipo = e.recurring
+        ? 'Periódico'
+        : e.installmentNumber != null
+          ? `Cuota ${e.installmentNumber}/${e.installmentTotal}`
+          : 'Normal'
+      return [e.date, cat?.label ?? e.category, e.description ?? '', tipo, fmt(e.amount)]
+    }),
+    theme: 'striped',
+    headStyles: { fillColor: [239, 68, 68] },
+    columnStyles: { 4: { halign: 'right' } },
+  })
+
+  // Incomes table
+  const incY = doc.lastAutoTable.finalY + 10
+  doc.setFontSize(13)
+  doc.text('Ingresos del período', 14, incY)
+  autoTable(doc, {
+    startY: incY + 4,
+    head: [['Fecha', 'Tipo', 'Descripción', 'Monto']],
+    body: periodIncomes.map(i => {
+      const tipo = i.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'
+      return [i.date, tipo, i.description ?? '', fmt(i.amount)]
+    }),
+    theme: 'striped',
+    headStyles: { fillColor: [34, 197, 94] },
+    columnStyles: { 3: { halign: 'right' } },
+  })
+
+  doc.save(`finanzas_${periodLabel.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`)
+}
+
+// ─── TAB: Resumen ────────────────────────────────────────────────────────────
+
+function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
+  const [expenses, setExpenses] = useState([])
+  const [incomes,  setIncomes]  = useState([])
+  const [loading,  setLoading]  = useState(true)
+  const [exporting, setExporting] = useState(null) // 'excel' | 'pdf' | null
+
+  // Period navigation
+  const nowDate = new Date()
+  const [periodYear,  setPeriodYear]  = useState(nowDate.getFullYear())
+  const [periodMonth, setPeriodMonth] = useState(nowDate.getMonth())
+  const [billingDay,  setBillingDay]  = useState(() => {
+    const v = localStorage.getItem('finBillingDay')
+    return v ? Math.max(1, Math.min(28, parseInt(v))) : 1
+  })
+  const [showBillingModal, setShowBillingModal] = useState(false)
+  const [billingInput, setBillingInput] = useState('')
 
   useEffect(() => {
     if (!userId) return
-    api.getFinanceExpenses(userId)
-      .then(data => setExpenses(data || []))
-      .catch(() => setExpenses([]))
-      .finally(() => setLoadingExpenses(false))
+    setLoading(true)
+    Promise.all([
+      api.getFinanceExpenses(userId),
+      api.getFinanceIncomes(userId),
+    ]).then(([exp, inc]) => {
+      setExpenses(exp || [])
+      setIncomes(inc  || [])
+    }).catch(() => { setExpenses([]); setIncomes([]) })
+    .finally(() => setLoading(false))
   }, [userId])
 
-  const monthExpenses = useMemo(() => getThisMonthExpenses(expenses), [expenses])
-  const monthLabel    = new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
+  // Compute period date range
+  const { from: periodFrom, to: periodTo } = useMemo(
+    () => computePeriodDates(periodYear, periodMonth, billingDay),
+    [periodYear, periodMonth, billingDay]
+  )
 
-  const barData = [
-    { name: 'Ingresos', value: summary.monthlyIncome  ?? 0 },
-    { name: 'Gastos',   value: summary.monthlyExpenses ?? 0 },
-  ]
-  const pieData = Object.entries(summary.expensesByCategory ?? {}).map(([cat, val]) => ({
-    name:  EXPENSE_CATEGORIES.find(c => c.value === cat)?.label ?? cat,
-    value: val,
-    color: CATEGORY_COLORS[cat] ?? '#94a3b8',
-  }))
+  const isCurrentPeriod = periodYear === nowDate.getFullYear() && periodMonth === nowDate.getMonth()
 
+  const prevPeriod = () => {
+    if (periodMonth === 0) { setPeriodYear(y => y - 1); setPeriodMonth(11) }
+    else setPeriodMonth(m => m - 1)
+  }
+  const nextPeriod = () => {
+    if (isCurrentPeriod) return
+    if (periodMonth === 11) { setPeriodYear(y => y + 1); setPeriodMonth(0) }
+    else setPeriodMonth(m => m + 1)
+  }
+
+  // Period labels
+  const monthName = new Date(periodYear, periodMonth, 1)
+    .toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
+  const periodShort = monthName.charAt(0).toUpperCase() + monthName.slice(1)
+  const fmtShortDate = d => d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+  const periodRange = billingDay > 1
+    ? `${fmtShortDate(periodFrom)} – ${fmtShortDate(periodTo)}`
+    : null
+  const periodFull = billingDay > 1
+    ? `${fmtShortDate(periodFrom)} – ${periodTo.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : periodShort
+
+  // Client-side summary for selected period
+  const periodSummaryData = useMemo(
+    () => calcPeriodSummary(expenses, incomes, periodFrom, periodTo),
+    [expenses, incomes, periodFrom, periodTo]
+  )
+
+  // Merge: period-specific data overrides server summary; totalSavings is period-independent
+  const summary = { ...serverSummary, ...periodSummaryData }
+
+  const periodExpenses = useMemo(
+    () => getPeriodExpenses(expenses, periodFrom, periodTo),
+    [expenses, periodFrom, periodTo]
+  )
+  const periodIncomesList = useMemo(
+    () => getPeriodIncomes(incomes, periodFrom, periodTo),
+    [incomes, periodFrom, periodTo]
+  )
+
+  // Export handlers
+  const handleExportExcel = async () => {
+    setExporting('excel')
+    try { await exportToExcel(periodExpenses, periodIncomesList, summary, periodFull) }
+    catch { alert('Error al exportar a Excel. Intenta de nuevo.') }
+    finally { setExporting(null) }
+  }
+  const handleExportPDF = async () => {
+    setExporting('pdf')
+    try { await exportToPDF(periodExpenses, periodIncomesList, summary, periodFull) }
+    catch { alert('Error al exportar a PDF. Intenta de nuevo.') }
+    finally { setExporting(null) }
+  }
+
+  const saveBillingDay = () => {
+    const v = parseInt(billingInput)
+    if (isNaN(v) || v < 1 || v > 28) return
+    setBillingDay(v)
+    localStorage.setItem('finBillingDay', String(v))
+    setShowBillingModal(false)
+  }
+
+  // Summary values
   const balance = summary.monthlyBalance ?? 0
   const income  = summary.monthlyIncome  ?? 0
 
@@ -255,210 +516,297 @@ function TabResumen({ summary, userId, onAddExpense }) {
   const cfg    = SAVINGS_CONFIG[savingsStatus]
   const barPct = savingsStatus === 'deficit' ? 100 : savingsStatus === 'nodata' ? 0 : Math.min(100, savingsRate)
 
+  const barData = [
+    { name: 'Ingresos', value: summary.monthlyIncome  ?? 0 },
+    { name: 'Gastos',   value: summary.monthlyExpenses ?? 0 },
+  ]
+  const pieData = Object.entries(summary.expensesByCategory ?? {}).map(([cat, val]) => ({
+    name:  EXPENSE_CATEGORIES.find(c => c.value === cat)?.label ?? cat,
+    value: val,
+    color: CATEGORY_COLORS[cat] ?? '#94a3b8',
+  }))
+
   return (
-    <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start space-y-6 lg:space-y-0">
+    <div>
 
-      {/* ════════════════════ COLUMNA IZQUIERDA ════════════════════ */}
-      <div className="space-y-5">
+      {/* ── Barra de navegación de período ──────────────────────────── */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
 
-        {/* Tarjetas — siempre 2x2 */}
-        <div className="grid grid-cols-2 gap-3">
-          <SummaryCard
-            icon={TrendingUp}
-            label="Ingresos del mes"
-            value={summary.monthlyIncome}
-            color="bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400"
-          />
-          <SummaryCard
-            icon={TrendingDown}
-            label="Gastos del mes"
-            value={summary.monthlyExpenses}
-            color="bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400"
-          />
-          <SummaryCard
-            icon={DollarSign}
-            label="Balance"
-            value={balance}
-            color={balance >= 0
-              ? 'bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400'
-              : 'bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400'}
-            sub={balance >= 0 ? 'disponible este mes' : 'gastas más de lo que ingresa'}
-          />
-          <SummaryCard
-            icon={PiggyBank}
-            label="Total ahorrado"
-            value={summary.totalSavings}
-            color="bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400"
-            sub="en todas tus metas"
-          />
+        {/* Nav meses */}
+        <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 shrink-0">
+          <button onClick={prevPeriod}
+            className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="px-3 text-center min-w-[130px]">
+            <p className="font-semibold text-sm text-gray-900 dark:text-gray-50 leading-tight">{periodShort}</p>
+            {periodRange && (
+              <p className="text-xs text-gray-400 leading-tight">{periodRange}</p>
+            )}
+          </div>
+          <button onClick={nextPeriod} disabled={isCurrentPeriod}
+            className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
 
-        {/* Indicador de tasa de ahorro */}
-        <div className="card">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-50">Tasa de ahorro</h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {savingsStatus === 'nodata'
-                  ? 'Sin datos de ingresos'
-                  : balance >= 0
-                    ? `Podrías guardar ${fmt(balance)} este mes`
-                    : `Te faltan ${fmt(Math.abs(balance))} para cubrir tus gastos`}
-              </p>
-            </div>
-            <div className="text-right shrink-0 ml-4">
-              <p className={`text-3xl font-bold leading-none ${cfg.zone}`}>
-                {savingsStatus === 'nodata' ? '—'
-                 : savingsStatus === 'deficit' ? `−${Math.abs(savingsRate)}%`
-                 : `${savingsRate}%`}
-              </p>
-              <p className={`text-xs font-semibold mt-1 ${cfg.zone}`}>{cfg.label}</p>
-            </div>
-          </div>
-          <div className="relative mb-1">
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-              <div className={`h-3 rounded-full transition-all duration-700 ${cfg.barColor}`} style={{ width: `${barPct}%` }} />
-            </div>
-            {[10, 20, 35].map(mark => (
-              <div key={mark} className="absolute top-0 h-3 w-0.5 bg-white dark:bg-gray-900 opacity-70" style={{ left: `${mark}%` }} />
-            ))}
-          </div>
-          <div className="relative h-4 mb-4 text-xs text-gray-400">
-            <span className="absolute left-0">0%</span>
-            <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>10%</span>
-            <span className="absolute" style={{ left: '20%', transform: 'translateX(-50%)' }}>20%</span>
-            <span className="absolute" style={{ left: '35%', transform: 'translateX(-50%)' }}>35%</span>
-            <span className="absolute right-0">100%</span>
-          </div>
-          <div className={`flex items-start gap-2 px-3 py-2.5 rounded-lg ${cfg.bg}`}>
-            {savingsStatus === 'deficit' || savingsStatus === 'low'
-              ? <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />
-              : <TrendingUp   className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />}
-            <p className={`text-sm ${cfg.zone}`}>{cfg.msg}</p>
-          </div>
-        </div>
+        {/* Configurar día de corte */}
+        <button
+          onClick={() => { setBillingInput(String(billingDay)); setShowBillingModal(true) }}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-200 transition-colors shrink-0">
+          <Settings className="h-3.5 w-3.5" />
+          {billingDay > 1 ? `Corte: día ${billingDay}` : 'Día de corte'}
+        </button>
 
-        {/* Gráfico de barras: Ingresos vs Gastos */}
-        <div className="card">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Ingresos vs Gastos</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={barData}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v) => fmt(v)} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                <Cell fill="#22c55e" />
-                <Cell fill="#ef4444" />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Exportar */}
+        <div className="flex gap-2 ml-auto">
+          <button onClick={handleExportExcel} disabled={!!exporting || loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:border-green-400 hover:text-green-600 dark:hover:border-green-700 dark:hover:text-green-400 transition-colors disabled:opacity-40">
+            {exporting === 'excel' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Excel
+          </button>
+          <button onClick={handleExportPDF} disabled={!!exporting || loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:border-red-400 hover:text-red-600 dark:hover:border-red-700 dark:hover:text-red-400 transition-colors disabled:opacity-40">
+            {exporting === 'pdf' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            PDF
+          </button>
         </div>
+      </div>
 
-        {/* Gráfico de torta: Gastos por categoría */}
-        <div className="card">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Gastos por categoría</h3>
-          {pieData.length > 0 ? (
+      {/* ── Grid 2 columnas ─────────────────────────────────────────── */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start space-y-6 lg:space-y-0">
+
+        {/* ════════════════════ COLUMNA IZQUIERDA ════════════════════ */}
+        <div className="space-y-5">
+
+          {/* Tarjetas 2x2 */}
+          <div className="grid grid-cols-2 gap-3">
+            <SummaryCard
+              icon={TrendingUp}
+              label="Ingresos del período"
+              value={summary.monthlyIncome}
+              color="bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400"
+            />
+            <SummaryCard
+              icon={TrendingDown}
+              label="Gastos del período"
+              value={summary.monthlyExpenses}
+              color="bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400"
+            />
+            <SummaryCard
+              icon={DollarSign}
+              label="Balance"
+              value={balance}
+              color={balance >= 0
+                ? 'bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400'
+                : 'bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400'}
+              sub={balance >= 0 ? 'disponible este período' : 'gastas más de lo que ingresa'}
+            />
+            <SummaryCard
+              icon={PiggyBank}
+              label="Total ahorrado"
+              value={summary.totalSavings}
+              color="bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400"
+              sub="en todas tus metas"
+            />
+          </div>
+
+          {/* Indicador de tasa de ahorro */}
+          <div className="card">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-50">Tasa de ahorro</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {savingsStatus === 'nodata'
+                    ? 'Sin datos de ingresos'
+                    : balance >= 0
+                      ? `Podrías guardar ${fmt(balance)} este período`
+                      : `Te faltan ${fmt(Math.abs(balance))} para cubrir tus gastos`}
+                </p>
+              </div>
+              <div className="text-right shrink-0 ml-4">
+                <p className={`text-3xl font-bold leading-none ${cfg.zone}`}>
+                  {savingsStatus === 'nodata' ? '—'
+                   : savingsStatus === 'deficit' ? `−${Math.abs(savingsRate)}%`
+                   : `${savingsRate}%`}
+                </p>
+                <p className={`text-xs font-semibold mt-1 ${cfg.zone}`}>{cfg.label}</p>
+              </div>
+            </div>
+            <div className="relative mb-1">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                <div className={`h-3 rounded-full transition-all duration-700 ${cfg.barColor}`} style={{ width: `${barPct}%` }} />
+              </div>
+              {[10, 20, 35].map(mark => (
+                <div key={mark} className="absolute top-0 h-3 w-0.5 bg-white dark:bg-gray-900 opacity-70" style={{ left: `${mark}%` }} />
+              ))}
+            </div>
+            <div className="relative h-4 mb-4 text-xs text-gray-400">
+              <span className="absolute left-0">0%</span>
+              <span className="absolute" style={{ left: '10%', transform: 'translateX(-50%)' }}>10%</span>
+              <span className="absolute" style={{ left: '20%', transform: 'translateX(-50%)' }}>20%</span>
+              <span className="absolute" style={{ left: '35%', transform: 'translateX(-50%)' }}>35%</span>
+              <span className="absolute right-0">100%</span>
+            </div>
+            <div className={`flex items-start gap-2 px-3 py-2.5 rounded-lg ${cfg.bg}`}>
+              {savingsStatus === 'deficit' || savingsStatus === 'low'
+                ? <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />
+                : <TrendingUp   className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.zone}`} />}
+              <p className={`text-sm ${cfg.zone}`}>{cfg.msg}</p>
+            </div>
+          </div>
+
+          {/* Gráfico: Ingresos vs Gastos */}
+          <div className="card">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Ingresos vs Gastos</h3>
             <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}>
-                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Pie>
+              <BarChart data={barData}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v) => fmt(v)} />
-                <Legend iconSize={10} />
-              </PieChart>
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  <Cell fill="#22c55e" />
+                  <Cell fill="#ef4444" />
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-44 text-gray-400">
-              <AlertCircle className="h-8 w-8 mb-2" />
-              <p className="text-sm">Sin gastos este mes</p>
-            </div>
-          )}
-        </div>
-
-      </div>{/* fin columna izquierda */}
-
-      {/* ════════════════════ COLUMNA DERECHA ════════════════════ */}
-      <div className="mt-6 lg:mt-0">
-        <div className="lg:sticky lg:top-20 card !p-0 overflow-hidden">
-
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-50">Gastos del mes</h3>
-              <p className="text-xs text-gray-400 capitalize">{monthLabel}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold text-red-600 dark:text-red-400">
-                -{fmt(monthExpenses.reduce((s, e) => s + (e.amount || 0), 0))}
-              </p>
-              <p className="text-xs text-gray-400">{monthExpenses.length} ítem{monthExpenses.length !== 1 ? 's' : ''}</p>
-            </div>
           </div>
 
-          {/* Lista con scroll propio */}
-          <div className="overflow-y-auto max-h-[calc(100vh-16rem)] lg:max-h-[72vh]">
-            {loadingExpenses ? (
-              <div className="space-y-3 p-4">
-                {[1, 2, 3, 4].map(i => <LoadingRow key={i} />)}
-              </div>
-            ) : monthExpenses.length === 0 ? (
-              <div className="flex flex-col items-center py-16 text-gray-400">
-                <AlertCircle className="h-10 w-10 mb-3" />
-                <p className="font-medium text-gray-600 dark:text-gray-400">Sin gastos este mes</p>
-                <button onClick={onAddExpense} className="mt-4 btn-primary flex items-center gap-2 text-sm">
-                  <Plus className="h-4 w-4" /> Agregar gasto
-                </button>
-              </div>
+          {/* Gráfico: Gastos por categoría */}
+          <div className="card">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Gastos por categoría</h3>
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}>
+                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => fmt(v)} />
+                  <Legend iconSize={10} />
+                </PieChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {monthExpenses.map((item, idx) => {
-                  const cat   = EXPENSE_CATEGORIES.find(c => c.value === item.category)
-                  const color = CATEGORY_COLORS[item.category] ?? '#94a3b8'
-                  return (
-                    <div key={item.id ?? idx} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
-                        style={{ backgroundColor: color + '22' }}>
-                        {cat?.emoji ?? '📦'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
-                            {item.description || cat?.label}
-                          </p>
-                          {item.recurring && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
-                              <RefreshCw className="h-2.5 w-2.5" /> Mensual
-                            </span>
-                          )}
-                          {item.installmentNumber != null && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 shrink-0">
-                              Cuota {item.installmentNumber}/{item.installmentTotal}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400">{cat?.label} · {fmtDate(item.date)}</p>
-                      </div>
-                      <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
-                        -{fmt(item.amount)}
-                      </span>
-                    </div>
-                  )
-                })}
+              <div className="flex flex-col items-center justify-center h-44 text-gray-400">
+                <AlertCircle className="h-8 w-8 mb-2" />
+                <p className="text-sm">Sin gastos en este período</p>
               </div>
             )}
           </div>
 
-          {/* Footer */}
-          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
-            <button onClick={onAddExpense}
-              className="w-full text-sm text-primary-600 dark:text-primary-400 hover:underline text-center flex items-center justify-center gap-1">
-              <Plus className="h-3.5 w-3.5" /> Agregar gasto
-            </button>
-          </div>
+        </div>{/* fin columna izquierda */}
 
-        </div>
-      </div>{/* fin columna derecha */}
+        {/* ════════════════════ COLUMNA DERECHA ════════════════════ */}
+        <div className="mt-6 lg:mt-0">
+          <div className="lg:sticky lg:top-20 card !p-0 overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-50">Gastos del período</h3>
+                <p className="text-xs text-gray-400">{periodFull}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">
+                  -{fmt(periodExpenses.reduce((s, e) => s + (e.amount || 0), 0))}
+                </p>
+                <p className="text-xs text-gray-400">{periodExpenses.length} ítem{periodExpenses.length !== 1 ? 's' : ''}</p>
+              </div>
+            </div>
+
+            {/* Lista */}
+            <div className="overflow-y-auto max-h-[calc(100vh-16rem)] lg:max-h-[72vh]">
+              {loading ? (
+                <div className="space-y-3 p-4">
+                  {[1, 2, 3, 4].map(i => <LoadingRow key={i} />)}
+                </div>
+              ) : periodExpenses.length === 0 ? (
+                <div className="flex flex-col items-center py-16 text-gray-400">
+                  <AlertCircle className="h-10 w-10 mb-3" />
+                  <p className="font-medium text-gray-600 dark:text-gray-400">Sin gastos en este período</p>
+                  <button onClick={onAddExpense} className="mt-4 btn-primary flex items-center gap-2 text-sm">
+                    <Plus className="h-4 w-4" /> Agregar gasto
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {periodExpenses.map((item, idx) => {
+                    const cat   = EXPENSE_CATEGORIES.find(c => c.value === item.category)
+                    const color = CATEGORY_COLORS[item.category] ?? '#94a3b8'
+                    return (
+                      <div key={item.id ?? idx} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
+                          style={{ backgroundColor: color + '22' }}>
+                          {cat?.emoji ?? '📦'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
+                              {item.description || cat?.label}
+                            </p>
+                            {item.recurring && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shrink-0">
+                                <RefreshCw className="h-2.5 w-2.5" /> Mensual
+                              </span>
+                            )}
+                            {item.installmentNumber != null && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 shrink-0">
+                                Cuota {item.installmentNumber}/{item.installmentTotal}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400">{cat?.label} · {fmtDate(item.date)}</p>
+                        </div>
+                        <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
+                          -{fmt(item.amount)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
+              <button onClick={onAddExpense}
+                className="w-full text-sm text-primary-600 dark:text-primary-400 hover:underline text-center flex items-center justify-center gap-1">
+                <Plus className="h-3.5 w-3.5" /> Agregar gasto
+              </button>
+            </div>
+
+          </div>
+        </div>{/* fin columna derecha */}
+
+      </div>
+
+      {/* ── Modal: Día de corte ─────────────────────────────────────── */}
+      {showBillingModal && (
+        <Modal title="Día de corte de tarjeta" onClose={() => setShowBillingModal(false)}>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Define el día del mes en que se cierra tu ciclo de facturación. El resumen de cada período mostrará los
+            gastos desde ese día del mes anterior hasta ese día del mes actual.
+          </p>
+          <FormField label="Día de corte (1 – 28)">
+            <input
+              type="number" min="1" max="28"
+              value={billingInput}
+              onChange={e => setBillingInput(e.target.value)}
+              placeholder="1 = mes calendario"
+              className={inputCls}
+              autoFocus
+            />
+          </FormField>
+          {billingInput !== '' && parseInt(billingInput) >= 1 && parseInt(billingInput) <= 28 && (
+            <p className="text-xs text-gray-400 -mt-2 mb-4">
+              {parseInt(billingInput) <= 1
+                ? 'Usará el mes calendario (del 1° al último día del mes).'
+                : `Ej: "Junio" irá del ${billingInput} de mayo al ${billingInput} de junio.`}
+            </p>
+          )}
+          <ModalButtons onClose={() => setShowBillingModal(false)} onSave={saveBillingDay} saving={false} />
+        </Modal>
+      )}
 
     </div>
   )
