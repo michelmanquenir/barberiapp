@@ -24,6 +24,7 @@ import ShopOrders from './pages/admin/ShopOrders'
 import ShopTransport from './pages/admin/ShopTransport'
 import PointOfSale from './pages/admin/PointOfSale'
 import GymMembers from './pages/admin/GymMembers'
+import PersonalSales from './pages/admin/PersonalSales'
 import PublicShopCatalog from './pages/PublicShopCatalog'
 import PublicTransport from './pages/PublicTransport'
 import PublicBooking from './pages/PublicBooking'
@@ -245,6 +246,14 @@ function App() {
               element={
                 <ProtectedRoute requireBusinessOwner>
                   <GymMembers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/shops/:shopId/ventas"
+              element={
+                <ProtectedRoute requireBusinessOwner>
+                  <PersonalSales />
                 </ProtectedRoute>
               }
             />

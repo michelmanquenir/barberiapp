@@ -1299,6 +1299,10 @@ function ShopDetail() {
                   <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                     {isProductShop ? (
                       <div className="flex items-center gap-2">
+                        <button onClick={() => navigate(`/admin/shops/${shopId}/ventas`)}
+                          className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition">
+                          <LayoutGrid className="w-3.5 h-3.5" />Ventas personales
+                        </button>
                         <button onClick={() => navigate(`/admin/shops/${shopId}/pos`)}
                           className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
                           <TrendingUp className="w-3.5 h-3.5" />Caja / POS
