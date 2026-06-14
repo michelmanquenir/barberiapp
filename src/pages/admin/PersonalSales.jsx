@@ -389,6 +389,11 @@ function PersonalSales() {
                               {item.productName ?? 'Producto'} × {item.quantity}
                             </p>
                           ))}
+                          {order.notes && (
+                            <p className="text-xs text-violet-600 dark:text-violet-400 mt-1 italic leading-snug">
+                              {order.notes}
+                            </p>
+                          )}
                         </div>
                       )
                     })}
