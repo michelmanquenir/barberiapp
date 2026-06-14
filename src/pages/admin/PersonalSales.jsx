@@ -40,6 +40,8 @@ function PersonalSales() {
   const [cart, setCart]           = useState({}) // { id: { product, qty } }
   const [submitting, setSubmitting] = useState(false)
   const [showAll, setShowAll]     = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [saleNote, setSaleNote]   = useState('')
 
   const loadData = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -98,8 +100,13 @@ function PersonalSales() {
 
   // ── Confirm sale ──────────────────────────────────────────────────────────────
 
-  const handleConfirm = async () => {
+  const openConfirm = () => {
     if (cartItems.length === 0) return
+    setSaleNote('')
+    setConfirmOpen(true)
+  }
+
+  const handleConfirm = async () => {
     setSubmitting(true)
     try {
       await api.createOrder({
@@ -108,12 +115,14 @@ function PersonalSales() {
         deliveryType: 'pickup',
         paymentMethod: 'cash',
         clientAddress: null,
-        notes: null,
+        notes: saleNote.trim() || null,
         deliveryFee: 0,
         items: cartItems.map(i => ({ productId: i.product.id, quantity: i.qty })),
       })
       toast.success('Venta registrada correctamente')
       setCart({})
+      setConfirmOpen(false)
+      setSaleNote('')
       await loadData(true)
     } catch (err) {
       toast.error(err?.message || 'Error al registrar la venta')
@@ -311,14 +320,10 @@ function PersonalSales() {
                         <span className="text-xl font-bold text-gray-900 dark:text-white">{fmt(cartTotal)}</span>
                       </div>
                       <button
-                        onClick={handleConfirm}
-                        disabled={submitting}
-                        className="w-full py-2.5 rounded-lg bg-green-600 text-white font-semibold text-sm hover:bg-green-700 active:bg-green-800 transition disabled:opacity-60 flex items-center justify-center gap-2"
+                        onClick={openConfirm}
+                        className="w-full py-2.5 rounded-lg bg-green-600 text-white font-semibold text-sm hover:bg-green-700 active:bg-green-800 transition flex items-center justify-center gap-2"
                       >
-                        {submitting
-                          ? <><Loader2 className="w-4 h-4 animate-spin" /> Registrando...</>
-                          : <><Check className="w-4 h-4" /> Confirmar venta</>
-                        }
+                        <Check className="w-4 h-4" /> Confirmar venta
                       </button>
                       <button
                         onClick={() => setCart({})}
@@ -395,6 +400,77 @@ function PersonalSales() {
           </div>
         </div>
       </div>
+
+      {/* ── Confirm sale modal ──────────────────────────────────────────────── */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !submitting && setConfirmOpen(false)} />
+          <div className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden">
+
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center shrink-0">
+                <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-white text-sm">Confirmar venta</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'} · {fmt(cartTotal)}</p>
+              </div>
+              <button
+                onClick={() => !submitting && setConfirmOpen(false)}
+                className="ml-auto p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Items summary */}
+            <div className="px-5 py-3 border-b border-gray-50 dark:border-gray-800 space-y-1.5">
+              {cartItems.map(({ product, qty }) => (
+                <div key={product.id} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700 dark:text-gray-300 truncate">{product.name} <span className="text-gray-400">×{qty}</span></span>
+                  <span className="font-medium text-gray-900 dark:text-white shrink-0 ml-2">{fmt(product.salePrice * qty)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Note field */}
+            <div className="px-5 py-4 space-y-2">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                Nota (opcional)
+              </label>
+              <textarea
+                value={saleNote}
+                onChange={e => setSaleNote(e.target.value)}
+                placeholder="Ej: Pedido de María, para el viernes 20..."
+                rows={3}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none transition"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                disabled={submitting}
+                className="flex-1 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={submitting}
+                className="flex-1 py-2.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {submitting
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Registrando...</>
+                  : <><Check className="w-4 h-4" /> Registrar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
