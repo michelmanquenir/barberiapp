@@ -410,13 +410,40 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
 
 // ─── TAB: Resumen ────────────────────────────────────────────────────────────
 
+// Devuelve las cuotas (FinanceInstallment) activas/pasadas para un mes dado
+function getInstallmentsForPeriod(installments, periodYear, periodMonth) {
+  const now = new Date()
+  const monthsFromNow = (periodYear * 12 + periodMonth) - (now.getFullYear() * 12 + now.getMonth())
+  return installments
+    .filter(inst => {
+      const remaining = inst.totalInstallments - inst.paidInstallments
+      if (monthsFromNow >= 0) return monthsFromNow < remaining          // futuro/actual
+      else                    return (-monthsFromNow) <= inst.paidInstallments // pasado
+    })
+    .map(inst => {
+      const cuotaNum = inst.paidInstallments + 1 + monthsFromNow
+      const remainingAfterThisMonth = inst.totalInstallments - cuotaNum
+      return {
+        id:           `inst-proj-${inst.id}`,
+        _projectedInstallment: true,
+        description:  inst.description,
+        amount:       inst.installmentAmount,
+        category:     'CUOTA',
+        _cuotaNum:    cuotaNum,
+        _totalCuotas: inst.totalInstallments,
+        _remaining:   remainingAfterThisMonth,
+      }
+    })
+}
+
 function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
-  const [expenses,   setExpenses]   = useState([])
-  const [incomes,    setIncomes]    = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [exporting,  setExporting]  = useState(null) // 'excel' | 'pdf' | null
-  const [editItem,   setEditItem]   = useState(null) // expense being edited
-  const [deletingId, setDeletingId] = useState(null) // id being deleted
+  const [expenses,      setExpenses]      = useState([])
+  const [incomes,       setIncomes]       = useState([])
+  const [installments,  setInstallments]  = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [exporting,     setExporting]     = useState(null) // 'excel' | 'pdf' | null
+  const [editItem,      setEditItem]      = useState(null) // expense being edited
+  const [deletingId,    setDeletingId]    = useState(null) // id being deleted
 
   // Period navigation
   const nowDate = new Date()
@@ -435,10 +462,12 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
     Promise.all([
       api.getFinanceExpenses(userId),
       api.getFinanceIncomes(userId),
-    ]).then(([exp, inc]) => {
-      setExpenses(exp || [])
-      setIncomes(inc  || [])
-    }).catch(() => { setExpenses([]); setIncomes([]) })
+      api.getFinanceInstallments(userId),
+    ]).then(([exp, inc, inst]) => {
+      setExpenses(exp   || [])
+      setIncomes(inc    || [])
+      setInstallments(inst || [])
+    }).catch(() => { setExpenses([]); setIncomes([]); setInstallments([]) })
     .finally(() => setLoading(false))
   }, [userId])
 
@@ -468,14 +497,19 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
     [periodYear, periodMonth, billingDay]
   )
 
-  const isCurrentPeriod = periodYear === nowDate.getFullYear() && periodMonth === nowDate.getMonth()
+  const monthsFromNow = (periodYear * 12 + periodMonth) - (nowDate.getFullYear() * 12 + nowDate.getMonth())
+  const isCurrentPeriod = monthsFromNow === 0
+  const isFuturePeriod  = monthsFromNow > 0
+  // Max 24 meses adelante
+  const maxFutureMonths = 24
+  const isMaxFuture = monthsFromNow >= maxFutureMonths
 
   const prevPeriod = () => {
     if (periodMonth === 0) { setPeriodYear(y => y - 1); setPeriodMonth(11) }
     else setPeriodMonth(m => m - 1)
   }
   const nextPeriod = () => {
-    if (isCurrentPeriod) return
+    if (isMaxFuture) return
     if (periodMonth === 11) { setPeriodYear(y => y + 1); setPeriodMonth(0) }
     else setPeriodMonth(m => m + 1)
   }
@@ -492,19 +526,37 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
     ? `${fmtShortDate(periodFrom)} – ${periodTo.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`
     : periodShort
 
-  // Client-side summary for selected period
-  const periodSummaryData = useMemo(
-    () => calcPeriodSummary(expenses, incomes, periodFrom, periodTo),
-    [expenses, incomes, periodFrom, periodTo]
+  // Cuotas (FinanceInstallment) proyectadas para este período
+  const projectedInstallments = useMemo(
+    () => getInstallmentsForPeriod(installments, periodYear, periodMonth),
+    [installments, periodYear, periodMonth]
   )
+
+  // Client-side summary for selected period
+  const periodSummaryData = useMemo(() => {
+    const base = calcPeriodSummary(expenses, incomes, periodFrom, periodTo)
+    // Sumar cuotas proyectadas al total de gastos
+    const installmentTotal = projectedInstallments.reduce((s, i) => s + i.amount, 0)
+    return {
+      ...base,
+      monthlyExpenses: base.monthlyExpenses + installmentTotal,
+      monthlyBalance:  base.monthlyBalance  - installmentTotal,
+      expensesByCategory: {
+        ...base.expensesByCategory,
+        ...(installmentTotal > 0 ? { CUOTA: (base.expensesByCategory?.CUOTA ?? 0) + installmentTotal } : {}),
+      },
+    }
+  }, [expenses, incomes, periodFrom, periodTo, projectedInstallments])
 
   // Merge: period-specific data overrides server summary; totalSavings is period-independent
   const summary = { ...serverSummary, ...periodSummaryData }
 
-  const periodExpenses = useMemo(
-    () => getPeriodExpenses(expenses, periodFrom, periodTo),
-    [expenses, periodFrom, periodTo]
-  )
+  const periodExpenses = useMemo(() => {
+    const base = getPeriodExpenses(expenses, periodFrom, periodTo)
+    // Agregar cuotas proyectadas al inicio de la lista
+    return [...projectedInstallments, ...base]
+  }, [expenses, periodFrom, periodTo, projectedInstallments])
+
   const periodIncomesList = useMemo(
     () => getPeriodIncomes(incomes, periodFrom, periodTo),
     [incomes, periodFrom, periodTo]
@@ -584,7 +636,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
               <p className="text-xs text-gray-400 leading-tight">{periodRange}</p>
             )}
           </div>
-          <button onClick={nextPeriod} disabled={isCurrentPeriod}
+          <button onClick={nextPeriod} disabled={isMaxFuture}
             className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -612,6 +664,16 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
           </button>
         </div>
       </div>
+
+      {/* ── Banner proyección ───────────────────────────────────────── */}
+      {isFuturePeriod && (
+        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 mb-5">
+          <CalendarDays className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
+          <p className="text-sm text-indigo-700 dark:text-indigo-300">
+            <span className="font-semibold">Proyección —</span> Los montos reflejan tus cuotas e ingresos periódicos esperados. Los gastos normales no aparecen hasta que los registres.
+          </p>
+        </div>
+      )}
 
       {/* ── Grid 2 columnas ─────────────────────────────────────────── */}
       <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start space-y-6 lg:space-y-0">
@@ -743,7 +805,9 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
               <div>
-                <h3 className="font-semibold text-gray-900 dark:text-gray-50">Gastos del período</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-50">
+                  {isFuturePeriod ? 'Proyección de gastos' : 'Gastos del período'}
+                </h3>
                 <p className="text-xs text-gray-400">{periodFull}</p>
               </div>
               <div className="text-right">
@@ -771,6 +835,36 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {periodExpenses.map((item, idx) => {
+                    // ── Item de cuota proyectada (FinanceInstallment) ──
+                    if (item._projectedInstallment) {
+                      return (
+                        <div key={item.id} className="flex items-center gap-3 px-5 py-3 bg-indigo-50/50 dark:bg-indigo-950/20">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0 bg-indigo-100 dark:bg-indigo-950">
+                            💳
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
+                                {item.description}
+                              </p>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
+                                Cuota {item._cuotaNum}/{item._totalCuotas}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-400">
+                              Cuota · {item._remaining > 0
+                                ? `quedan ${item._remaining} después de este mes`
+                                : 'última cuota 🎉'}
+                            </p>
+                          </div>
+                          <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
+                            -{fmt(item.amount)}
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    // ── Gasto normal ──
                     const cat        = EXPENSE_CATEGORIES.find(c => c.value === item.category)
                     const color      = CATEGORY_COLORS[item.category] ?? '#94a3b8'
                     const isDeleting = deletingId === item.id
