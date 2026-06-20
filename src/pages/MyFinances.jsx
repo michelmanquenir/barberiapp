@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Pencil, Check, X,
   DollarSign, Target, AlertCircle, Loader2,
   ArrowUpCircle, RefreshCw, ChevronRight, ChevronLeft,
-  Settings, Download,
+  Settings, Download, CreditCard, CalendarDays,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -42,6 +42,7 @@ const CATEGORY_COLORS = {
 const TABS = [
   { id: 'resumen',  label: 'Resumen'   },
   { id: 'ingresos', label: 'Ingresos'  },
+  { id: 'cuotas',   label: 'Cuotas'    },
   { id: 'metas',    label: 'Metas'     },
 ]
 
@@ -1688,6 +1689,463 @@ function TabMetas({ userId, onRefreshSummary }) {
   )
 }
 
+// ─── TAB: Cuotas ────────────────────────────────────────────────────────────
+
+const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+function buildInstallmentTimeline(installments) {
+  if (!installments.length) return { months: [], rows: [] }
+
+  const now = new Date()
+  const curYear  = now.getFullYear()
+  const curMonth = now.getMonth() // 0-indexed
+
+  // For each installment compute start/end real month
+  const enriched = installments.map(inst => {
+    // cuota being paid THIS month = paidInstallments + 1
+    // start real month = curMonth - paidInstallments
+    const startOffset = -inst.paidInstallments
+    const startDate   = new Date(curYear, curMonth + startOffset, 1)
+    const endDate     = new Date(curYear, curMonth + startOffset + inst.totalInstallments - 1, 1)
+    return { inst, startDate, endDate }
+  })
+
+  // Global range
+  const minDate = enriched.reduce((m, e) => e.startDate < m ? e.startDate : m, enriched[0].startDate)
+  const maxDate = enriched.reduce((m, e) => e.endDate   > m ? e.endDate   : m, enriched[0].endDate)
+
+  // Generate month columns
+  const months = []
+  let d = new Date(minDate.getFullYear(), minDate.getMonth(), 1)
+  while (d <= maxDate) {
+    months.push({ year: d.getFullYear(), month: d.getMonth() })
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+  }
+
+  // For each installment, build a cell per month
+  const rows = enriched.map(({ inst, startDate }) => {
+    const cells = months.map(({ year, month }) => {
+      const monthDate  = new Date(year, month, 1)
+      const monthIndex = Math.round((monthDate - startDate) / (1000 * 60 * 60 * 24 * 30.44))
+      if (monthIndex < 0 || monthIndex >= inst.totalInstallments) return null // not active
+
+      const cuotaNum = monthIndex + 1
+      const isCur    = year === curYear && month === curMonth
+      const isPast   = cuotaNum <= inst.paidInstallments
+      const status   = isPast ? 'paid' : isCur ? 'current' : 'future'
+      return { cuotaNum, status }
+    })
+    return { inst, cells }
+  })
+
+  return { months, rows }
+}
+
+function InstallmentTimelineView({ installments }) {
+  if (!installments.length) return null
+
+  const { months, rows } = buildInstallmentTimeline(installments)
+  const now = new Date()
+
+  return (
+    <div className="card !p-0 overflow-hidden">
+      <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+        <CalendarDays className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+        <h3 className="font-semibold text-gray-900 dark:text-gray-50">Calendario de cuotas</h3>
+        <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-green-500"/><span>Pagado</span></span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-blue-500"/><span>Este mes</span></span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-gray-200 dark:bg-gray-700"/><span>Pendiente</span></span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-gray-100 dark:border-gray-800">
+              {/* Nombre columna fija */}
+              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-900 px-4 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-400 min-w-[140px] border-r border-gray-100 dark:border-gray-800">
+                Cuota
+              </th>
+              {months.map(({ year, month }) => {
+                const isCur = year === now.getFullYear() && month === now.getMonth()
+                return (
+                  <th key={`${year}-${month}`}
+                    className={`px-2 py-2.5 text-center font-semibold min-w-[72px] whitespace-nowrap
+                      ${isCur
+                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30'
+                        : 'text-gray-500 dark:text-gray-400'}`}>
+                    <div>{MONTH_NAMES[month]}</div>
+                    <div className="font-normal text-gray-400">{year}</div>
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ inst, cells }) => (
+              <tr key={inst.id} className="border-b border-gray-50 dark:border-gray-800/60 hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
+                <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-4 py-3 border-r border-gray-100 dark:border-gray-800">
+                  <p className="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[120px]">{inst.description}</p>
+                  <p className="text-gray-400">{fmt(inst.installmentAmount)}/mes</p>
+                </td>
+                {cells.map((cell, i) => {
+                  const { year, month } = months[i]
+                  const isCur = year === now.getFullYear() && month === now.getMonth()
+                  if (!cell) {
+                    return (
+                      <td key={i} className={`px-2 py-3 text-center ${isCur ? 'bg-blue-50/30 dark:bg-blue-950/10' : ''}`}>
+                        <span className="text-gray-200 dark:text-gray-700">—</span>
+                      </td>
+                    )
+                  }
+                  const { cuotaNum, status } = cell
+                  const cellBg = status === 'paid'    ? 'bg-green-500'
+                               : status === 'current' ? 'bg-blue-500'
+                               :                        'bg-gray-200 dark:bg-gray-700'
+                  const textCl = status === 'paid' || status === 'current' ? 'text-white' : 'text-gray-600 dark:text-gray-300'
+                  return (
+                    <td key={i} className={`px-2 py-3 text-center ${isCur ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>
+                      <div className={`inline-flex flex-col items-center justify-center w-12 h-10 rounded-lg ${cellBg}`}>
+                        <span className={`text-xs font-bold leading-none ${textCl}`}>{fmt(inst.installmentAmount).replace('$','$').replace(/\./g,'').slice(0,5)}</span>
+                        <span className={`text-[10px] leading-none mt-0.5 ${textCl} opacity-80`}>{cuotaNum}/{inst.totalInstallments}</span>
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+
+            {/* Fila total */}
+            <tr className="bg-gray-50 dark:bg-gray-800/50 font-semibold">
+              <td className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 border-r border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300">
+                Total del mes
+              </td>
+              {months.map(({ year, month }, colIdx) => {
+                const isCur = year === now.getFullYear() && month === now.getMonth()
+                const total = rows.reduce((sum, { cells }) => {
+                  const cell = cells[colIdx]
+                  return sum + (cell ? rows.find(r => r.cells === cells)?.inst?.installmentAmount ?? 0 : 0)
+                }, 0)
+                // Recalculate properly
+                const monthTotal = rows.reduce((sum, { inst, cells }) => {
+                  return sum + (cells[colIdx] ? inst.installmentAmount : 0)
+                }, 0)
+                return (
+                  <td key={`tot-${year}-${month}`}
+                    className={`px-2 py-3 text-center text-xs font-bold ${isCur ? 'bg-blue-50/40 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {monthTotal > 0 ? fmt(monthTotal) : <span className="text-gray-300 dark:text-gray-600 font-normal">—</span>}
+                  </td>
+                )
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function TabCuotas({ userId, onRefreshSummary }) {
+  const [installments, setInstallments] = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [saving,       setSaving]       = useState(false)
+  const [modal,        setModal]        = useState(null) // null | 'new' | installment object
+  const [payingId,     setPayingId]     = useState(null)
+  const [deletingId,   setDeletingId]   = useState(null)
+  const [error,        setError]        = useState('')
+  const [view,         setView]         = useState('timeline') // 'timeline' | 'list'
+
+  const emptyForm = () => ({
+    description: '', installmentAmount: '', totalInstallments: '',
+    paidInstallments: '0', dueDay: '',
+  })
+  const [form, setForm] = useState(emptyForm())
+
+  const load = useCallback(() => {
+    setLoading(true)
+    api.getFinanceInstallments(userId)
+      .then(data => setInstallments(data || []))
+      .catch(() => setInstallments([]))
+      .finally(() => setLoading(false))
+  }, [userId])
+
+  useEffect(() => { load() }, [load])
+
+  const openNew = () => {
+    setError('')
+    setForm(emptyForm())
+    setModal('new')
+  }
+
+  const openEdit = (inst) => {
+    setError('')
+    setForm({
+      description:        inst.description ?? '',
+      installmentAmount:  String(inst.installmentAmount ?? ''),
+      totalInstallments:  String(inst.totalInstallments ?? ''),
+      paidInstallments:   String(inst.paidInstallments ?? '0'),
+      dueDay:             inst.dueDay ? String(inst.dueDay) : '',
+    })
+    setModal(inst)
+  }
+
+  const handleSave = async () => {
+    setError('')
+    const data = {
+      description:       form.description,
+      installmentAmount: parseFloat(form.installmentAmount),
+      totalInstallments: parseInt(form.totalInstallments),
+      paidInstallments:  parseInt(form.paidInstallments) || 0,
+      dueDay:            form.dueDay ? parseInt(form.dueDay) : null,
+      totalAmount:       parseFloat(form.installmentAmount) * parseInt(form.totalInstallments),
+    }
+    if (!data.description)                    { setError('Escribe una descripción.'); return }
+    if (!data.installmentAmount || isNaN(data.installmentAmount) || data.installmentAmount <= 0) { setError('Monto por cuota inválido.'); return }
+    if (!data.totalInstallments || isNaN(data.totalInstallments) || data.totalInstallments < 1)  { setError('Total de cuotas inválido.'); return }
+    if (data.paidInstallments > data.totalInstallments) { setError('Las cuotas pagadas no pueden superar el total.'); return }
+
+    setSaving(true)
+    try {
+      if (modal === 'new') await api.createFinanceInstallment(userId, data)
+      else                  await api.updateFinanceInstallment(modal.id, userId, data)
+      setModal(null)
+      load()
+      onRefreshSummary()
+    } catch (e) {
+      setError(e.message || 'No se pudo guardar.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handlePay = async (inst) => {
+    if (inst.paidInstallments >= inst.totalInstallments) return
+    setPayingId(inst.id)
+    try {
+      await api.payFinanceInstallment(inst.id, userId)
+      load()
+      onRefreshSummary()
+    } catch {
+      alert('No se pudo registrar el pago.')
+    } finally {
+      setPayingId(null)
+    }
+  }
+
+  const handleDelete = async (inst) => {
+    if (!confirm(`¿Eliminar "${inst.description}"?`)) return
+    setDeletingId(inst.id)
+    try {
+      await api.deleteFinanceInstallment(inst.id, userId)
+      load()
+      onRefreshSummary()
+    } catch {
+      alert('No se pudo eliminar.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const active    = installments.filter(i => i.paidInstallments < i.totalInstallments)
+  const completed = installments.filter(i => i.paidInstallments >= i.totalInstallments)
+
+  return (
+    <div className="space-y-5">
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Mis Cuotas</h2>
+          {!loading && (
+            <p className="text-sm text-gray-400">
+              {active.length} activa{active.length !== 1 ? 's' : ''}
+              {completed.length > 0 && ` · ${completed.length} completada${completed.length !== 1 ? 's' : ''}`}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Toggle vista */}
+          <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setView('timeline')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+                ${view === 'timeline' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-50 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+              <CalendarDays className="h-3.5 w-3.5" /> Calendario
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+                ${view === 'list' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-50 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+              <CreditCard className="h-3.5 w-3.5" /> Lista
+            </button>
+          </div>
+          <button onClick={openNew} className="btn-primary flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nueva cuota
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">{[1,2,3].map(i => <LoadingRow key={i} />)}</div>
+      ) : installments.length === 0 ? (
+        <EmptyState
+          icon={CreditCard}
+          text="Sin cuotas registradas"
+          sub="Agrega tus pagos en cuotas para ver cuánto debes mes a mes."
+          onAdd={openNew}
+          addLabel="Agregar primera cuota"
+        />
+      ) : view === 'timeline' ? (
+        /* ── Vista timeline ── */
+        <div className="space-y-5">
+          <InstallmentTimelineView installments={active} />
+          {completed.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Completadas</p>
+              <InstallmentTimelineView installments={completed} />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ── Vista lista ── */
+        <div className="space-y-4">
+          {active.length > 0 && (
+            <div className="space-y-3">
+              {active.map(inst => {
+                const remaining = inst.totalInstallments - inst.paidInstallments
+                const pct       = Math.round((inst.paidInstallments / inst.totalInstallments) * 100)
+                const isPaying  = payingId  === inst.id
+                const isDeleting = deletingId === inst.id
+                return (
+                  <div key={inst.id} className="card">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-950 flex items-center justify-center shrink-0">
+                          <CreditCard className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 dark:text-gray-50 truncate">{inst.description}</p>
+                          <p className="text-xs text-gray-400">
+                            {inst.paidInstallments}/{inst.totalInstallments} pagadas · {remaining} restante{remaining !== 1 ? 's' : ''}
+                            {inst.dueDay ? ` · Vence día ${inst.dueDay}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => handlePay(inst)} disabled={isPaying}
+                          title="Marcar cuota pagada"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-200 dark:hover:bg-green-900 transition-colors disabled:opacity-50">
+                          {isPaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                          Pagar
+                        </button>
+                        <button onClick={() => openEdit(inst)} className="p-1.5 text-gray-400 hover:text-primary-600 transition-colors"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => handleDelete(inst)} disabled={isDeleting} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="text-gray-500 dark:text-gray-400">{fmt(inst.installmentAmount)}/mes</span>
+                      <span className="font-semibold text-orange-600 dark:text-orange-400">
+                        {fmt(inst.installmentAmount * remaining)} restante
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div className="h-2 rounded-full bg-orange-500 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-right text-xs text-gray-400 mt-1">{pct}% pagado</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {completed.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Completadas</p>
+              <div className="space-y-2">
+                {completed.map(inst => (
+                  <div key={inst.id} className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-800 opacity-60">
+                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center shrink-0">
+                      <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-700 dark:text-gray-300 truncate">{inst.description}</p>
+                      <p className="text-xs text-gray-400">{inst.totalInstallments} cuotas · {fmt(inst.installmentAmount)}/mes</p>
+                    </div>
+                    <button onClick={() => handleDelete(inst)} className="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal nueva / editar */}
+      {modal && (
+        <Modal title={modal === 'new' ? 'Nueva cuota' : 'Editar cuota'} onClose={() => setModal(null)}>
+          <ErrorBanner msg={error} />
+
+          <FormField label="Descripción" required>
+            <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
+              placeholder="Ej: Auto, Celular, Notebook..." className={inputCls} autoFocus />
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Monto por cuota" required>
+              <input type="number" min="0" step="0.01" value={form.installmentAmount}
+                onChange={e => setForm({ ...form, installmentAmount: e.target.value })}
+                placeholder="0" className={inputCls} />
+            </FormField>
+            <FormField label="Total de cuotas" required>
+              <input type="number" min="1" value={form.totalInstallments}
+                onChange={e => setForm({ ...form, totalInstallments: e.target.value })}
+                placeholder="Ej: 12" className={inputCls} />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Ya pagadas">
+              <input type="number" min="0" value={form.paidInstallments}
+                onChange={e => setForm({ ...form, paidInstallments: e.target.value })}
+                placeholder="0" className={inputCls} />
+            </FormField>
+            <FormField label="Día de vencimiento">
+              <input type="number" min="1" max="31" value={form.dueDay}
+                onChange={e => setForm({ ...form, dueDay: e.target.value })}
+                placeholder="Ej: 5" className={inputCls} />
+            </FormField>
+          </div>
+
+          {form.installmentAmount && form.totalInstallments && (
+            <div className="rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-3 mb-4 text-sm">
+              <div className="flex justify-between text-orange-700 dark:text-orange-300">
+                <span>Total del plan:</span>
+                <span className="font-bold">{fmt(parseFloat(form.installmentAmount) * parseInt(form.totalInstallments))}</span>
+              </div>
+              {parseInt(form.paidInstallments) > 0 && (
+                <div className="flex justify-between text-orange-600 dark:text-orange-400 mt-1">
+                  <span>Restante:</span>
+                  <span className="font-semibold">
+                    {fmt(parseFloat(form.installmentAmount) * (parseInt(form.totalInstallments) - parseInt(form.paidInstallments || 0)))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <ModalButtons onClose={() => setModal(null)} onSave={handleSave} saving={saving} />
+        </Modal>
+      )}
+    </div>
+  )
+}
+
 // ─── Botones de modal reutilizables ──────────────────────────────────────────
 
 function ModalButtons({ onClose, onSave, saving, saveLabel = 'Guardar' }) {
@@ -1771,6 +2229,7 @@ function MyFinances() {
         <>
           {tab === 'resumen'  && <TabResumen  summary={summary} userId={user.userId} onAddExpense={() => setShowAddExpense(true)} />}
           {tab === 'ingresos' && <TabIngresos userId={user.userId} onRefreshSummary={loadSummary} />}
+          {tab === 'cuotas'   && <TabCuotas   userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'metas'    && <TabMetas    userId={user.userId} onRefreshSummary={loadSummary} />}
         </>
       )}
