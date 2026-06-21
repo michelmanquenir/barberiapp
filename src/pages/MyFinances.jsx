@@ -409,36 +409,10 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
 
 // ─── TAB: Resumen ────────────────────────────────────────────────────────────
 
-// Devuelve las cuotas (FinanceInstallment) activas/pasadas para un mes dado
-function getInstallmentsForPeriod(installments, periodYear, periodMonth) {
-  const now = new Date()
-  const monthsFromNow = (periodYear * 12 + periodMonth) - (now.getFullYear() * 12 + now.getMonth())
-  return installments
-    .filter(inst => {
-      const remaining = inst.totalInstallments - inst.paidInstallments
-      if (monthsFromNow >= 0) return monthsFromNow < remaining          // futuro/actual
-      else                    return (-monthsFromNow) <= inst.paidInstallments // pasado
-    })
-    .map(inst => {
-      const cuotaNum = inst.paidInstallments + 1 + monthsFromNow
-      const remainingAfterThisMonth = inst.totalInstallments - cuotaNum
-      return {
-        id:           `inst-proj-${inst.id}`,
-        _projectedInstallment: true,
-        description:  inst.description,
-        amount:       inst.installmentAmount,
-        category:     'CUOTA',
-        _cuotaNum:    cuotaNum,
-        _totalCuotas: inst.totalInstallments,
-        _remaining:   remainingAfterThisMonth,
-      }
-    })
-}
 
 function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
   const [expenses,      setExpenses]      = useState([])
   const [incomes,       setIncomes]       = useState([])
-  const [installments,  setInstallments]  = useState([])
   const [loading,       setLoading]       = useState(true)
   const [exporting,     setExporting]     = useState(null) // 'excel' | 'pdf' | null
   const [editItem,      setEditItem]      = useState(null) // expense being edited
@@ -461,12 +435,10 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
     Promise.all([
       api.getFinanceExpenses(userId),
       api.getFinanceIncomes(userId),
-      api.getFinanceInstallments(userId),
-    ]).then(([exp, inc, inst]) => {
-      setExpenses(exp   || [])
-      setIncomes(inc    || [])
-      setInstallments(inst || [])
-    }).catch(() => { setExpenses([]); setIncomes([]); setInstallments([]) })
+    ]).then(([exp, inc]) => {
+      setExpenses(exp || [])
+      setIncomes(inc  || [])
+    }).catch(() => { setExpenses([]); setIncomes([]) })
     .finally(() => setLoading(false))
   }, [userId])
 
@@ -525,36 +497,19 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
     ? `${fmtShortDate(periodFrom)} – ${periodTo.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`
     : periodShort
 
-  // Cuotas (FinanceInstallment) proyectadas para este período
-  const projectedInstallments = useMemo(
-    () => getInstallmentsForPeriod(installments, periodYear, periodMonth),
-    [installments, periodYear, periodMonth]
-  )
-
   // Client-side summary for selected period
-  const periodSummaryData = useMemo(() => {
-    const base = calcPeriodSummary(expenses, incomes, periodFrom, periodTo)
-    // Sumar cuotas proyectadas al total de gastos
-    const installmentTotal = projectedInstallments.reduce((s, i) => s + i.amount, 0)
-    return {
-      ...base,
-      monthlyExpenses: base.monthlyExpenses + installmentTotal,
-      monthlyBalance:  base.monthlyBalance  - installmentTotal,
-      expensesByCategory: {
-        ...base.expensesByCategory,
-        ...(installmentTotal > 0 ? { CUOTA: (base.expensesByCategory?.CUOTA ?? 0) + installmentTotal } : {}),
-      },
-    }
-  }, [expenses, incomes, periodFrom, periodTo, projectedInstallments])
+  const periodSummaryData = useMemo(
+    () => calcPeriodSummary(expenses, incomes, periodFrom, periodTo),
+    [expenses, incomes, periodFrom, periodTo]
+  )
 
   // Merge: period-specific data overrides server summary; totalSavings is period-independent
   const summary = { ...serverSummary, ...periodSummaryData }
 
-  const periodExpenses = useMemo(() => {
-    const base = getPeriodExpenses(expenses, periodFrom, periodTo)
-    // Agregar cuotas proyectadas al inicio de la lista
-    return [...projectedInstallments, ...base]
-  }, [expenses, periodFrom, periodTo, projectedInstallments])
+  const periodExpenses = useMemo(
+    () => getPeriodExpenses(expenses, periodFrom, periodTo),
+    [expenses, periodFrom, periodTo]
+  )
 
   const periodIncomesList = useMemo(
     () => getPeriodIncomes(incomes, periodFrom, periodTo),
@@ -834,35 +789,6 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {periodExpenses.map((item, idx) => {
-                    // ── Item de cuota proyectada (FinanceInstallment) ──
-                    if (item._projectedInstallment) {
-                      return (
-                        <div key={item.id} className="flex items-center gap-3 px-5 py-3 bg-indigo-50/50 dark:bg-indigo-950/20">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0 bg-indigo-100 dark:bg-indigo-950">
-                            💳
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
-                                {item.description}
-                              </p>
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0">
-                                Cuota {item._cuotaNum}/{item._totalCuotas}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-400">
-                              Cuota · {item._remaining > 0
-                                ? `quedan ${item._remaining} después de este mes`
-                                : 'última cuota 🎉'}
-                            </p>
-                          </div>
-                          <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
-                            -{fmt(item.amount)}
-                          </span>
-                        </div>
-                      )
-                    }
-
                     // ── Gasto normal ──
                     const cat        = EXPENSE_CATEGORIES.find(c => c.value === item.category)
                     const color      = CATEGORY_COLORS[item.category] ?? '#94a3b8'
@@ -1784,160 +1710,6 @@ function TabMetas({ userId, onRefreshSummary }) {
 
 // ─── TAB: Cuotas ────────────────────────────────────────────────────────────
 
-const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-
-function buildInstallmentTimeline(installments) {
-  if (!installments.length) return { months: [], rows: [] }
-
-  const now = new Date()
-  const curYear  = now.getFullYear()
-  const curMonth = now.getMonth() // 0-indexed
-
-  // For each installment compute start/end real month
-  const enriched = installments.map(inst => {
-    // cuota being paid THIS month = paidInstallments + 1
-    // start real month = curMonth - paidInstallments
-    const startOffset = -inst.paidInstallments
-    const startDate   = new Date(curYear, curMonth + startOffset, 1)
-    const endDate     = new Date(curYear, curMonth + startOffset + inst.totalInstallments - 1, 1)
-    return { inst, startDate, endDate }
-  })
-
-  // Global range
-  const minDate = enriched.reduce((m, e) => e.startDate < m ? e.startDate : m, enriched[0].startDate)
-  const maxDate = enriched.reduce((m, e) => e.endDate   > m ? e.endDate   : m, enriched[0].endDate)
-
-  // Generate month columns
-  const months = []
-  let d = new Date(minDate.getFullYear(), minDate.getMonth(), 1)
-  while (d <= maxDate) {
-    months.push({ year: d.getFullYear(), month: d.getMonth() })
-    d = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-  }
-
-  // For each installment, build a cell per month
-  const rows = enriched.map(({ inst, startDate }) => {
-    const cells = months.map(({ year, month }) => {
-      const monthDate  = new Date(year, month, 1)
-      const monthIndex = Math.round((monthDate - startDate) / (1000 * 60 * 60 * 24 * 30.44))
-      if (monthIndex < 0 || monthIndex >= inst.totalInstallments) return null // not active
-
-      const cuotaNum = monthIndex + 1
-      const isCur    = year === curYear && month === curMonth
-      const isPast   = cuotaNum <= inst.paidInstallments
-      const status   = isPast ? 'paid' : isCur ? 'current' : 'future'
-      return { cuotaNum, status }
-    })
-    return { inst, cells }
-  })
-
-  return { months, rows }
-}
-
-function InstallmentTimelineView({ installments }) {
-  if (!installments.length) return null
-
-  const { months, rows } = buildInstallmentTimeline(installments)
-  const now = new Date()
-
-  return (
-    <div className="card !p-0 overflow-hidden">
-      <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-        <CalendarDays className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-        <h3 className="font-semibold text-gray-900 dark:text-gray-50">Calendario de cuotas</h3>
-        <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-green-500"/><span>Pagado</span></span>
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-blue-500"/><span>Este mes</span></span>
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-gray-200 dark:bg-gray-700"/><span>Pendiente</span></span>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-gray-100 dark:border-gray-800">
-              {/* Nombre columna fija */}
-              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-900 px-4 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-400 min-w-[140px] border-r border-gray-100 dark:border-gray-800">
-                Cuota
-              </th>
-              {months.map(({ year, month }) => {
-                const isCur = year === now.getFullYear() && month === now.getMonth()
-                return (
-                  <th key={`${year}-${month}`}
-                    className={`px-2 py-2.5 text-center font-semibold min-w-[72px] whitespace-nowrap
-                      ${isCur
-                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30'
-                        : 'text-gray-500 dark:text-gray-400'}`}>
-                    <div>{MONTH_NAMES[month]}</div>
-                    <div className="font-normal text-gray-400">{year}</div>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ inst, cells }) => (
-              <tr key={inst.id} className="border-b border-gray-50 dark:border-gray-800/60 hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
-                <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 px-4 py-3 border-r border-gray-100 dark:border-gray-800">
-                  <p className="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[120px]">{inst.description}</p>
-                  <p className="text-gray-400">{fmt(inst.installmentAmount)}/mes</p>
-                </td>
-                {cells.map((cell, i) => {
-                  const { year, month } = months[i]
-                  const isCur = year === now.getFullYear() && month === now.getMonth()
-                  if (!cell) {
-                    return (
-                      <td key={i} className={`px-2 py-3 text-center ${isCur ? 'bg-blue-50/30 dark:bg-blue-950/10' : ''}`}>
-                        <span className="text-gray-200 dark:text-gray-700">—</span>
-                      </td>
-                    )
-                  }
-                  const { cuotaNum, status } = cell
-                  const cellBg = status === 'paid'    ? 'bg-green-500'
-                               : status === 'current' ? 'bg-blue-500'
-                               :                        'bg-gray-200 dark:bg-gray-700'
-                  const textCl = status === 'paid' || status === 'current' ? 'text-white' : 'text-gray-600 dark:text-gray-300'
-                  return (
-                    <td key={i} className={`px-2 py-3 text-center ${isCur ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>
-                      <div className={`inline-flex flex-col items-center justify-center w-12 h-10 rounded-lg ${cellBg}`}>
-                        <span className={`text-xs font-bold leading-none ${textCl}`}>{fmt(inst.installmentAmount).replace('$','$').replace(/\./g,'').slice(0,5)}</span>
-                        <span className={`text-[10px] leading-none mt-0.5 ${textCl} opacity-80`}>{cuotaNum}/{inst.totalInstallments}</span>
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-
-            {/* Fila total */}
-            <tr className="bg-gray-50 dark:bg-gray-800/50 font-semibold">
-              <td className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-800 px-4 py-3 border-r border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300">
-                Total del mes
-              </td>
-              {months.map(({ year, month }, colIdx) => {
-                const isCur = year === now.getFullYear() && month === now.getMonth()
-                const total = rows.reduce((sum, { cells }) => {
-                  const cell = cells[colIdx]
-                  return sum + (cell ? rows.find(r => r.cells === cells)?.inst?.installmentAmount ?? 0 : 0)
-                }, 0)
-                // Recalculate properly
-                const monthTotal = rows.reduce((sum, { inst, cells }) => {
-                  return sum + (cells[colIdx] ? inst.installmentAmount : 0)
-                }, 0)
-                return (
-                  <td key={`tot-${year}-${month}`}
-                    className={`px-2 py-3 text-center text-xs font-bold ${isCur ? 'bg-blue-50/40 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {monthTotal > 0 ? fmt(monthTotal) : <span className="text-gray-300 dark:text-gray-600 font-normal">—</span>}
-                  </td>
-                )
-              })}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
 
 // ─── Botones de modal reutilizables ──────────────────────────────────────────
 
