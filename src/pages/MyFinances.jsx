@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   TrendingUp, TrendingDown, PiggyBank,
   Plus, Trash2, Pencil, Check, X,
@@ -13,18 +13,18 @@ import {
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
-// ─── Constantes ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Constantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const EXPENSE_CATEGORIES = [
-  { value: 'COMIDA',      label: 'Comida',       emoji: '🛒' },
-  { value: 'TRANSPORTE',  label: 'Transporte',   emoji: '🚌' },
-  { value: 'OCIO',        label: 'Ocio',         emoji: '🎮' },
-  { value: 'SALUD',       label: 'Salud',        emoji: '🏥' },
-  { value: 'EDUCACION',   label: 'Educación',    emoji: '📚' },
-  { value: 'HOGAR',       label: 'Hogar',        emoji: '🏠' },
-  { value: 'ROPA',        label: 'Ropa',         emoji: '👕' },
-  { value: 'TECNOLOGIA',  label: 'Tecnología',   emoji: '💻' },
-  { value: 'OTRO',        label: 'Otro',         emoji: '📦' },
+  { value: 'COMIDA',      label: 'Comida',       emoji: 'ðŸ›’' },
+  { value: 'TRANSPORTE',  label: 'Transporte',   emoji: 'ðŸšŒ' },
+  { value: 'OCIO',        label: 'Ocio',         emoji: 'ðŸŽ®' },
+  { value: 'SALUD',       label: 'Salud',        emoji: 'ðŸ¥' },
+  { value: 'EDUCACION',   label: 'EducaciÃ³n',    emoji: 'ðŸ“š' },
+  { value: 'HOGAR',       label: 'Hogar',        emoji: 'ðŸ ' },
+  { value: 'ROPA',        label: 'Ropa',         emoji: 'ðŸ‘•' },
+  { value: 'TECNOLOGIA',  label: 'TecnologÃ­a',   emoji: 'ðŸ’»' },
+  { value: 'OTRO',        label: 'Otro',         emoji: 'ðŸ“¦' },
 ]
 
 const CATEGORY_COLORS = {
@@ -42,17 +42,16 @@ const CATEGORY_COLORS = {
 const TABS = [
   { id: 'resumen',  label: 'Resumen'   },
   { id: 'ingresos', label: 'Ingresos'  },
-  { id: 'cuotas',   label: 'Cuotas'    },
   { id: 'metas',    label: 'Metas'     },
 ]
 
 const fmt = (n) => `$${(n ?? 0).toLocaleString('es-CL')}`
 const fmtDate = (d) => {
-  if (!d) return '–'
+  if (!d) return 'â€“'
   try { return new Date(d + 'T00:00:00').toLocaleDateString('es-CL') } catch { return d }
 }
 
-// ─── Helpers UI ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Modal({ title, onClose, children }) {
   return (
@@ -125,7 +124,7 @@ function EmptyState({ icon: Icon, text, sub, onAdd, addLabel }) {
   )
 }
 
-// ─── Tarjetas de resumen ─────────────────────────────────────────────────────
+// â”€â”€â”€ Tarjetas de resumen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function SummaryCard({ icon: Icon, label, value, color, sub }) {
   return (
@@ -142,10 +141,10 @@ function SummaryCard({ icon: Icon, label, value, color, sub }) {
   )
 }
 
-// ─── Period helpers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Period helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function computePeriodDates(year, month, billingDay) {
-  // billingDay = 1 → calendar month; billingDay = 19 → 19th prev to 19th current
+  // billingDay = 1 â†’ calendar month; billingDay = 19 â†’ 19th prev to 19th current
   if (!billingDay || billingDay <= 1) {
     return {
       from: new Date(year, month, 1),
@@ -168,7 +167,7 @@ function getPeriodExpenses(expenses, from, to) {
     if (inRange(e.date)) result.push(e)
   })
 
-  // Recurring: aparece en TODOS los períodos sin restricción de fecha de registro
+  // Recurring: aparece en TODOS los perÃ­odos sin restricciÃ³n de fecha de registro
   expenses.forEach(e => {
     if (!e.recurring) return
     result.push(e)
@@ -200,7 +199,7 @@ function getPeriodExpenses(expenses, from, to) {
     result.push(currentPeriodByPlan[key] ?? latest)
   })
 
-  // Sort: periódicos → cuotas (menos restantes primero) → normales
+  // Sort: periÃ³dicos â†’ cuotas (menos restantes primero) â†’ normales
   const groupOf = e => e.recurring ? 0 : e.installmentNumber != null ? 1 : 2
   return result.sort((a, b) => {
     const gA = groupOf(a), gB = groupOf(b)
@@ -218,7 +217,7 @@ function getPeriodIncomes(incomes, from, to) {
   const inRange = d => { const dt = new Date(d + 'T00:00:00'); return dt >= from && dt <= to }
   const result  = []
   incomes.forEach(i => { if (!i.recurring && inRange(i.date)) result.push(i) })
-  // Periódico: aparece en TODOS los períodos sin restricción de fecha de registro
+  // PeriÃ³dico: aparece en TODOS los perÃ­odos sin restricciÃ³n de fecha de registro
   incomes.forEach(i => { if (i.recurring) result.push(i) })
   return result.sort((a, b) => b.amount - a.amount)
 }
@@ -236,7 +235,7 @@ function calcPeriodSummary(expenses, incomes, from, to) {
     expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount
   })
 
-  // 2. Periódicos: aparecen en TODOS los períodos (sin restricción de fecha de registro)
+  // 2. PeriÃ³dicos: aparecen en TODOS los perÃ­odos (sin restricciÃ³n de fecha de registro)
   expenses.forEach(e => {
     if (!e.recurring) return
     monthlyExpenses += e.amount
@@ -278,7 +277,7 @@ function calcPeriodSummary(expenses, incomes, from, to) {
     monthlyIncome += i.amount
     incomesByType[i.type] = (incomesByType[i.type] || 0) + i.amount
   })
-  // Periódicos: aparecen en TODOS los períodos (sin restricción de fecha de registro)
+  // PeriÃ³dicos: aparecen en TODOS los perÃ­odos (sin restricciÃ³n de fecha de registro)
   incomes.forEach(i => {
     if (!i.recurring) return
     monthlyIncome += i.amount
@@ -294,7 +293,7 @@ function calcPeriodSummary(expenses, incomes, from, to) {
   }
 }
 
-// ─── Export helpers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Export helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function exportToExcel(periodExpenses, periodIncomes, summary, periodLabel) {
   const { utils, writeFile } = await import('xlsx')
@@ -303,7 +302,7 @@ async function exportToExcel(periodExpenses, periodIncomes, summary, periodLabel
 
   // Sheet 1: Resumen
   const summaryRows = [
-    ['Período', periodLabel],
+    ['PerÃ­odo', periodLabel],
     ['Ingresos', summary.monthlyIncome ?? 0],
     ['Gastos',   summary.monthlyExpenses ?? 0],
     ['Balance',  summary.monthlyBalance  ?? 0],
@@ -313,10 +312,10 @@ async function exportToExcel(periodExpenses, periodIncomes, summary, periodLabel
   utils.book_append_sheet(wb, wsSummary, 'Resumen')
 
   // Sheet 2: Gastos
-  const expHeaders = ['Fecha', 'Categoría', 'Descripción', 'Tipo', 'Cuota', 'Monto']
+  const expHeaders = ['Fecha', 'CategorÃ­a', 'DescripciÃ³n', 'Tipo', 'Cuota', 'Monto']
   const expRows = periodExpenses.map(e => {
     const cat  = EXPENSE_CATEGORIES.find(c => c.value === e.category)
-    const tipo = e.recurring ? 'Periódico' : e.installmentNumber != null ? 'En cuotas' : 'Normal'
+    const tipo = e.recurring ? 'PeriÃ³dico' : e.installmentNumber != null ? 'En cuotas' : 'Normal'
     const cuota = e.installmentNumber != null ? `${e.installmentNumber}/${e.installmentTotal}` : '-'
     return [e.date, cat?.label ?? e.category, e.description ?? '', tipo, cuota, e.amount]
   })
@@ -324,10 +323,10 @@ async function exportToExcel(periodExpenses, periodIncomes, summary, periodLabel
   utils.book_append_sheet(wb, wsExp, 'Gastos')
 
   // Sheet 3: Ingresos
-  const incHeaders = ['Fecha', 'Tipo', 'Descripción', 'Frecuencia', 'Monto']
+  const incHeaders = ['Fecha', 'Tipo', 'DescripciÃ³n', 'Frecuencia', 'Monto']
   const incRows = periodIncomes.map(i => {
     const tipo = i.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'
-    const freq = i.recurring ? 'Periódico' : i.durationMonths ? `${i.durationMonths} meses` : 'Único'
+    const freq = i.recurring ? 'PeriÃ³dico' : i.durationMonths ? `${i.durationMonths} meses` : 'Ãšnico'
     return [i.date, tipo, i.description ?? '', freq, i.amount]
   })
   const wsInc = utils.aoa_to_sheet([incHeaders, ...incRows])
@@ -348,7 +347,7 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
   doc.text('Mis Finanzas', 14, 18)
   doc.setFontSize(11)
   doc.setTextColor(100, 100, 100)
-  doc.text(`Período: ${periodLabel}`, 14, 26)
+  doc.text(`PerÃ­odo: ${periodLabel}`, 14, 26)
 
   // Summary table
   doc.setFontSize(13)
@@ -358,8 +357,8 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
     startY: 42,
     head: [['Concepto', 'Monto']],
     body: [
-      ['Ingresos del período', fmt(summary.monthlyIncome)],
-      ['Gastos del período',   fmt(summary.monthlyExpenses)],
+      ['Ingresos del perÃ­odo', fmt(summary.monthlyIncome)],
+      ['Gastos del perÃ­odo',   fmt(summary.monthlyExpenses)],
       ['Balance',              fmt(summary.monthlyBalance)],
       ['Total ahorrado',       fmt(summary.totalSavings ?? 0)],
     ],
@@ -371,14 +370,14 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
   // Expenses table
   const expY = doc.lastAutoTable.finalY + 10
   doc.setFontSize(13)
-  doc.text('Gastos del período', 14, expY)
+  doc.text('Gastos del perÃ­odo', 14, expY)
   autoTable(doc, {
     startY: expY + 4,
-    head: [['Fecha', 'Categoría', 'Descripción', 'Tipo', 'Monto']],
+    head: [['Fecha', 'CategorÃ­a', 'DescripciÃ³n', 'Tipo', 'Monto']],
     body: periodExpenses.map(e => {
       const cat  = EXPENSE_CATEGORIES.find(c => c.value === e.category)
       const tipo = e.recurring
-        ? 'Periódico'
+        ? 'PeriÃ³dico'
         : e.installmentNumber != null
           ? `Cuota ${e.installmentNumber}/${e.installmentTotal}`
           : 'Normal'
@@ -392,10 +391,10 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
   // Incomes table
   const incY = doc.lastAutoTable.finalY + 10
   doc.setFontSize(13)
-  doc.text('Ingresos del período', 14, incY)
+  doc.text('Ingresos del perÃ­odo', 14, incY)
   autoTable(doc, {
     startY: incY + 4,
-    head: [['Fecha', 'Tipo', 'Descripción', 'Monto']],
+    head: [['Fecha', 'Tipo', 'DescripciÃ³n', 'Monto']],
     body: periodIncomes.map(i => {
       const tipo = i.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'
       return [i.date, tipo, i.description ?? '', fmt(i.amount)]
@@ -408,7 +407,7 @@ async function exportToPDF(periodExpenses, periodIncomes, summary, periodLabel) 
   doc.save(`finanzas_${periodLabel.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`)
 }
 
-// ─── TAB: Resumen ────────────────────────────────────────────────────────────
+// â”€â”€â”€ TAB: Resumen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Devuelve las cuotas (FinanceInstallment) activas/pasadas para un mes dado
 function getInstallmentsForPeriod(installments, periodYear, periodMonth) {
@@ -479,7 +478,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
 
   const handleDeleteExpense = async (item) => {
     const label = item.description || EXPENSE_CATEGORIES.find(c => c.value === item.category)?.label || 'este gasto'
-    if (!confirm(`¿Eliminar "${label}"?`)) return
+    if (!confirm(`Â¿Eliminar "${label}"?`)) return
     setDeletingId(item.id)
     try {
       await api.deleteFinanceExpense(item.id, userId)
@@ -520,13 +519,13 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
   const periodShort = monthName.charAt(0).toUpperCase() + monthName.slice(1)
   const fmtShortDate = d => d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
   const periodRange = billingDay > 1
-    ? `${fmtShortDate(periodFrom)} – ${fmtShortDate(periodTo)}`
+    ? `${fmtShortDate(periodFrom)} â€“ ${fmtShortDate(periodTo)}`
     : null
   const periodFull = billingDay > 1
-    ? `${fmtShortDate(periodFrom)} – ${periodTo.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    ? `${fmtShortDate(periodFrom)} â€“ ${periodTo.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`
     : periodShort
 
-  // Cuotas (FinanceInstallment) proyectadas para este período
+  // Cuotas (FinanceInstallment) proyectadas para este perÃ­odo
   const projectedInstallments = useMemo(
     () => getInstallmentsForPeriod(installments, periodYear, periodMonth),
     [installments, periodYear, periodMonth]
@@ -598,12 +597,12 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                        'excellent'
 
   const SAVINGS_CONFIG = {
-    nodata:    { label: '—',         barColor: 'bg-gray-300 dark:bg-gray-600', zone: 'text-gray-500 dark:text-gray-400',      bg: 'bg-gray-50 dark:bg-gray-800/60',        msg: 'Agrega tus ingresos del mes para calcular tu tasa de ahorro.' },
-    deficit:   { label: 'Déficit',   barColor: 'bg-red-500',                   zone: 'text-red-600 dark:text-red-400',        bg: 'bg-red-50 dark:bg-red-950/40',          msg: 'Estás gastando más de lo que ingresas. Revisa tus gastos para revertir esta situación.' },
+    nodata:    { label: 'â€”',         barColor: 'bg-gray-300 dark:bg-gray-600', zone: 'text-gray-500 dark:text-gray-400',      bg: 'bg-gray-50 dark:bg-gray-800/60',        msg: 'Agrega tus ingresos del mes para calcular tu tasa de ahorro.' },
+    deficit:   { label: 'DÃ©ficit',   barColor: 'bg-red-500',                   zone: 'text-red-600 dark:text-red-400',        bg: 'bg-red-50 dark:bg-red-950/40',          msg: 'EstÃ¡s gastando mÃ¡s de lo que ingresas. Revisa tus gastos para revertir esta situaciÃ³n.' },
     low:       { label: 'Bajo',      barColor: 'bg-orange-400',                zone: 'text-orange-600 dark:text-orange-400',  bg: 'bg-orange-50 dark:bg-orange-950/40',    msg: 'Intenta destinar al menos el 10 % de tus ingresos al ahorro.' },
     fair:      { label: 'Regular',   barColor: 'bg-yellow-400',                zone: 'text-yellow-600 dark:text-yellow-500',  bg: 'bg-yellow-50 dark:bg-yellow-950/40',    msg: 'Vas por buen camino. La meta recomendada es superar el 20 % de ahorro.' },
     good:      { label: 'Bueno',     barColor: 'bg-primary-500',               zone: 'text-primary-600 dark:text-primary-400',bg: 'bg-primary-50 dark:bg-primary-950/40',  msg: 'Buen ritmo. Considera asignar parte a tus metas de ahorro.' },
-    excellent: { label: 'Excelente', barColor: 'bg-green-500',                 zone: 'text-green-600 dark:text-green-400',    bg: 'bg-green-50 dark:bg-green-950/40',      msg: '¡Excelente! Estás ahorrando más del 35 % de tus ingresos.' },
+    excellent: { label: 'Excelente', barColor: 'bg-green-500',                 zone: 'text-green-600 dark:text-green-400',    bg: 'bg-green-50 dark:bg-green-950/40',      msg: 'Â¡Excelente! EstÃ¡s ahorrando mÃ¡s del 35 % de tus ingresos.' },
   }
   const cfg    = SAVINGS_CONFIG[savingsStatus]
   const barPct = savingsStatus === 'deficit' ? 100 : savingsStatus === 'nodata' ? 0 : Math.min(100, savingsRate)
@@ -621,7 +620,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
   return (
     <div>
 
-      {/* ── Barra de navegación de período ──────────────────────────── */}
+      {/* â”€â”€ Barra de navegaciÃ³n de perÃ­odo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex items-center gap-2 mb-5 flex-wrap">
 
         {/* Nav meses */}
@@ -642,12 +641,12 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
           </button>
         </div>
 
-        {/* Configurar día de corte */}
+        {/* Configurar dÃ­a de corte */}
         <button
           onClick={() => { setBillingInput(String(billingDay)); setShowBillingModal(true) }}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-200 transition-colors shrink-0">
           <Settings className="h-3.5 w-3.5" />
-          {billingDay > 1 ? `Corte: día ${billingDay}` : 'Día de corte'}
+          {billingDay > 1 ? `Corte: dÃ­a ${billingDay}` : 'DÃ­a de corte'}
         </button>
 
         {/* Exportar */}
@@ -665,33 +664,33 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
         </div>
       </div>
 
-      {/* ── Banner proyección ───────────────────────────────────────── */}
+      {/* â”€â”€ Banner proyecciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {isFuturePeriod && (
         <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 mb-5">
           <CalendarDays className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
           <p className="text-sm text-indigo-700 dark:text-indigo-300">
-            <span className="font-semibold">Proyección —</span> Los montos reflejan tus cuotas e ingresos periódicos esperados. Los gastos normales no aparecen hasta que los registres.
+            <span className="font-semibold">ProyecciÃ³n â€”</span> Los montos reflejan tus cuotas e ingresos periÃ³dicos esperados. Los gastos normales no aparecen hasta que los registres.
           </p>
         </div>
       )}
 
-      {/* ── Grid 2 columnas ─────────────────────────────────────────── */}
+      {/* â”€â”€ Grid 2 columnas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start space-y-6 lg:space-y-0">
 
-        {/* ════════════════════ COLUMNA IZQUIERDA ════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• COLUMNA IZQUIERDA â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         <div className="space-y-5">
 
           {/* Tarjetas 2x2 */}
           <div className="grid grid-cols-2 gap-3">
             <SummaryCard
               icon={TrendingUp}
-              label="Ingresos del período"
+              label="Ingresos del perÃ­odo"
               value={summary.monthlyIncome}
               color="bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400"
             />
             <SummaryCard
               icon={TrendingDown}
-              label="Gastos del período"
+              label="Gastos del perÃ­odo"
               value={summary.monthlyExpenses}
               color="bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400"
             />
@@ -702,7 +701,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
               color={balance >= 0
                 ? 'bg-primary-100 dark:bg-primary-950 text-primary-600 dark:text-primary-400'
                 : 'bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400'}
-              sub={balance >= 0 ? 'disponible este período' : 'gastas más de lo que ingresa'}
+              sub={balance >= 0 ? 'disponible este perÃ­odo' : 'gastas mÃ¡s de lo que ingresa'}
             />
             <SummaryCard
               icon={PiggyBank}
@@ -722,14 +721,14 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                   {savingsStatus === 'nodata'
                     ? 'Sin datos de ingresos'
                     : balance >= 0
-                      ? `Podrías guardar ${fmt(balance)} este período`
+                      ? `PodrÃ­as guardar ${fmt(balance)} este perÃ­odo`
                       : `Te faltan ${fmt(Math.abs(balance))} para cubrir tus gastos`}
                 </p>
               </div>
               <div className="text-right shrink-0 ml-4">
                 <p className={`text-3xl font-bold leading-none ${cfg.zone}`}>
-                  {savingsStatus === 'nodata' ? '—'
-                   : savingsStatus === 'deficit' ? `−${Math.abs(savingsRate)}%`
+                  {savingsStatus === 'nodata' ? 'â€”'
+                   : savingsStatus === 'deficit' ? `âˆ’${Math.abs(savingsRate)}%`
                    : `${savingsRate}%`}
                 </p>
                 <p className={`text-xs font-semibold mt-1 ${cfg.zone}`}>{cfg.label}</p>
@@ -758,7 +757,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
             </div>
           </div>
 
-          {/* Gráfico: Ingresos vs Gastos */}
+          {/* GrÃ¡fico: Ingresos vs Gastos */}
           <div className="card">
             <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Ingresos vs Gastos</h3>
             <ResponsiveContainer width="100%" height={200}>
@@ -775,9 +774,9 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
             </ResponsiveContainer>
           </div>
 
-          {/* Gráfico: Gastos por categoría */}
+          {/* GrÃ¡fico: Gastos por categorÃ­a */}
           <div className="card">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Gastos por categoría</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-4">Gastos por categorÃ­a</h3>
             {pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
@@ -791,14 +790,14 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
             ) : (
               <div className="flex flex-col items-center justify-center h-44 text-gray-400">
                 <AlertCircle className="h-8 w-8 mb-2" />
-                <p className="text-sm">Sin gastos en este período</p>
+                <p className="text-sm">Sin gastos en este perÃ­odo</p>
               </div>
             )}
           </div>
 
         </div>{/* fin columna izquierda */}
 
-        {/* ════════════════════ COLUMNA DERECHA ════════════════════ */}
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• COLUMNA DERECHA â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
         <div className="mt-6 lg:mt-0">
           <div className="lg:sticky lg:top-20 card !p-0 overflow-hidden">
 
@@ -806,7 +805,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-gray-50">
-                  {isFuturePeriod ? 'Proyección de gastos' : 'Gastos del período'}
+                  {isFuturePeriod ? 'ProyecciÃ³n de gastos' : 'Gastos del perÃ­odo'}
                 </h3>
                 <p className="text-xs text-gray-400">{periodFull}</p>
               </div>
@@ -814,7 +813,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                 <p className="text-lg font-bold text-red-600 dark:text-red-400">
                   -{fmt(periodExpenses.reduce((s, e) => s + (e.amount || 0), 0))}
                 </p>
-                <p className="text-xs text-gray-400">{periodExpenses.length} ítem{periodExpenses.length !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-gray-400">{periodExpenses.length} Ã­tem{periodExpenses.length !== 1 ? 's' : ''}</p>
               </div>
             </div>
 
@@ -827,7 +826,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
               ) : periodExpenses.length === 0 ? (
                 <div className="flex flex-col items-center py-16 text-gray-400">
                   <AlertCircle className="h-10 w-10 mb-3" />
-                  <p className="font-medium text-gray-600 dark:text-gray-400">Sin gastos en este período</p>
+                  <p className="font-medium text-gray-600 dark:text-gray-400">Sin gastos en este perÃ­odo</p>
                   <button onClick={onAddExpense} className="mt-4 btn-primary flex items-center gap-2 text-sm">
                     <Plus className="h-4 w-4" /> Agregar gasto
                   </button>
@@ -835,12 +834,12 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                   {periodExpenses.map((item, idx) => {
-                    // ── Item de cuota proyectada (FinanceInstallment) ──
+                    // â”€â”€ Item de cuota proyectada (FinanceInstallment) â”€â”€
                     if (item._projectedInstallment) {
                       return (
                         <div key={item.id} className="flex items-center gap-3 px-5 py-3 bg-indigo-50/50 dark:bg-indigo-950/20">
                           <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0 bg-indigo-100 dark:bg-indigo-950">
-                            💳
+                            ðŸ’³
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -852,9 +851,9 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                               </span>
                             </div>
                             <p className="text-xs text-gray-400">
-                              Cuota · {item._remaining > 0
-                                ? `quedan ${item._remaining} después de este mes`
-                                : 'última cuota 🎉'}
+                              Cuota Â· {item._remaining > 0
+                                ? `quedan ${item._remaining} despuÃ©s de este mes`
+                                : 'Ãºltima cuota ðŸŽ‰'}
                             </p>
                           </div>
                           <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
@@ -864,7 +863,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                       )
                     }
 
-                    // ── Gasto normal ──
+                    // â”€â”€ Gasto normal â”€â”€
                     const cat        = EXPENSE_CATEGORIES.find(c => c.value === item.category)
                     const color      = CATEGORY_COLORS[item.category] ?? '#94a3b8'
                     const isDeleting = deletingId === item.id
@@ -872,7 +871,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                       <div key={item.id ?? idx} className="group flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
                           style={{ backgroundColor: color + '22' }}>
-                          {cat?.emoji ?? '📦'}
+                          {cat?.emoji ?? 'ðŸ“¦'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -890,7 +889,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400">{cat?.label} · {fmtDate(item.date)}</p>
+                          <p className="text-xs text-gray-400">{cat?.label} Â· {fmtDate(item.date)}</p>
                         </div>
                         <span className="text-sm font-bold text-red-600 dark:text-red-400 shrink-0">
                           -{fmt(item.amount)}
@@ -933,7 +932,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
 
       </div>
 
-      {/* ── Modal: Editar gasto ────────────────────────────────────── */}
+      {/* â”€â”€ Modal: Editar gasto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {editItem && (
         <EditExpenseModal
           userId={userId}
@@ -943,14 +942,14 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
         />
       )}
 
-      {/* ── Modal: Día de corte ─────────────────────────────────────── */}
+      {/* â”€â”€ Modal: DÃ­a de corte â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {showBillingModal && (
-        <Modal title="Día de corte de tarjeta" onClose={() => setShowBillingModal(false)}>
+        <Modal title="DÃ­a de corte de tarjeta" onClose={() => setShowBillingModal(false)}>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Define el día del mes en que se cierra tu ciclo de facturación. El resumen de cada período mostrará los
-            gastos desde ese día del mes anterior hasta ese día del mes actual.
+            Define el dÃ­a del mes en que se cierra tu ciclo de facturaciÃ³n. El resumen de cada perÃ­odo mostrarÃ¡ los
+            gastos desde ese dÃ­a del mes anterior hasta ese dÃ­a del mes actual.
           </p>
-          <FormField label="Día de corte (1 – 28)">
+          <FormField label="DÃ­a de corte (1 â€“ 28)">
             <input
               type="number" min="1" max="28"
               value={billingInput}
@@ -963,8 +962,8 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
           {billingInput !== '' && parseInt(billingInput) >= 1 && parseInt(billingInput) <= 28 && (
             <p className="text-xs text-gray-400 -mt-2 mb-4">
               {parseInt(billingInput) <= 1
-                ? 'Usará el mes calendario (del 1° al último día del mes).'
-                : `Ej: "Junio" irá del ${billingInput} de mayo al ${billingInput} de junio.`}
+                ? 'UsarÃ¡ el mes calendario (del 1Â° al Ãºltimo dÃ­a del mes).'
+                : `Ej: "Junio" irÃ¡ del ${billingInput} de mayo al ${billingInput} de junio.`}
             </p>
           )}
           <ModalButtons onClose={() => setShowBillingModal(false)} onSave={saveBillingDay} saving={false} />
@@ -975,7 +974,7 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
   )
 }
 
-// ─── TAB: Ingresos ───────────────────────────────────────────────────────────
+// â”€â”€â”€ TAB: Ingresos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const INCOME_FREQ_ONCE      = 'once'
 const INCOME_FREQ_RECURRING = 'recurring'
@@ -1018,8 +1017,8 @@ function TabIngresos({ userId, onRefreshSummary }) {
       recurring:      form.incomeFreq === INCOME_FREQ_RECURRING,
       durationMonths: form.incomeFreq === INCOME_FREQ_MONTHS ? parseInt(form.durationMonths) || null : null,
     }
-    if (!data.amount || isNaN(data.amount) || data.amount <= 0) { setError('Ingresa un monto válido mayor a 0.'); return }
-    if (form.incomeFreq === INCOME_FREQ_MONTHS && (!data.durationMonths || data.durationMonths < 1)) { setError('Indica cuántos meses recibirás este ingreso.'); return }
+    if (!data.amount || isNaN(data.amount) || data.amount <= 0) { setError('Ingresa un monto vÃ¡lido mayor a 0.'); return }
+    if (form.incomeFreq === INCOME_FREQ_MONTHS && (!data.durationMonths || data.durationMonths < 1)) { setError('Indica cuÃ¡ntos meses recibirÃ¡s este ingreso.'); return }
     setSaving(true)
     try {
       if (modal === 'new') await api.createFinanceIncome(userId, data)
@@ -1035,7 +1034,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este ingreso?')) return
+    if (!confirm('Â¿Eliminar este ingreso?')) return
     try {
       await api.deleteFinanceIncome(id, userId)
       load()
@@ -1066,7 +1065,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
       ) : incomes.length === 0 ? (
         <EmptyState
           icon={ArrowUpCircle}
-          text="Aún no tienes ingresos registrados"
+          text="AÃºn no tienes ingresos registrados"
           sub="Agrega tu sueldo o ingresos extra para llevar el control."
           onAdd={openNew}
           addLabel="Agregar primer ingreso"
@@ -1099,7 +1098,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
                     )}
                   </div>
                   <p className="text-xs text-gray-400">
-                    {item.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'} · {fmtDate(item.date)}
+                    {item.type === 'SALARY' ? 'Sueldo fijo' : 'Ingreso extra'} Â· {fmtDate(item.date)}
                   </p>
                 </div>
               </div>
@@ -1123,7 +1122,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
               <option value="EXTRA">Ingreso extra</option>
             </select>
           </FormField>
-          <FormField label="Descripción">
+          <FormField label="DescripciÃ³n">
             <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
               placeholder="Ej: Sueldo enero, Freelance, Bono..." className={inputCls} />
           </FormField>
@@ -1140,9 +1139,9 @@ function TabIngresos({ userId, onRefreshSummary }) {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Frecuencia</label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { value: INCOME_FREQ_ONCE,      label: 'Único',     desc: 'Un solo ingreso',       icon: '💵' },
-                { value: INCOME_FREQ_RECURRING, label: 'Periódico', desc: 'Se repite cada mes',    icon: '🔄' },
-                { value: INCOME_FREQ_MONTHS,    label: 'Por meses', desc: 'Durante X meses',       icon: '📅' },
+                { value: INCOME_FREQ_ONCE,      label: 'Ãšnico',     desc: 'Un solo ingreso',       icon: 'ðŸ’µ' },
+                { value: INCOME_FREQ_RECURRING, label: 'PeriÃ³dico', desc: 'Se repite cada mes',    icon: 'ðŸ”„' },
+                { value: INCOME_FREQ_MONTHS,    label: 'Por meses', desc: 'Durante X meses',       icon: 'ðŸ“…' },
               ].map(opt => (
                 <button
                   key={opt.value}
@@ -1166,8 +1165,8 @@ function TabIngresos({ userId, onRefreshSummary }) {
 
           {form.incomeFreq === INCOME_FREQ_MONTHS && (
             <div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 p-4 mb-4">
-              <p className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-3">📅 ¿Por cuántos meses recibirás este ingreso?</p>
-              <FormField label="Número de meses">
+              <p className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-3">ðŸ“… Â¿Por cuÃ¡ntos meses recibirÃ¡s este ingreso?</p>
+              <FormField label="NÃºmero de meses">
                 <input
                   type="number" min="1"
                   value={form.durationMonths}
@@ -1178,7 +1177,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
               </FormField>
               {form.durationMonths && parseInt(form.durationMonths) > 0 && (
                 <p className="text-xs text-purple-600 dark:text-purple-400 -mt-2">
-                  Recibirás este ingreso durante {form.durationMonths} mes{parseInt(form.durationMonths) !== 1 ? 'es' : ''}
+                  RecibirÃ¡s este ingreso durante {form.durationMonths} mes{parseInt(form.durationMonths) !== 1 ? 'es' : ''}
                 </p>
               )}
             </div>
@@ -1187,7 +1186,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
           {form.incomeFreq === INCOME_FREQ_RECURRING && (
             <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 mb-4">
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                🔄 Este ingreso se marcará como <strong>periódico mensual</strong>. Recuerda registrarlo cada mes cuando lo recibas.
+                ðŸ”„ Este ingreso se marcarÃ¡ como <strong>periÃ³dico mensual</strong>. Recuerda registrarlo cada mes cuando lo recibas.
               </p>
             </div>
           )}
@@ -1199,7 +1198,7 @@ function TabIngresos({ userId, onRefreshSummary }) {
   )
 }
 
-// ─── Helpers: Gastos ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers: Gastos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const EXPENSE_TYPE_NORMAL      = 'normal'
 const EXPENSE_TYPE_RECURRING   = 'periodico'
@@ -1259,7 +1258,7 @@ function expenseToForm(item) {
   }
 }
 
-// ─── Modal: Nuevo gasto ──────────────────────────────────────────────────────
+// â”€â”€â”€ Modal: Nuevo gasto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function NewExpenseModal({ userId, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
@@ -1270,12 +1269,12 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
     setError('')
     const data = formToPayload(form)
     if (!data.amount || isNaN(data.amount) || data.amount <= 0) {
-      setError('Ingresa un monto válido mayor a 0.')
+      setError('Ingresa un monto vÃ¡lido mayor a 0.')
       return
     }
     if (form.expenseType === EXPENSE_TYPE_INSTALLMENT) {
-      if (data.installmentNumber == null || isNaN(data.installmentNumber) || data.installmentNumber < 0) { setError('Número de cuota inválido (mínimo 0).'); return }
-      if (!data.installmentTotal  || data.installmentTotal  < 1) { setError('Total de cuotas inválido.'); return }
+      if (data.installmentNumber == null || isNaN(data.installmentNumber) || data.installmentNumber < 0) { setError('NÃºmero de cuota invÃ¡lido (mÃ­nimo 0).'); return }
+      if (!data.installmentTotal  || data.installmentTotal  < 1) { setError('Total de cuotas invÃ¡lido.'); return }
       if (data.installmentNumber > data.installmentTotal)       { setError('La cuota actual no puede ser mayor al total.'); return }
     }
     setSaving(true)
@@ -1294,7 +1293,7 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
     <Modal title="Nuevo gasto" onClose={onClose}>
       <ErrorBanner msg={error} />
 
-      <FormField label="Categoría" required>
+      <FormField label="CategorÃ­a" required>
         <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={inputCls}>
           {EXPENSE_CATEGORIES.map(c => (
             <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
@@ -1302,7 +1301,7 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
         </select>
       </FormField>
 
-      <FormField label="Descripción">
+      <FormField label="DescripciÃ³n">
         <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
           placeholder="Ej: Supermercado, Celular Samsung, Netflix..." className={inputCls} />
       </FormField>
@@ -1321,9 +1320,9 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de gasto</label>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { value: EXPENSE_TYPE_NORMAL,      label: 'Normal',    desc: 'Un pago único',           icon: '💸' },
-            { value: EXPENSE_TYPE_RECURRING,   label: 'Periódico', desc: 'Se repite cada mes',      icon: '🔄' },
-            { value: EXPENSE_TYPE_INSTALLMENT, label: 'En cuotas', desc: 'Parte de un plan cuotas', icon: '📅' },
+            { value: EXPENSE_TYPE_NORMAL,      label: 'Normal',    desc: 'Un pago Ãºnico',           icon: 'ðŸ’¸' },
+            { value: EXPENSE_TYPE_RECURRING,   label: 'PeriÃ³dico', desc: 'Se repite cada mes',      icon: 'ðŸ”„' },
+            { value: EXPENSE_TYPE_INSTALLMENT, label: 'En cuotas', desc: 'Parte de un plan cuotas', icon: 'ðŸ“…' },
           ].map(opt => (
             <button
               key={opt.value}
@@ -1347,9 +1346,9 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
 
       {form.expenseType === EXPENSE_TYPE_INSTALLMENT && (
         <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 p-4 mb-4">
-          <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3">📅 Detalle de cuotas</p>
+          <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3">ðŸ“… Detalle de cuotas</p>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="N° de cuota actual">
+            <FormField label="NÂ° de cuota actual">
               <input
                 type="number" min="0" value={form.installmentNumber}
                 onChange={e => setForm({ ...form, installmentNumber: e.target.value })}
@@ -1367,12 +1366,12 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
           {form.installmentNumber !== '' && form.installmentTotal && (
             <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
               {parseInt(form.installmentNumber) === 0
-                ? `Compra registrada · aún sin facturar · ${form.installmentTotal} cuotas totales`
-                : `Cuota ${form.installmentNumber} de ${form.installmentTotal} · quedan ${Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar`}
+                ? `Compra registrada Â· aÃºn sin facturar Â· ${form.installmentTotal} cuotas totales`
+                : `Cuota ${form.installmentNumber} de ${form.installmentTotal} Â· quedan ${Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar`}
             </p>
           )}
           <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-700">
-            <FormField label="Día de facturación tarjeta (opcional)">
+            <FormField label="DÃ­a de facturaciÃ³n tarjeta (opcional)">
               <input
                 type="number" min="1" max="31" value={form.billingDay}
                 onChange={e => setForm({ ...form, billingDay: e.target.value })}
@@ -1381,7 +1380,7 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
             </FormField>
             {form.billingDay && parseInt(form.billingDay) >= 1 && parseInt(form.billingDay) <= 31 && (
               <p className="text-xs text-orange-600 dark:text-orange-400 -mt-2">
-                Próxima facturación: <strong>{fmtNextBillingDate(parseInt(form.billingDay))}</strong>
+                PrÃ³xima facturaciÃ³n: <strong>{fmtNextBillingDate(parseInt(form.billingDay))}</strong>
               </p>
             )}
           </div>
@@ -1391,7 +1390,7 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
       {form.expenseType === EXPENSE_TYPE_RECURRING && (
         <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 mb-4">
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            🔄 Este gasto se marcará como <strong>periódico mensual</strong>. Recuerda registrarlo cada mes cuando lo pagues.
+            ðŸ”„ Este gasto se marcarÃ¡ como <strong>periÃ³dico mensual</strong>. Recuerda registrarlo cada mes cuando lo pagues.
           </p>
         </div>
       )}
@@ -1401,7 +1400,7 @@ function NewExpenseModal({ userId, onClose, onSaved }) {
   )
 }
 
-// ─── Modal: Editar gasto ─────────────────────────────────────────────────────
+// â”€â”€â”€ Modal: Editar gasto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function EditExpenseModal({ userId, item, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
@@ -1412,12 +1411,12 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
     setError('')
     const data = formToPayload(form)
     if (!data.amount || isNaN(data.amount) || data.amount <= 0) {
-      setError('Ingresa un monto válido mayor a 0.')
+      setError('Ingresa un monto vÃ¡lido mayor a 0.')
       return
     }
     if (form.expenseType === EXPENSE_TYPE_INSTALLMENT) {
-      if (data.installmentNumber == null || isNaN(data.installmentNumber) || data.installmentNumber < 0) { setError('Número de cuota inválido (mínimo 0).'); return }
-      if (!data.installmentTotal  || data.installmentTotal  < 1) { setError('Total de cuotas inválido.'); return }
+      if (data.installmentNumber == null || isNaN(data.installmentNumber) || data.installmentNumber < 0) { setError('NÃºmero de cuota invÃ¡lido (mÃ­nimo 0).'); return }
+      if (!data.installmentTotal  || data.installmentTotal  < 1) { setError('Total de cuotas invÃ¡lido.'); return }
       if (data.installmentNumber > data.installmentTotal)       { setError('La cuota actual no puede ser mayor al total.'); return }
     }
     setSaving(true)
@@ -1436,7 +1435,7 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
     <Modal title="Editar gasto" onClose={onClose}>
       <ErrorBanner msg={error} />
 
-      <FormField label="Categoría" required>
+      <FormField label="CategorÃ­a" required>
         <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={inputCls}>
           {EXPENSE_CATEGORIES.map(c => (
             <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
@@ -1444,7 +1443,7 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
         </select>
       </FormField>
 
-      <FormField label="Descripción">
+      <FormField label="DescripciÃ³n">
         <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
           placeholder="Ej: Supermercado, Celular Samsung, Netflix..." className={inputCls} />
       </FormField>
@@ -1463,9 +1462,9 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de gasto</label>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { value: EXPENSE_TYPE_NORMAL,      label: 'Normal',    desc: 'Un pago único',           icon: '💸' },
-            { value: EXPENSE_TYPE_RECURRING,   label: 'Periódico', desc: 'Se repite cada mes',      icon: '🔄' },
-            { value: EXPENSE_TYPE_INSTALLMENT, label: 'En cuotas', desc: 'Parte de un plan cuotas', icon: '📅' },
+            { value: EXPENSE_TYPE_NORMAL,      label: 'Normal',    desc: 'Un pago Ãºnico',           icon: 'ðŸ’¸' },
+            { value: EXPENSE_TYPE_RECURRING,   label: 'PeriÃ³dico', desc: 'Se repite cada mes',      icon: 'ðŸ”„' },
+            { value: EXPENSE_TYPE_INSTALLMENT, label: 'En cuotas', desc: 'Parte de un plan cuotas', icon: 'ðŸ“…' },
           ].map(opt => (
             <button
               key={opt.value}
@@ -1489,9 +1488,9 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
 
       {form.expenseType === EXPENSE_TYPE_INSTALLMENT && (
         <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 p-4 mb-4">
-          <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3">📅 Detalle de cuotas</p>
+          <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-3">ðŸ“… Detalle de cuotas</p>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="N° de cuota actual">
+            <FormField label="NÂ° de cuota actual">
               <input
                 type="number" min="0" value={form.installmentNumber}
                 onChange={e => setForm({ ...form, installmentNumber: e.target.value })}
@@ -1509,12 +1508,12 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
           {form.installmentNumber !== '' && form.installmentTotal && (
             <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
               {parseInt(form.installmentNumber) === 0
-                ? `Compra registrada · aún sin facturar · ${form.installmentTotal} cuotas totales`
-                : `Cuota ${form.installmentNumber} de ${form.installmentTotal} · quedan ${Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar`}
+                ? `Compra registrada Â· aÃºn sin facturar Â· ${form.installmentTotal} cuotas totales`
+                : `Cuota ${form.installmentNumber} de ${form.installmentTotal} Â· quedan ${Math.max(0, parseInt(form.installmentTotal) - parseInt(form.installmentNumber))} por pagar`}
             </p>
           )}
           <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-700">
-            <FormField label="Día de facturación tarjeta (opcional)">
+            <FormField label="DÃ­a de facturaciÃ³n tarjeta (opcional)">
               <input
                 type="number" min="1" max="31" value={form.billingDay}
                 onChange={e => setForm({ ...form, billingDay: e.target.value })}
@@ -1523,7 +1522,7 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
             </FormField>
             {form.billingDay && parseInt(form.billingDay) >= 1 && parseInt(form.billingDay) <= 31 && (
               <p className="text-xs text-orange-600 dark:text-orange-400 -mt-2">
-                Próxima facturación: <strong>{fmtNextBillingDate(parseInt(form.billingDay))}</strong>
+                PrÃ³xima facturaciÃ³n: <strong>{fmtNextBillingDate(parseInt(form.billingDay))}</strong>
               </p>
             )}
           </div>
@@ -1533,7 +1532,7 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
       {form.expenseType === EXPENSE_TYPE_RECURRING && (
         <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 mb-4">
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            🔄 Este gasto se marcará como <strong>periódico mensual</strong>.
+            ðŸ”„ Este gasto se marcarÃ¡ como <strong>periÃ³dico mensual</strong>.
           </p>
         </div>
       )}
@@ -1543,7 +1542,7 @@ function EditExpenseModal({ userId, item, onClose, onSaved }) {
   )
 }
 
-// ─── TAB: Metas de ahorro ────────────────────────────────────────────────────
+// â”€â”€â”€ TAB: Metas de ahorro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TabMetas({ userId, onRefreshSummary }) {
   const [goals,     setGoals]     = useState([])
@@ -1577,7 +1576,7 @@ function TabMetas({ userId, onRefreshSummary }) {
     setError('')
     const data = { name: form.name, targetAmount: parseFloat(form.targetAmount), currentAmount: parseFloat(form.currentAmount) || 0, targetDate: form.targetDate || null }
     if (!data.name) { setError('Escribe un nombre para la meta.'); return }
-    if (isNaN(data.targetAmount) || data.targetAmount <= 0) { setError('Monto objetivo inválido.'); return }
+    if (isNaN(data.targetAmount) || data.targetAmount <= 0) { setError('Monto objetivo invÃ¡lido.'); return }
     setSaving(true)
     try {
       if (modal === 'new') await api.createFinanceSavingGoal(userId, data)
@@ -1611,7 +1610,7 @@ function TabMetas({ userId, onRefreshSummary }) {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta meta?')) return
+    if (!confirm('Â¿Eliminar esta meta?')) return
     try {
       await api.deleteFinanceSavingGoal(id, userId)
       load()
@@ -1640,7 +1639,7 @@ function TabMetas({ userId, onRefreshSummary }) {
       ) : goals.length === 0 ? (
         <EmptyState
           icon={PiggyBank}
-          text="Aún no tienes metas de ahorro"
+          text="AÃºn no tienes metas de ahorro"
           sub="Crea metas para ahorrar hacia vacaciones, un auto, emergencias, o lo que quieras."
           onAdd={openNew}
           addLabel="Crear primera meta"
@@ -1669,7 +1668,7 @@ function TabMetas({ userId, onRefreshSummary }) {
                       <p className="font-semibold text-gray-900 dark:text-gray-50 truncate">{item.name}</p>
                       {daysLeft !== null && (
                         <p className={`text-xs ${daysLeft <= 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                          {daysLeft > 0 ? `${daysLeft} días restantes` : 'Fecha límite vencida'}
+                          {daysLeft > 0 ? `${daysLeft} dÃ­as restantes` : 'Fecha lÃ­mite vencida'}
                         </p>
                       )}
                     </div>
@@ -1690,7 +1689,7 @@ function TabMetas({ userId, onRefreshSummary }) {
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                   <div className={`h-3 rounded-full transition-all ${done ? 'bg-green-500' : 'bg-primary-500'}`} style={{ width: `${pct}%` }} />
                 </div>
-                <p className="text-right text-xs text-gray-400 mt-1">{pct}%{done ? ' · ✓ Meta alcanzada' : ''}</p>
+                <p className="text-right text-xs text-gray-400 mt-1">{pct}%{done ? ' Â· âœ“ Meta alcanzada' : ''}</p>
                 {showPlan && (
                   <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Ahorro sugerido para llegar a tiempo</p>
@@ -1734,7 +1733,7 @@ function TabMetas({ userId, onRefreshSummary }) {
             </label>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <p className="text-xs text-gray-400 mb-1">Número de meses</p>
+                <p className="text-xs text-gray-400 mb-1">NÃºmero de meses</p>
                 <input
                   type="number" min="1" max="360"
                   value={form.targetMonths}
@@ -1767,7 +1766,7 @@ function TabMetas({ userId, onRefreshSummary }) {
 
       {/* Modal agregar monto a meta */}
       {addModal && (
-        <Modal title={`Agregar ahorro — "${addModal.name}"`} onClose={() => setAddModal(null)}>
+        <Modal title={`Agregar ahorro â€” "${addModal.name}"`} onClose={() => setAddModal(null)}>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Acumulado actual: <strong className="text-gray-900 dark:text-gray-50">{fmt(addModal.currentAmount)}</strong> de {fmt(addModal.targetAmount)}
           </p>
@@ -1783,7 +1782,7 @@ function TabMetas({ userId, onRefreshSummary }) {
   )
 }
 
-// ─── TAB: Cuotas ────────────────────────────────────────────────────────────
+// â”€â”€â”€ TAB: Cuotas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
@@ -1889,7 +1888,7 @@ function InstallmentTimelineView({ installments }) {
                   if (!cell) {
                     return (
                       <td key={i} className={`px-2 py-3 text-center ${isCur ? 'bg-blue-50/30 dark:bg-blue-950/10' : ''}`}>
-                        <span className="text-gray-200 dark:text-gray-700">—</span>
+                        <span className="text-gray-200 dark:text-gray-700">â€”</span>
                       </td>
                     )
                   }
@@ -1928,7 +1927,7 @@ function InstallmentTimelineView({ installments }) {
                 return (
                   <td key={`tot-${year}-${month}`}
                     className={`px-2 py-3 text-center text-xs font-bold ${isCur ? 'bg-blue-50/40 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {monthTotal > 0 ? fmt(monthTotal) : <span className="text-gray-300 dark:text-gray-600 font-normal">—</span>}
+                    {monthTotal > 0 ? fmt(monthTotal) : <span className="text-gray-300 dark:text-gray-600 font-normal">â€”</span>}
                   </td>
                 )
               })}
@@ -1940,307 +1939,7 @@ function InstallmentTimelineView({ installments }) {
   )
 }
 
-function TabCuotas({ userId, onRefreshSummary }) {
-  const [installments, setInstallments] = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [saving,       setSaving]       = useState(false)
-  const [modal,        setModal]        = useState(null) // null | 'new' | installment object
-  const [payingId,     setPayingId]     = useState(null)
-  const [deletingId,   setDeletingId]   = useState(null)
-  const [error,        setError]        = useState('')
-  const [view,         setView]         = useState('timeline') // 'timeline' | 'list'
-
-  const emptyForm = () => ({
-    description: '', installmentAmount: '', totalInstallments: '',
-    paidInstallments: '0', dueDay: '',
-  })
-  const [form, setForm] = useState(emptyForm())
-
-  const load = useCallback(() => {
-    setLoading(true)
-    api.getFinanceInstallments(userId)
-      .then(data => setInstallments(data || []))
-      .catch(() => setInstallments([]))
-      .finally(() => setLoading(false))
-  }, [userId])
-
-  useEffect(() => { load() }, [load])
-
-  const openNew = () => {
-    setError('')
-    setForm(emptyForm())
-    setModal('new')
-  }
-
-  const openEdit = (inst) => {
-    setError('')
-    setForm({
-      description:        inst.description ?? '',
-      installmentAmount:  String(inst.installmentAmount ?? ''),
-      totalInstallments:  String(inst.totalInstallments ?? ''),
-      paidInstallments:   String(inst.paidInstallments ?? '0'),
-      dueDay:             inst.dueDay ? String(inst.dueDay) : '',
-    })
-    setModal(inst)
-  }
-
-  const handleSave = async () => {
-    setError('')
-    const data = {
-      description:       form.description,
-      installmentAmount: parseFloat(form.installmentAmount),
-      totalInstallments: parseInt(form.totalInstallments),
-      paidInstallments:  parseInt(form.paidInstallments) || 0,
-      dueDay:            form.dueDay ? parseInt(form.dueDay) : null,
-      totalAmount:       parseFloat(form.installmentAmount) * parseInt(form.totalInstallments),
-    }
-    if (!data.description)                    { setError('Escribe una descripción.'); return }
-    if (!data.installmentAmount || isNaN(data.installmentAmount) || data.installmentAmount <= 0) { setError('Monto por cuota inválido.'); return }
-    if (!data.totalInstallments || isNaN(data.totalInstallments) || data.totalInstallments < 1)  { setError('Total de cuotas inválido.'); return }
-    if (data.paidInstallments > data.totalInstallments) { setError('Las cuotas pagadas no pueden superar el total.'); return }
-
-    setSaving(true)
-    try {
-      if (modal === 'new') await api.createFinanceInstallment(userId, data)
-      else                  await api.updateFinanceInstallment(modal.id, userId, data)
-      setModal(null)
-      load()
-      onRefreshSummary()
-    } catch (e) {
-      setError(e.message || 'No se pudo guardar.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handlePay = async (inst) => {
-    if (inst.paidInstallments >= inst.totalInstallments) return
-    setPayingId(inst.id)
-    try {
-      await api.payFinanceInstallment(inst.id, userId)
-      load()
-      onRefreshSummary()
-    } catch {
-      alert('No se pudo registrar el pago.')
-    } finally {
-      setPayingId(null)
-    }
-  }
-
-  const handleDelete = async (inst) => {
-    if (!confirm(`¿Eliminar "${inst.description}"?`)) return
-    setDeletingId(inst.id)
-    try {
-      await api.deleteFinanceInstallment(inst.id, userId)
-      load()
-      onRefreshSummary()
-    } catch {
-      alert('No se pudo eliminar.')
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
-  const active    = installments.filter(i => i.paidInstallments < i.totalInstallments)
-  const completed = installments.filter(i => i.paidInstallments >= i.totalInstallments)
-
-  return (
-    <div className="space-y-5">
-
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Mis Cuotas</h2>
-          {!loading && (
-            <p className="text-sm text-gray-400">
-              {active.length} activa{active.length !== 1 ? 's' : ''}
-              {completed.length > 0 && ` · ${completed.length} completada${completed.length !== 1 ? 's' : ''}`}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Toggle vista */}
-          <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            <button
-              onClick={() => setView('timeline')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors
-                ${view === 'timeline' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-50 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-              <CalendarDays className="h-3.5 w-3.5" /> Calendario
-            </button>
-            <button
-              onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors
-                ${view === 'list' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-50 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-              <CreditCard className="h-3.5 w-3.5" /> Lista
-            </button>
-          </div>
-          <button onClick={openNew} className="btn-primary flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nueva cuota
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <LoadingRow key={i} />)}</div>
-      ) : installments.length === 0 ? (
-        <EmptyState
-          icon={CreditCard}
-          text="Sin cuotas registradas"
-          sub="Agrega tus pagos en cuotas para ver cuánto debes mes a mes."
-          onAdd={openNew}
-          addLabel="Agregar primera cuota"
-        />
-      ) : view === 'timeline' ? (
-        /* ── Vista timeline ── */
-        <div className="space-y-5">
-          <InstallmentTimelineView installments={active} />
-          {completed.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Completadas</p>
-              <InstallmentTimelineView installments={completed} />
-            </div>
-          )}
-        </div>
-      ) : (
-        /* ── Vista lista ── */
-        <div className="space-y-4">
-          {active.length > 0 && (
-            <div className="space-y-3">
-              {active.map(inst => {
-                const remaining = inst.totalInstallments - inst.paidInstallments
-                const pct       = Math.round((inst.paidInstallments / inst.totalInstallments) * 100)
-                const isPaying  = payingId  === inst.id
-                const isDeleting = deletingId === inst.id
-                return (
-                  <div key={inst.id} className="card">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-950 flex items-center justify-center shrink-0">
-                          <CreditCard className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 dark:text-gray-50 truncate">{inst.description}</p>
-                          <p className="text-xs text-gray-400">
-                            {inst.paidInstallments}/{inst.totalInstallments} pagadas · {remaining} restante{remaining !== 1 ? 's' : ''}
-                            {inst.dueDay ? ` · Vence día ${inst.dueDay}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => handlePay(inst)} disabled={isPaying}
-                          title="Marcar cuota pagada"
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-200 dark:hover:bg-green-900 transition-colors disabled:opacity-50">
-                          {isPaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                          Pagar
-                        </button>
-                        <button onClick={() => openEdit(inst)} className="p-1.5 text-gray-400 hover:text-primary-600 transition-colors"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => handleDelete(inst)} disabled={isDeleting} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
-                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between text-sm mb-1.5">
-                      <span className="text-gray-500 dark:text-gray-400">{fmt(inst.installmentAmount)}/mes</span>
-                      <span className="font-semibold text-orange-600 dark:text-orange-400">
-                        {fmt(inst.installmentAmount * remaining)} restante
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div className="h-2 rounded-full bg-orange-500 transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="text-right text-xs text-gray-400 mt-1">{pct}% pagado</p>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {completed.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Completadas</p>
-              <div className="space-y-2">
-                {completed.map(inst => (
-                  <div key={inst.id} className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-800 opacity-60">
-                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center shrink-0">
-                      <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-700 dark:text-gray-300 truncate">{inst.description}</p>
-                      <p className="text-xs text-gray-400">{inst.totalInstallments} cuotas · {fmt(inst.installmentAmount)}/mes</p>
-                    </div>
-                    <button onClick={() => handleDelete(inst)} className="p-1 text-gray-400 hover:text-red-500 transition-colors">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal nueva / editar */}
-      {modal && (
-        <Modal title={modal === 'new' ? 'Nueva cuota' : 'Editar cuota'} onClose={() => setModal(null)}>
-          <ErrorBanner msg={error} />
-
-          <FormField label="Descripción" required>
-            <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-              placeholder="Ej: Auto, Celular, Notebook..." className={inputCls} autoFocus />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Monto por cuota" required>
-              <input type="number" min="0" step="0.01" value={form.installmentAmount}
-                onChange={e => setForm({ ...form, installmentAmount: e.target.value })}
-                placeholder="0" className={inputCls} />
-            </FormField>
-            <FormField label="Total de cuotas" required>
-              <input type="number" min="1" value={form.totalInstallments}
-                onChange={e => setForm({ ...form, totalInstallments: e.target.value })}
-                placeholder="Ej: 12" className={inputCls} />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Ya pagadas">
-              <input type="number" min="0" value={form.paidInstallments}
-                onChange={e => setForm({ ...form, paidInstallments: e.target.value })}
-                placeholder="0" className={inputCls} />
-            </FormField>
-            <FormField label="Día de vencimiento">
-              <input type="number" min="1" max="31" value={form.dueDay}
-                onChange={e => setForm({ ...form, dueDay: e.target.value })}
-                placeholder="Ej: 5" className={inputCls} />
-            </FormField>
-          </div>
-
-          {form.installmentAmount && form.totalInstallments && (
-            <div className="rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-3 mb-4 text-sm">
-              <div className="flex justify-between text-orange-700 dark:text-orange-300">
-                <span>Total del plan:</span>
-                <span className="font-bold">{fmt(parseFloat(form.installmentAmount) * parseInt(form.totalInstallments))}</span>
-              </div>
-              {parseInt(form.paidInstallments) > 0 && (
-                <div className="flex justify-between text-orange-600 dark:text-orange-400 mt-1">
-                  <span>Restante:</span>
-                  <span className="font-semibold">
-                    {fmt(parseFloat(form.installmentAmount) * (parseInt(form.totalInstallments) - parseInt(form.paidInstallments || 0)))}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <ModalButtons onClose={() => setModal(null)} onSave={handleSave} saving={saving} />
-        </Modal>
-      )}
-    </div>
-  )
-}
-
-// ─── Botones de modal reutilizables ──────────────────────────────────────────
+// â”€â”€â”€ Botones de modal reutilizables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ModalButtons({ onClose, onSave, saving, saveLabel = 'Guardar' }) {
   return (
@@ -2258,13 +1957,13 @@ function ModalButtons({ onClose, onSave, saving, saveLabel = 'Guardar' }) {
   )
 }
 
-// ─── Helper: fecha de hoy ────────────────────────────────────────────────────
+// â”€â”€â”€ Helper: fecha de hoy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// ─── Página principal ────────────────────────────────────────────────────────
+// â”€â”€â”€ PÃ¡gina principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function MyFinances() {
   const { user } = useAuth()
@@ -2323,7 +2022,6 @@ function MyFinances() {
         <>
           {tab === 'resumen'  && <TabResumen  summary={summary} userId={user.userId} onAddExpense={() => setShowAddExpense(true)} />}
           {tab === 'ingresos' && <TabIngresos userId={user.userId} onRefreshSummary={loadSummary} />}
-          {tab === 'cuotas'   && <TabCuotas   userId={user.userId} onRefreshSummary={loadSummary} />}
           {tab === 'metas'    && <TabMetas    userId={user.userId} onRefreshSummary={loadSummary} />}
         </>
       )}
