@@ -145,7 +145,7 @@ function avatarColor(name = '') {
   return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
 
-function ShopCard({ shop, catSlug, onClick }) {
+function ShopCard({ shop, catSlug, coverUrl, onClick }) {
   const rating   = getShopRating(shop.barbers)
   const initial  = (shop.name ?? '?')[0].toUpperCase()
   const catLabel = getCatLabel(catSlug)
@@ -156,22 +156,31 @@ function ShopCard({ shop, catSlug, onClick }) {
       onClick={onClick}
       className="group text-left bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all w-full"
     >
-      {/* Avatar strip */}
-      <div className={`${avatarColor(shop.name)} h-24 flex items-center justify-center`}>
-        <span className="text-4xl font-extrabold text-white/80">{initial}</span>
+      {/* Cover: foto real o avatar con inicial */}
+      <div className="relative h-32 overflow-hidden">
+        {coverUrl ? (
+          <img
+            src={coverUrl}
+            alt={shop.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className={`${avatarColor(shop.name)} w-full h-full flex items-center justify-center`}>
+            <span className="text-5xl font-extrabold text-white/80">{initial}</span>
+          </div>
+        )}
+        {/* Rating overlay */}
+        {rating && (
+          <span className="absolute top-2 right-2 flex items-center gap-0.5 text-xs font-bold text-white bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
+            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />{rating}
+          </span>
+        )}
       </div>
 
       <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-tight line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-            {shop.name}
-          </h3>
-          {rating && (
-            <span className="flex items-center gap-0.5 text-xs font-semibold text-amber-500 shrink-0">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />{rating}
-            </span>
-          )}
-        </div>
+        <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-tight line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-1.5">
+          {shop.name}
+        </h3>
 
         {catLabel && (
           <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${catColor}`}>
@@ -210,10 +219,11 @@ function ShopSkeleton() {
 }
 
 function ShopsSection({ onShopClick }) {
-  const [shops,      setShops]      = useState([])
-  const [catMap,     setCatMap]     = useState({})
-  const [loading,    setLoading]    = useState(true)
-  const [tab,        setTab]        = useState('rating') // 'rating' | 'recent'
+  const [shops,    setShops]    = useState([])
+  const [catMap,   setCatMap]   = useState({})
+  const [covers,   setCovers]   = useState({}) // { shopId: imageUrl }
+  const [loading,  setLoading]  = useState(true)
+  const [tab,      setTab]      = useState('rating') // 'rating' | 'recent'
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -221,14 +231,25 @@ function ShopsSection({ onShopClick }) {
       api.getAllShops().catch(() => []),
       api.getCategories().catch(() => []),
     ]).then(([shopList, cats]) => {
-      setShops(shopList || [])
+      const list = shopList || []
+      setShops(list)
       const map = {}
       ;(cats || []).forEach(c => { map[c.id] = c.slug })
       setCatMap(map)
+
+      // Cargar primera foto de galería para cada negocio en background
+      list.forEach(shop => {
+        api.getShopGallery(shop.id)
+          .then(imgs => {
+            if (imgs?.[0]?.imageUrl) {
+              setCovers(prev => ({ ...prev, [shop.id]: imgs[0].imageUrl }))
+            }
+          })
+          .catch(() => {})
+      })
     }).finally(() => setLoading(false))
   }, [])
 
-  // No mostrar sección si no hay negocios y ya terminó de cargar
   if (!loading && shops.length === 0) return null
 
   const byRating = [...shops]
@@ -240,7 +261,6 @@ function ShopsSection({ onShopClick }) {
     .sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
     .slice(0, 6)
 
-  // Si "mejor valorados" está vacío porque nadie tiene rating, usar recientes
   const displayed = tab === 'rating' && byRating.length > 0 ? byRating : byRecent
 
   return (
@@ -289,6 +309,7 @@ function ShopsSection({ onShopClick }) {
                 key={shop.id}
                 shop={shop}
                 catSlug={catMap[shop.categoryId] ?? ''}
+                coverUrl={covers[shop.id] ?? null}
                 onClick={() => onShopClick(shop)}
               />
             ))}
@@ -298,7 +319,7 @@ function ShopsSection({ onShopClick }) {
         {/* CTA */}
         <div className="text-center mt-10">
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/booking')}
             className="inline-flex items-center gap-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold px-7 py-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-md transition"
           >
             Ver todos los negocios <ChevronRight className="w-4 h-4" />
