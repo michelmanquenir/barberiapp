@@ -5,7 +5,7 @@ function ProtectedRoute({ children, requireBusinessOwner = false, requireSuperAd
   const { isAuthenticated, isBusinessOwner, isSuperAdmin } = useAuth()
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   if (requireSuperAdmin && !isSuperAdmin) {

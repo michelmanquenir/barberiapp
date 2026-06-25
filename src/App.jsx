@@ -1,11 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { LoadScript } from '@react-google-maps/api'
 
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import { GOOGLE_LIBRARIES, GOOGLE_MAPS_API_KEY } from './lib/googleMaps'
+import LandingPage from './pages/LandingPage'
 
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -47,6 +48,15 @@ import EditProfile from './pages/EditProfile'
 import EmployeeDashboard from './pages/employee/EmployeeDashboard'
 import MyFinances from './pages/MyFinances'
 
+// Ruta raíz: landing para visitantes, /booking para autenticados
+function HomeRoute() {
+  const { isAuthenticated, isBusinessOwner, isSuperAdmin } = useAuth()
+  if (!isAuthenticated) return <LandingPage />
+  if (isSuperAdmin)     return <Navigate to="/super-admin/dashboard" replace />
+  if (isBusinessOwner)  return <Navigate to="/admin" replace />
+  return <Navigate to="/booking" replace />
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -69,6 +79,7 @@ function App() {
             <Route path="/shop/:slug" element={<PublicShopCatalog />} />
             <Route path="/transport/:slug" element={<PublicTransport />} />
             <Route path="/booking" element={<Layout><DiscoverShops /></Layout>} />
+            <Route path="/" element={<HomeRoute />} />
 
             {/* Panel Super Admin */}
             <Route
@@ -265,7 +276,6 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Routes>
-                      <Route path="/" element={<Navigate to="/booking" replace />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/appointments" element={<Appointments />} />
                       <Route path="/wallet" element={<Wallet />} />
