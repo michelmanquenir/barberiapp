@@ -20,13 +20,17 @@ import {
   ArrowRight,
   CheckCircle,
   ChevronRight,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { api } from '../lib/api'
+import { useTheme } from '../context/ThemeContext'
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 
 function Navbar() {
   const [open, setOpen] = useState(false)
+  const { isDark, toggleTheme } = useTheme()
   return (
     <header className="fixed top-0 inset-x-0 z-30 bg-gray-900/95 backdrop-blur border-b border-white/10">
       <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
@@ -46,6 +50,13 @@ function Navbar() {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg hover:bg-white/10 transition"
+            aria-label="Cambiar tema"
+          >
+            {isDark ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-400" />}
+          </button>
           <Link to="/login" className="text-sm text-gray-300 hover:text-white font-medium transition px-3 py-1.5">
             Iniciar sesión
           </Link>
@@ -66,6 +77,13 @@ function Navbar() {
           <a href="#consumidores" onClick={() => setOpen(false)} className="text-sm text-gray-300 hover:text-white py-1">Para clientes</a>
           <a href="#negocios"     onClick={() => setOpen(false)} className="text-sm text-gray-300 hover:text-white py-1">Para negocios</a>
           <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-2 text-sm text-gray-300 hover:text-white py-2 transition"
+            >
+              {isDark ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-gray-400" />}
+              {isDark ? 'Modo claro' : 'Modo oscuro'}
+            </button>
             <Link to="/login"    className="text-sm text-center text-gray-300 hover:text-white font-medium py-2 border border-white/20 rounded-lg transition">
               Iniciar sesión
             </Link>
