@@ -362,10 +362,13 @@ function LandingPage() {
           </div>
         </div>
 
-        {/* Wave divider — matches the section below */}
-        <div className="absolute bottom-0 inset-x-0 h-16 bg-white dark:bg-gray-950 transition-colors"
+        {/* Wave divider — matches the shops section below */}
+        <div className="absolute bottom-0 inset-x-0 h-16 bg-gray-50 dark:bg-gray-900 transition-colors"
           style={{ clipPath: 'ellipse(100% 100% at 50% 100%)' }} />
       </section>
+
+      {/* ── Shops section ────────────────────────────────────────────────── */}
+      <ShopsSection onShopClick={handleShopClick} />
 
       {/* ── Stats bar ────────────────────────────────────────────────────── */}
       <section className="bg-white dark:bg-gray-950 py-14 transition-colors">
@@ -491,9 +494,6 @@ function LandingPage() {
           </div>
         </div>
       </section>
-
-      {/* ── Shops section ────────────────────────────────────────────────── */}
-      <ShopsSection onShopClick={handleShopClick} />
 
       {/* ── Final CTA ────────────────────────────────────────────────────── */}
       <section className="bg-blue-600 dark:bg-gray-900 py-20 transition-colors">
