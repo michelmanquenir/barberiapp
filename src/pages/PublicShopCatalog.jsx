@@ -413,6 +413,7 @@ function TransferPanel({ shop, proofFile, proofUrl, uploadingProof, proofError, 
 
 // ── CheckoutModal ─────────────────────────────────────────────────────────────
 function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm, submitting, isAuthenticated }) {
+  const navigate = useNavigate()
   const [deliveryType, setDeliveryType]         = useState('pickup')
   const [address, setAddress]                   = useState('')
   const [distanceKm, setDistanceKm]             = useState(null)
@@ -824,8 +825,13 @@ function CheckoutModal({ cartItems, cartTotal, shop, barbers, onClose, onConfirm
               </p>
               <p className="text-[11px] text-amber-600 dark:text-amber-500">
                 Para que el negocio pueda contactarte.{' '}
-                <button type="button" onClick={() => window.location.href = '/login'}
-                  className="underline font-semibold">¿Tenés cuenta? Iniciá sesión</button>
+                <button type="button" onClick={() => {
+                    const cartToSave = {}
+                    cartItems.forEach(item => { cartToSave[item.id] = item.quantity })
+                    sessionStorage.setItem(`pendingCart_${shop.slug}`, JSON.stringify(cartToSave))
+                    navigate('/login', { state: { from: `/shop/${shop.slug}` } })
+                  }}
+                  className="underline font-semibold">¿Tienes cuenta? Inicia sesión</button>
               </p>
               <div className="grid grid-cols-1 gap-2">
                 <div>
@@ -932,6 +938,18 @@ export default function PublicShopCatalog() {
       .catch(() => setError('Negocio no encontrado'))
       .finally(() => setLoading(false))
   }, [slug])
+
+  // Restaurar carrito guardado al volver del login
+  useEffect(() => {
+    if (products.length === 0) return
+    const saved = sessionStorage.getItem(`pendingCart_${slug}`)
+    if (!saved) return
+    try {
+      setCart(JSON.parse(saved))
+      setCheckoutOpen(true)
+    } catch {}
+    sessionStorage.removeItem(`pendingCart_${slug}`)
+  }, [products, slug])
 
   const addToCart = useCallback((productId) => {
     setCart(prev => ({ ...prev, [productId]: (prev[productId] ?? 0) + 1 }))

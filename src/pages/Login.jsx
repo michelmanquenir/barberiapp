@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Store, Eye, EyeOff, Clock } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
 
   const [form, setForm] = useState({ email: '', password: '' })
@@ -37,6 +38,12 @@ function Login() {
       // Si el usuario tiene contraseña provisional debe cambiarla antes de continuar
       if (data.mustChangePassword) {
         navigate('/change-password', { replace: true })
+        return
+      }
+      const from = location.state?.from
+        || new URLSearchParams(location.search).get('returnUrl')
+      if (from) {
+        navigate(from, { replace: true })
         return
       }
       const dest = data.role === 'SUPER_ADMIN'      ? '/super-admin/dashboard'
