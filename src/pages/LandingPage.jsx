@@ -287,7 +287,7 @@ function ShopsSection({ onShopClick }) {
                 shop={shop}
                 catSlug={catMap[shop.categoryId] ?? ''}
                 coverUrl={covers[shop.id] ?? null}
-                onClick={() => onShopClick(shop)}
+                onClick={() => onShopClick(shop, catMap[shop.categoryId] ?? '')}
               />
             ))}
           </div>
@@ -310,7 +310,12 @@ function ShopsSection({ onShopClick }) {
 
 function LandingPage() {
   const navigate = useNavigate()
-  const handleShopClick = () => navigate('/login')
+  const handleShopClick = (shop, catSlug) => {
+    if (!shop?.slug) return
+    if (catSlug === 'bazar')      return navigate(`/shop/${shop.slug}`)
+    if (catSlug === 'transporte') return navigate(`/transport/${shop.slug}`)
+    navigate(`/book/${shop.slug}`)
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white transition-colors">
