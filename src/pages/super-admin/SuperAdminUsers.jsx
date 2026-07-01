@@ -132,14 +132,16 @@ function SuperAdminUsers() {
   }
 
   // Filtros
-  const filtered = users.filter(u => {
-    const matchesTab = activeTab === 'ALL' || u.status === activeTab
-    const q = search.toLowerCase()
-    const matchesSearch = !q ||
-      u.email?.toLowerCase().includes(q) ||
-      u.fullName?.toLowerCase().includes(q)
-    return matchesTab && matchesSearch
-  })
+  const filtered = users
+    .filter(u => {
+      const matchesTab = activeTab === 'ALL' || u.status === activeTab
+      const q = search.toLowerCase()
+      const matchesSearch = !q ||
+        u.email?.toLowerCase().includes(q) ||
+        u.fullName?.toLowerCase().includes(q)
+      return matchesTab && matchesSearch
+    })
+    .sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
 
   // Contadores para tabs
   const counts = {
