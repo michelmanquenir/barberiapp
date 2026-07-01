@@ -24,12 +24,14 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useTheme } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 
 function Navbar() {
   const [open, setOpen] = useState(false)
   const { isDark, toggleTheme } = useTheme()
+  const { isAuthenticated } = useAuth()
   return (
     <header className="fixed top-0 inset-x-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-200 dark:border-white/10 transition-colors">
       <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
@@ -59,12 +61,20 @@ function Navbar() {
               ? <Sun  className="w-5 h-5 text-yellow-400" />
               : <Moon className="w-5 h-5 text-gray-500" />}
           </button>
-          <Link to="/login"    className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium transition px-3 py-1.5">
-            Iniciar sesión
-          </Link>
-          <Link to="/register" className="text-sm bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold px-4 py-2 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
-            Registrarse gratis
-          </Link>
+          {isAuthenticated ? (
+            <Link to="/booking" className="text-sm bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold px-4 py-2 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
+              Explorar negocios
+            </Link>
+          ) : (
+            <>
+              <Link to="/login"    className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium transition px-3 py-1.5">
+                Iniciar sesión
+              </Link>
+              <Link to="/register" className="text-sm bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold px-4 py-2 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
+                Registrarse gratis
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile hamburger */}
@@ -86,12 +96,20 @@ function Navbar() {
               {isDark ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-gray-500" />}
               {isDark ? 'Modo claro' : 'Modo oscuro'}
             </button>
-            <Link to="/login"    className="text-sm text-center text-gray-600 dark:text-gray-300 font-medium py-2 border border-gray-200 dark:border-white/20 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition">
-              Iniciar sesión
-            </Link>
-            <Link to="/register" className="text-sm text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold py-2 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
-              Registrarse gratis
-            </Link>
+            {isAuthenticated ? (
+              <Link to="/booking" onClick={() => setOpen(false)} className="text-sm text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold py-2 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
+                Explorar negocios
+              </Link>
+            ) : (
+              <>
+                <Link to="/login"    className="text-sm text-center text-gray-600 dark:text-gray-300 font-medium py-2 border border-gray-200 dark:border-white/20 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                  Iniciar sesión
+                </Link>
+                <Link to="/register" className="text-sm text-center bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold py-2 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-100 transition">
+                  Registrarse gratis
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -310,6 +328,7 @@ function ShopsSection({ onShopClick }) {
 
 function LandingPage() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const handleShopClick = (shop, catSlug) => {
     if (!shop?.slug) return
     if (catSlug === 'bazar')      return navigate(`/shop/${shop.slug}`)
@@ -344,18 +363,29 @@ function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={() => navigate('/register')}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-gray-900 font-bold text-base px-8 py-3.5 rounded-xl hover:bg-gray-100 transition shadow-lg"
-            >
-              Comenzar gratis <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/10 text-white font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-white/20 border border-white/20 transition"
-            >
-              Ya tengo cuenta
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={() => navigate('/booking')}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-gray-900 font-bold text-base px-8 py-3.5 rounded-xl hover:bg-gray-100 transition shadow-lg"
+              >
+                Explorar negocios <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/register')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-gray-900 font-bold text-base px-8 py-3.5 rounded-xl hover:bg-gray-100 transition shadow-lg"
+                >
+                  Comenzar gratis <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/10 text-white font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-white/20 border border-white/20 transition"
+                >
+                  Ya tengo cuenta
+                </button>
+              </>
+            )}
           </div>
 
           <div className="flex flex-wrap justify-center gap-3 mt-12">
@@ -421,10 +451,10 @@ function LandingPage() {
 
           <div className="text-center mt-10">
             <button
-              onClick={() => navigate('/register')}
+              onClick={() => navigate(isAuthenticated ? '/booking' : '/register')}
               className="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold px-7 py-3 rounded-xl hover:bg-blue-700 transition"
             >
-              Crear mi cuenta gratis <ArrowRight className="w-4 h-4" />
+              {isAuthenticated ? 'Explorar negocios' : 'Crear mi cuenta gratis'} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -455,12 +485,14 @@ function LandingPage() {
                 ))}
               </ul>
 
-              <button
-                onClick={() => navigate('/register')}
-                className="inline-flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold px-7 py-3 rounded-xl hover:bg-gray-700 dark:hover:bg-gray-100 transition"
-              >
-                Registra tu negocio <ArrowRight className="w-4 h-4" />
-              </button>
+              {!isAuthenticated && (
+                <button
+                  onClick={() => navigate('/register')}
+                  className="inline-flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold px-7 py-3 rounded-xl hover:bg-gray-700 dark:hover:bg-gray-100 transition"
+                >
+                  Registra tu negocio <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Mock admin panel — always dark by design */}
@@ -503,26 +535,45 @@ function LandingPage() {
       {/* ── Final CTA ────────────────────────────────────────────────────── */}
       <section className="bg-blue-600 dark:bg-gray-900 py-20 transition-colors">
         <div className="max-w-3xl mx-auto px-5 text-center">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
-            ¿Listo para comenzar?
-          </h2>
-          <p className="text-blue-100 dark:text-gray-400 mb-10 text-lg">
-            Crea tu cuenta gratis en menos de un minuto y empieza a reservar o gestionar tu negocio hoy mismo.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={() => navigate('/register')}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-blue-600 dark:text-gray-900 font-bold px-8 py-3.5 rounded-xl hover:bg-blue-50 dark:hover:bg-gray-100 transition text-base shadow-lg"
-            >
-              Crear cuenta gratis <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white font-medium px-8 py-3.5 rounded-xl border border-white/30 hover:border-white/60 hover:bg-white/10 transition text-base"
-            >
-              Ya tengo cuenta
-            </button>
-          </div>
+          {isAuthenticated ? (
+            <>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
+                ¿Qué vas a reservar hoy?
+              </h2>
+              <p className="text-blue-100 dark:text-gray-400 mb-10 text-lg">
+                Explora todos los negocios disponibles y agenda tu próxima cita en segundos.
+              </p>
+              <button
+                onClick={() => navigate('/booking')}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-blue-600 dark:text-gray-900 font-bold px-8 py-3.5 rounded-xl hover:bg-blue-50 dark:hover:bg-gray-100 transition text-base shadow-lg"
+              >
+                Ver todos los negocios <ArrowRight className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
+                ¿Listo para comenzar?
+              </h2>
+              <p className="text-blue-100 dark:text-gray-400 mb-10 text-lg">
+                Crea tu cuenta gratis en menos de un minuto y empieza a reservar o gestionar tu negocio hoy mismo.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={() => navigate('/register')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-blue-600 dark:text-gray-900 font-bold px-8 py-3.5 rounded-xl hover:bg-blue-50 dark:hover:bg-gray-100 transition text-base shadow-lg"
+                >
+                  Crear cuenta gratis <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white font-medium px-8 py-3.5 rounded-xl border border-white/30 hover:border-white/60 hover:bg-white/10 transition text-base"
+                >
+                  Ya tengo cuenta
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
@@ -537,8 +588,17 @@ function LandingPage() {
           </div>
           <p className="text-gray-400 dark:text-gray-600 text-xs">© {new Date().getFullYear()} WeServ. Todos los derechos reservados.</p>
           <div className="flex items-center gap-4">
-            <Link to="/login"    className="text-xs text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition">Iniciar sesión</Link>
-            <Link to="/register" className="text-xs text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition">Registrarse</Link>
+            {isAuthenticated ? (
+              <>
+                <Link to="/booking" className="text-xs text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition">Explorar negocios</Link>
+                <Link to="/profile" className="text-xs text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition">Mi perfil</Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login"    className="text-xs text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition">Iniciar sesión</Link>
+                <Link to="/register" className="text-xs text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition">Registrarse</Link>
+              </>
+            )}
           </div>
         </div>
       </footer>

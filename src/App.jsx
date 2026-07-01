@@ -48,13 +48,12 @@ import EditProfile from './pages/EditProfile'
 import EmployeeDashboard from './pages/employee/EmployeeDashboard'
 import MyFinances from './pages/MyFinances'
 
-// Ruta raíz: landing para visitantes, /booking para autenticados
+// Ruta raíz: landing siempre, excepto admins que van a su panel
 function HomeRoute() {
-  const { isAuthenticated, isBusinessOwner, isSuperAdmin } = useAuth()
-  if (!isAuthenticated) return <LandingPage />
-  if (isSuperAdmin)     return <Navigate to="/super-admin/dashboard" replace />
-  if (isBusinessOwner)  return <Navigate to="/admin" replace />
-  return <Navigate to="/booking" replace />
+  const { isBusinessOwner, isSuperAdmin } = useAuth()
+  if (isSuperAdmin)    return <Navigate to="/super-admin/dashboard" replace />
+  if (isBusinessOwner) return <Navigate to="/admin" replace />
+  return <LandingPage />
 }
 
 function App() {
