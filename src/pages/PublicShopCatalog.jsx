@@ -1063,7 +1063,7 @@ export default function PublicShopCatalog() {
             {shop.name} recibirá tu pedido y se comunicará para coordinar la entrega.
           </p>
           <div className="flex flex-col gap-3">
-            <button onClick={() => navigate('/appointments')}
+            <button onClick={() => navigate('/appointments', { state: { tab: 'pedidos' } })}
               className="w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-semibold text-sm">
               Ver mis pedidos
             </button>

@@ -1,5 +1,6 @@
 import { Calendar, Clock, User, MapPin, CreditCard, Star, AlertCircle, ShoppingBag, Package, Truck, CheckCircle, XCircle } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { toast, confirm } from '../lib/swal'
 import { useAuth } from '../context/AuthContext'
@@ -43,7 +44,8 @@ const STATUS_LABELS = {
 
 function Appointments() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('citas') // 'citas' | 'pedidos'
+  const { state: navState } = useLocation()
+  const [activeTab, setActiveTab] = useState(navState?.tab === 'pedidos' ? 'pedidos' : 'citas')
   const [filter, setFilter] = useState('upcoming')
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
