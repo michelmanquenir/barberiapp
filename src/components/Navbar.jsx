@@ -31,13 +31,22 @@ function NavAvatar({ avatarUrl, fullName, size = 8 }) {
 }
 
 const APPT_STATUS = {
-  pending:   { label: 'Esperando confirmación', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  confirmed: { label: 'Confirmada',             color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  pending:   { label: 'Pendiente de confirmar', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  confirmed: { label: 'Cita confirmada',        color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
 }
 
-const ORDER_STATUS = {
-  confirmed: { label: 'Confirmado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  ready:     { label: 'Listo',      color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
+const ORDER_STATUS_COLOR = {
+  confirmed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  ready:     'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+}
+
+function getOrderLabel(order) {
+  if (order.status === 'confirmed') return 'Pedido confirmado'
+  if (order.status === 'ready') {
+    if (order.deliveryType === 'delivery') return 'Listo para despacho'
+    return 'Listo para retiro'
+  }
+  return order.status
 }
 
 function Navbar({ toggleSidebar, isSidebarOpen }) {
@@ -244,8 +253,8 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
                                           {o.items?.length ? `${o.items.length} producto${o.items.length !== 1 ? 's' : ''}` : 'Pedido'}
                                         </p>
                                       </div>
-                                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${ORDER_STATUS[o.status]?.color ?? 'bg-gray-100 text-gray-600'}`}>
-                                        {ORDER_STATUS[o.status]?.label ?? o.status}
+                                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${ORDER_STATUS_COLOR[o.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                                        {getOrderLabel(o)}
                                       </span>
                                     </button>
                                   ))}
