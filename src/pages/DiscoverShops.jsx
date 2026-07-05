@@ -115,6 +115,7 @@ function DiscoverShops() {
   const [filterMaxDist, setFilterMaxDist]     = useState(0)       // 0 = sin límite (km)
   const [sortBy, setSortBy]                   = useState('smart') // 'smart'|'rating'|'name'
 
+  const [mobileView, setMobileView] = useState('list')
   const mapRef = useRef(null)
 
   const onMapLoad = useCallback((map) => {
@@ -613,7 +614,7 @@ function DiscoverShops() {
       {/* Split view: list + map */}
       <div className="flex flex-col lg:flex-row gap-4 px-4 sm:px-6 lg:px-8 lg:h-[calc(100vh-320px)] lg:min-h-[400px]">
         {/* Left: shop cards */}
-        <div className="lg:w-1/2 lg:overflow-y-auto space-y-3 pb-4 lg:pb-0 lg:pr-1">
+        <div className={`lg:w-1/2 lg:overflow-y-auto space-y-3 pb-20 lg:pb-0 lg:pr-1 ${mobileView === 'map' ? 'hidden lg:block' : ''}`}>
           {filteredShops.length === 0 ? (
             <div className="text-center py-16">
               <Store className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -649,7 +650,7 @@ function DiscoverShops() {
         </div>
 
         {/* Right: Google Map */}
-        <div className="lg:w-1/2 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 min-h-[300px] lg:min-h-0">
+        <div className={`rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 lg:w-1/2 lg:min-h-0 ${mobileView === 'list' ? 'hidden lg:block' : 'h-[calc(100vh-200px)]'}`}>
           <GoogleMap
             mapContainerStyle={MAP_STYLES}
             center={mapCenter}
@@ -754,6 +755,19 @@ function DiscoverShops() {
               })()}
           </GoogleMap>
         </div>
+      </div>
+
+      {/* Botón flotante toggle mapa/lista — solo en móvil/tablet */}
+      <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
+        <button
+          onClick={() => setMobileView(v => v === 'list' ? 'map' : 'list')}
+          className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold px-6 py-3 rounded-full shadow-xl border border-gray-700 dark:border-gray-200 hover:bg-gray-700 dark:hover:bg-gray-100 transition"
+        >
+          {mobileView === 'list'
+            ? <><MapPin className="w-4 h-4" /> Ver mapa</>
+            : <><Store  className="w-4 h-4" /> Ver lista</>
+          }
+        </button>
       </div>
     </div>
   )
