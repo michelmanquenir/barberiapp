@@ -196,7 +196,25 @@ function getPeriodExpenses(expenses, from, to) {
     const backMonths = earliest.installmentNumber <= 1 ? 0 : earliest.installmentNumber - 1
     const planStart  = new Date(earlyDt.getFullYear(), earlyDt.getMonth() - backMonths, earlyDt.getDate())
     if (planStart > to) return
-    result.push(currentPeriodByPlan[key] ?? latest)
+
+    if (currentPeriodByPlan[key]) {
+      result.push(currentPeriodByPlan[key])
+      return
+    }
+
+    // Project installment number for future periods (no entry registered yet)
+    const latestDt   = new Date(latest.date + 'T00:00:00')
+    const latestYM   = latestDt.getFullYear() * 12 + latestDt.getMonth()
+    const fromYM     = from.getFullYear() * 12 + from.getMonth()
+    const monthsAhead = fromYM - latestYM
+    if (monthsAhead > 0) {
+      const base      = Math.max(1, latest.installmentNumber ?? 0)
+      const projected = base + monthsAhead
+      if (projected > (latest.installmentTotal ?? 1)) return
+      result.push({ ...latest, installmentNumber: projected })
+    } else {
+      result.push(latest)
+    }
   })
 
   // Sort: periódicos → cuotas (menos restantes primero) → normales
@@ -264,6 +282,18 @@ function calcPeriodSummary(expenses, incomes, from, to) {
     const backMonths = earliest.installmentNumber <= 1 ? 0 : earliest.installmentNumber - 1
     const planStart  = new Date(earlyDt.getFullYear(), earlyDt.getMonth() - backMonths, earlyDt.getDate())
     if (planStart > to) return
+
+    // For future periods, verify plan is still active based on projected installment
+    const latestDt   = new Date(latest.date + 'T00:00:00')
+    const latestYM   = latestDt.getFullYear() * 12 + latestDt.getMonth()
+    const fromYM     = from.getFullYear() * 12 + from.getMonth()
+    const monthsAhead = fromYM - latestYM
+    if (monthsAhead > 0) {
+      const base      = Math.max(1, latest.installmentNumber ?? 0)
+      const projected = base + monthsAhead
+      if (projected > (latest.installmentTotal ?? 1)) return
+    }
+
     const toCount = currentPeriodByPlan[key] ?? latest
     monthlyExpenses += toCount.amount
     expensesByCategory[toCount.category] = (expensesByCategory[toCount.category] || 0) + toCount.amount
@@ -291,6 +321,207 @@ function calcPeriodSummary(expenses, incomes, from, to) {
     expensesByCategory,
     incomesByType,
   }
+}
+
+// ─── Installment timeline ────────────────────────────────────────────────────
+
+function buildInstallmentTimeline(expenses) {
+  const now   = new Date()
+  const nowYM = now.getFullYear() * 12 + now.getMonth()
+
+  // Find the latest registered installment per plan
+  const plansMap = {}
+  expenses.forEach(e => {
+    if (e.installmentNumber == null || e.installmentTotal == null) return
+    const key = `${e.category}|${e.installmentTotal}|${e.description ?? ''}`
+    const eYM = new Date(e.date + 'T00:00:00').getFullYear() * 12 + new Date(e.date + 'T00:00:00').getMonth()
+    if (!plansMap[key] || e.installmentNumber > plansMap[key].paidCount) {
+      plansMap[key] = {
+        name:      e.description || EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category,
+        category:  e.category,
+        amount:    e.amount,
+        paidCount: e.installmentNumber,
+        total:     e.installmentTotal,
+        latestYM:  eYM,
+      }
+    }
+  })
+
+  // Only plans that still have payments remaining from now
+  const activePlans = Object.values(plansMap).filter(p => {
+    const monthsFromLatestToNow = nowYM - p.latestYM
+    const base       = Math.max(1, p.paidCount)
+    const projected  = base + Math.max(0, monthsFromLatestToNow)
+    return projected <= p.total
+  })
+
+  if (activePlans.length === 0) return []
+
+  // Project until the last plan ends (cap at 24 months from now)
+  const maxRemaining = Math.max(...activePlans.map(p => {
+    const monthsFromLatestToNow = nowYM - p.latestYM
+    const base      = Math.max(1, p.paidCount)
+    const projected = base + Math.max(0, monthsFromLatestToNow)
+    return Math.max(0, p.total - projected)
+  }))
+  const monthCount = Math.min(Math.max(1, maxRemaining), 24)
+
+  const timeline = []
+  for (let m = 0; m <= monthCount; m++) {
+    const ym    = nowYM + m
+    const year  = Math.floor(ym / 12)
+    const month = ym % 12
+    const date  = new Date(year, month, 1)
+
+    const plansThisMonth = []
+    activePlans.forEach(plan => {
+      const monthsFromLatest     = ym - plan.latestYM
+      const base                 = Math.max(1, plan.paidCount)
+      const projectedInstallment = base + Math.max(0, monthsFromLatest)
+      if (projectedInstallment > plan.total) return
+      plansThisMonth.push({
+        ...plan,
+        projectedInstallment,
+        isLast:    projectedInstallment === plan.total,
+        remaining: plan.total - projectedInstallment,
+      })
+    })
+
+    if (plansThisMonth.length === 0) continue
+
+    timeline.push({
+      date,
+      monthLabel:     date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }),
+      shortLabel:     date.toLocaleDateString('es-CL', { month: 'short', year: '2-digit' }),
+      plans:          plansThisMonth,
+      total:          plansThisMonth.reduce((s, p) => s + p.amount, 0),
+      hasEnding:      plansThisMonth.some(p => p.isLast),
+      isCurrentMonth: m === 0,
+    })
+  }
+
+  return timeline
+}
+
+function InstallmentTimeline({ expenses, loading }) {
+  const [expanded, setExpanded] = useState(false)
+  const timeline = useMemo(() => buildInstallmentTimeline(expenses), [expenses])
+
+  if (loading || timeline.length === 0) return null
+
+  const visible   = expanded ? timeline : timeline.slice(0, 6)
+  const chartData = timeline.map(m => ({ name: m.shortLabel, total: m.total, hasEnding: m.hasEnding }))
+
+  return (
+    <div className="mt-6 card">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-orange-500" />
+          <h3 className="font-semibold text-gray-900 dark:text-gray-50">Cronograma de cuotas</h3>
+        </div>
+        <span className="text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 rounded-full">
+          {timeline.length} mes{timeline.length !== 1 ? 'es' : ''} activos
+        </span>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">Proyección mes a mes de tus planes en cuotas hasta el último pago.</p>
+
+      {/* Gráfico */}
+      <ResponsiveContainer width="100%" height={140}>
+        <BarChart data={chartData} barSize={28}>
+          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={v => [fmt(v), 'Cuotas']} />
+          <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+            {chartData.map((entry, i) => (
+              <Cell key={i} fill={entry.hasEnding ? '#22c55e' : '#f97316'} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      <div className="flex items-center gap-4 text-xs text-gray-400 mt-2 mb-5">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-orange-400 inline-block" /> Cuotas activas
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-green-500 inline-block" /> Se salda un plan
+        </span>
+      </div>
+
+      {/* Lista mes a mes */}
+      <div className="space-y-2.5">
+        {visible.map((month, i) => (
+          <div key={i} className={`rounded-xl border overflow-hidden ${
+            month.hasEnding
+              ? 'border-green-200 dark:border-green-800'
+              : month.isCurrentMonth
+                ? 'border-primary-200 dark:border-primary-800'
+                : 'border-gray-100 dark:border-gray-800'
+          }`}>
+            {/* Cabecera del mes */}
+            <div className={`flex items-center justify-between px-4 py-2.5 ${
+              month.hasEnding
+                ? 'bg-green-50 dark:bg-green-950/30'
+                : month.isCurrentMonth
+                  ? 'bg-primary-50 dark:bg-primary-950/30'
+                  : 'bg-gray-50 dark:bg-gray-800/50'
+            }`}>
+              <div className="flex items-center gap-2">
+                {month.isCurrentMonth && (
+                  <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-950 px-1.5 py-0.5 rounded-full">
+                    Hoy
+                  </span>
+                )}
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 capitalize">{month.monthLabel}</p>
+              </div>
+              <p className="text-sm font-bold text-red-600 dark:text-red-400">-{fmt(month.total)}</p>
+            </div>
+
+            {/* Planes del mes */}
+            <div className="divide-y divide-gray-50 dark:divide-gray-800/60">
+              {month.plans.map((plan, j) => {
+                const cat   = EXPENSE_CATEGORIES.find(c => c.value === plan.category)
+                const color = CATEGORY_COLORS[plan.category] ?? '#94a3b8'
+                return (
+                  <div key={j} className="flex items-center gap-3 px-4 py-2.5">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0"
+                      style={{ backgroundColor: color + '22' }}>
+                      {cat?.emoji ?? '📦'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{plan.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-400 tabular-nums">
+                        {plan.projectedInstallment}/{plan.total}
+                      </span>
+                      <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                        -{fmt(plan.amount)}
+                      </span>
+                      {plan.isLast && (
+                        <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-950 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                          ✓ Última
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {timeline.length > 6 && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="w-full mt-3 text-sm text-primary-600 dark:text-primary-400 hover:underline text-center py-2">
+          {expanded ? 'Ver menos' : `Ver ${timeline.length - 6} meses más →`}
+        </button>
+      )}
+    </div>
+  )
 }
 
 // ─── Export helpers ──────────────────────────────────────────────────────────
@@ -857,6 +1088,9 @@ function TabResumen({ summary: serverSummary, userId, onAddExpense }) {
         </div>{/* fin columna derecha */}
 
       </div>
+
+      {/* ── Cronograma de cuotas ────────────────────────────────────── */}
+      <InstallmentTimeline expenses={expenses} loading={loading} />
 
       {/* ── Modal: Editar gasto ────────────────────────────────────── */}
       {editItem && (
