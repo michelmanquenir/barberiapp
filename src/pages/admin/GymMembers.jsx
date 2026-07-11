@@ -1823,17 +1823,18 @@ function CheckinTab({ members, todayAttendance, onCheckin, onDeleteAttendance })
 // ─── Forms ────────────────────────────────────────────────────────────────────
 
 function MemberForm({ form, setForm, isEditing = false }) {
-  const f = (field) => ({ value: form[field], onChange: e => setForm({ ...form, [field]: e.target.value }) })
+  const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
 
   const [emailLookup, setEmailLookup] = useState('idle') // 'idle' | 'loading' | 'found' | 'not_found'
   const [foundUser,   setFoundUser]   = useState(null)
   const lookupTimer = useRef(null)
 
-  const rutValid     = form.rut ? validateRut(form.rut) : null
-  const userFound    = emailLookup === 'found'
-  const emailMissing = !isEditing && !userFound && form.createAppAccount && !form.email.trim()
+  const rutValid  = form.rut ? validateRut(form.rut) : null
+  const userFound = emailLookup === 'found'
+  // Mostrar campos completos si: editando, o usuario encontrado, o usuario no encontrado tras buscar
+  const showAllFields = isEditing || userFound || emailLookup === 'not_found'
 
-  const handleRut = (e) => setForm({ ...form, rut: formatRut(e.target.value) })
+  const handleRut = (e) => setForm(prev => ({ ...prev, rut: formatRut(e.target.value) }))
 
   const handleEmailChange = (e) => {
     const email = e.target.value
@@ -1853,16 +1854,18 @@ function MemberForm({ form, setForm, isEditing = false }) {
           setEmailLookup('found')
           setForm(prev => ({
             ...prev,
-            name:  prev.name  || user.fullName || '',
-            phone: prev.phone || user.phone    || '',
-            rut:   prev.rut   || (user.rut ? formatRut(user.rut) : ''),
+            name:            prev.name  || user.fullName || '',
+            phone:           prev.phone || user.phone    || '',
+            rut:             prev.rut   || (user.rut ? formatRut(user.rut) : ''),
             createAppAccount: false,
           }))
         } else {
           setEmailLookup('not_found')
+          setForm(prev => ({ ...prev, createAppAccount: true }))
         }
       } catch {
         setEmailLookup('not_found')
+        setForm(prev => ({ ...prev, createAppAccount: true }))
       }
     }, 700)
   }
@@ -1870,158 +1873,131 @@ function MemberForm({ form, setForm, isEditing = false }) {
   return (
     <div className="space-y-5">
 
-      {/* ── Email primero (con lookup) ────────────────────────────── */}
-      {!isEditing && (
-        <div>
-          <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Buscar por email</p>
+      {/* ── Datos personales ──────────────────────────────────────── */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Datos personales</p>
+        <div className="grid sm:grid-cols-2 gap-4">
+
+          {/* Email — SIEMPRE primero, con lookup al crear */}
           <FormField label="Email *">
             <div className="relative">
               <Input
                 type="email"
                 value={form.email}
-                onChange={handleEmailChange}
+                onChange={isEditing ? set('email') : handleEmailChange}
                 placeholder="correo@ejemplo.com"
                 className={
-                  emailMissing          ? '!border-amber-400 dark:!border-amber-500' :
-                  userFound             ? '!border-emerald-400 dark:!border-emerald-500' :
-                  emailLookup === 'not_found' ? '!border-blue-400 dark:!border-blue-500' : ''
+                  userFound             ? 'border-emerald-400 dark:border-emerald-500 focus:ring-emerald-500' :
+                  emailLookup === 'not_found' ? 'border-blue-400 dark:border-blue-500 focus:ring-blue-500' : ''
                 }
               />
               {emailLookup === 'loading' && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400 pointer-events-none" />
+              )}
+              {userFound && (
+                <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
               )}
             </div>
-            {emailMissing && (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Requerido para enviar las credenciales de acceso</p>
-            )}
           </FormField>
 
-          {/* Banner usuario encontrado */}
-          {userFound && foundUser && (
-            <div className="mt-3 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 p-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                    Usuario encontrado en WeServ
-                  </p>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-                    Los datos se completaron automáticamente desde su perfil. Se le enviará un correo confirmando su ingreso al gym.
-                  </p>
-                  <div className="flex gap-4 mt-2 text-xs text-emerald-600 dark:text-emerald-400">
-                    {foundUser.fullName && <span className="font-medium">{foundUser.fullName}</span>}
-                    {foundUser.phone    && <span>{foundUser.phone}</span>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Nombre — visible siempre */}
+          <FormField label="Nombre completo *">
+            <Input value={form.name} onChange={set('name')} placeholder="Juan Pérez" />
+          </FormField>
 
-          {/* Banner usuario nuevo */}
-          {emailLookup === 'not_found' && form.email.includes('@') && (
-            <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 p-3 flex items-start gap-3">
-              <Smartphone className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                No hay cuenta con este email. Se creará un acceso nuevo y el alumno recibirá sus credenciales por correo.
-              </p>
-            </div>
+          {/* El resto solo aparece una vez que sabemos si existe o no */}
+          {showAllFields && (
+            <>
+              <FormField label={`RUT${form.rut ? (rutValid ? ' ✓' : ' — inválido') : ''}`}>
+                <Input
+                  value={form.rut}
+                  onChange={handleRut}
+                  placeholder="12.345.678-9"
+                  className={rutValid === false ? 'border-red-400 dark:border-red-500' : rutValid === true ? 'border-green-400 dark:border-green-500' : ''}
+                />
+              </FormField>
+
+              <FormField label="Teléfono">
+                <Input value={form.phone} onChange={set('phone')} placeholder="+56 9 1234 5678" />
+              </FormField>
+
+              <FormField label="Fecha de nacimiento">
+                <Input type="date" value={form.birthDate} onChange={set('birthDate')} />
+              </FormField>
+
+              <FormField label="Fecha de ingreso">
+                <Input type="date" value={form.joinDate} onChange={set('joinDate')} />
+              </FormField>
+
+              <FormField label="Estado">
+                <select value={form.status} onChange={set('status')} className={selectCls}>
+                  <option value="active">Activo</option>
+                  <option value="inactive">Inactivo</option>
+                  <option value="suspended">Suspendido</option>
+                </select>
+              </FormField>
+            </>
           )}
         </div>
-      )}
+      </div>
 
-      {/* ── Cuenta WeServ (solo al crear, si usuario NO encontrado) ── */}
-      {!isEditing && !userFound && (
-        <div className={`rounded-xl border-2 p-4 transition-colors ${
-          form.createAppAccount
-            ? 'border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50'
-            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40'
-        }`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <Smartphone className={`w-5 h-5 mt-0.5 flex-shrink-0 ${form.createAppAccount ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`} />
-              <div>
-                <p className={`text-sm font-semibold ${form.createAppAccount ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-300'}`}>
-                  Crear cuenta WeServ
-                </p>
-                <p className={`text-xs mt-0.5 ${form.createAppAccount ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                  {form.createAppAccount
-                    ? 'El alumno recibirá un correo con usuario y contraseña provisional.'
-                    : 'Activa esta opción para que el alumno pueda ingresar a la app.'}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setForm({ ...form, createAppAccount: !form.createAppAccount })}
-              className="flex-shrink-0 mt-0.5"
-            >
-              {form.createAppAccount
-                ? <ToggleRight className="w-8 h-8 text-emerald-500" />
-                : <ToggleLeft  className="w-8 h-8 text-gray-300 dark:text-gray-600" />}
-            </button>
+      {/* ── Banner resultado del lookup (solo al crear) ────────────── */}
+      {!isEditing && userFound && foundUser && (
+        <div className="rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 p-4 flex items-start gap-3">
+          <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+              Usuario registrado en WeServ
+            </p>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+              Sus datos se completaron desde el perfil. Al guardar se enviará un correo confirmando el ingreso al gym.
+            </p>
           </div>
         </div>
       )}
 
-      {/* ── Datos personales ──────────────────────────────────────── */}
-      <div>
-        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Datos personales</p>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <FormField label="Nombre completo *">
-            <Input {...f('name')} placeholder="Juan Pérez" />
-          </FormField>
-
-          <FormField label={`RUT${form.rut ? (rutValid ? ' ✓' : ' — inválido') : ''}`}>
-            <Input
-              value={form.rut}
-              onChange={handleRut}
-              placeholder="12.345.678-9"
-              className={rutValid === false ? '!border-red-400 dark:!border-red-500' : rutValid === true ? '!border-green-400 dark:!border-green-500' : ''}
-            />
-          </FormField>
-
-          {/* Email en edición */}
-          {isEditing && (
-            <FormField label="Email">
-              <Input type="email" {...f('email')} placeholder="correo@ejemplo.com" />
-            </FormField>
-          )}
-
-          <FormField label="Teléfono">
-            <Input {...f('phone')} placeholder="+56 9 1234 5678" />
-          </FormField>
-
-          <FormField label="Fecha de nacimiento">
-            <Input type="date" {...f('birthDate')} />
-          </FormField>
-
-          <FormField label="Fecha de ingreso">
-            <Input type="date" {...f('joinDate')} placeholder={new Date().toISOString().substring(0,10)} />
-          </FormField>
-
-          <FormField label="Estado">
-            <select {...f('status')} className={selectCls}>
-              <option value="active">Activo</option>
-              <option value="inactive">Inactivo</option>
-              <option value="suspended">Suspendido</option>
-            </select>
-          </FormField>
+      {!isEditing && emailLookup === 'not_found' && (
+        <div className="rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 p-4 flex items-start gap-3">
+          <Smartphone className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+              Usuario nuevo en WeServ
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+              Se creará una cuenta nueva. El alumno recibirá su contraseña provisional y la confirmación de ingreso al gym por correo.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Contacto de emergencia ────────────────────────────────── */}
-      <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-        <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Contacto de emergencia</p>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <FormField label="Nombre"><Input {...f('emergencyContactName')} placeholder="Nombre del contacto" /></FormField>
-          <FormField label="Teléfono"><Input {...f('emergencyContactPhone')} placeholder="+56 9 ..." /></FormField>
+      {/* ── Instrucciones mientras no se ha buscado (solo al crear) ── */}
+      {!isEditing && emailLookup === 'idle' && !form.email && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-4 flex items-start gap-3">
+          <Mail className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Ingresa el email del alumno para buscar si ya tiene cuenta en WeServ. Si existe, sus datos se cargarán automáticamente.
+          </p>
         </div>
-      </div>
+      )}
 
-      {/* ── Notas médicas ─────────────────────────────────────────── */}
-      <FormField label="Notas médicas / observaciones">
-        <textarea {...f('medicalNotes')} rows={3} placeholder="Lesiones, condiciones médicas, alergias..." className={`${inputCls} resize-none`} />
-      </FormField>
+      {/* ── Campos extra si hay datos que mostrar ─────────────────── */}
+      {showAllFields && (
+        <>
+          {/* Contacto de emergencia */}
+          <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Contacto de emergencia</p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <FormField label="Nombre"><Input value={form.emergencyContactName} onChange={set('emergencyContactName')} placeholder="Nombre del contacto" /></FormField>
+              <FormField label="Teléfono"><Input value={form.emergencyContactPhone} onChange={set('emergencyContactPhone')} placeholder="+56 9 ..." /></FormField>
+            </div>
+          </div>
+
+          {/* Notas médicas */}
+          <FormField label="Notas médicas / observaciones">
+            <textarea value={form.medicalNotes} onChange={set('medicalNotes')} rows={3} placeholder="Lesiones, condiciones médicas, alergias..." className={`${inputCls} resize-none`} />
+          </FormField>
+        </>
+      )}
     </div>
   )
 }
@@ -2116,8 +2092,8 @@ function ProgressForm({ form, setForm }) {
 const inputCls = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 placeholder-gray-400 dark:placeholder-gray-500'
 const selectCls = `${inputCls}`
 
-function Input(props) {
-  return <input className={inputCls} {...props} />
+function Input({ className, ...props }) {
+  return <input className={`${inputCls}${className ? ` ${className}` : ''}`} {...props} />
 }
 
 function FormField({ label, children }) {
