@@ -1847,23 +1847,18 @@ function MemberForm({ form, setForm, isEditing = false }) {
 
     lookupTimer.current = setTimeout(async () => {
       setEmailLookup('loading')
-      try {
-        const user = await api.findUserByEmail(email)
-        if (user?.id) {
-          setFoundUser(user)
-          setEmailLookup('found')
-          setForm(prev => ({
-            ...prev,
-            name:            prev.name  || user.fullName || '',
-            phone:           prev.phone || user.phone    || '',
-            rut:             prev.rut   || (user.rut ? formatRut(user.rut) : ''),
-            createAppAccount: false,
-          }))
-        } else {
-          setEmailLookup('not_found')
-          setForm(prev => ({ ...prev, createAppAccount: true }))
-        }
-      } catch {
+      const user = await api.findUserByEmail(email) // nunca lanza, retorna null si hay error
+      if (user?.id) {
+        setFoundUser(user)
+        setEmailLookup('found')
+        setForm(prev => ({
+          ...prev,
+          name:             prev.name  || user.fullName || '',
+          phone:            prev.phone || user.phone    || '',
+          rut:              prev.rut   || (user.rut ? formatRut(user.rut) : ''),
+          createAppAccount: false,
+        }))
+      } else {
         setEmailLookup('not_found')
         setForm(prev => ({ ...prev, createAppAccount: true }))
       }
