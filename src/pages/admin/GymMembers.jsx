@@ -1853,9 +1853,10 @@ function MemberForm({ form, setForm, isEditing = false }) {
         setEmailLookup('found')
         setForm(prev => ({
           ...prev,
-          name:             prev.name  || user.fullName || '',
-          phone:            prev.phone || user.phone    || '',
-          rut:              prev.rut   || (user.rut ? formatRut(user.rut) : ''),
+          name:             prev.name      || user.fullName  || '',
+          phone:            prev.phone     || user.phone     || '',
+          rut:              prev.rut       || (user.rut ? formatRut(user.rut) : ''),
+          birthDate:        prev.birthDate || user.birthdate || '',
           createAppAccount: false,
         }))
       } else {
