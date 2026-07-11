@@ -372,6 +372,9 @@ export const api = {
 
   // ── Gym / Boxing ──────────────────────────────────────────────────────────────
 
+  // Cliente — mis membresías de gym
+  getMyGymMemberships: () => request('/gym/my-memberships'),
+
   // Stats
   getGymStats: (shopId) => request(`/gym/shops/${shopId}/stats`),
 

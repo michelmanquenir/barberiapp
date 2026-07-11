@@ -10,6 +10,7 @@ import {
   Briefcase,
   Scissors,
   PiggyBank,
+  Dumbbell,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -35,6 +36,7 @@ function Sidebar({ isOpen }) {
     { path: '/appointments',  icon: Calendar,  label: 'Mis Citas'         },
     { path: '/my-visits',     icon: Briefcase, label: 'Mis Visitas' },
     { path: '/my-finances',   icon: PiggyBank, label: 'Mis Finanzas'      },
+    { path: '/memberships',   icon: Dumbbell,  label: 'Mis Membresías'    },
     { path: '/favorites',     icon: Heart,     label: 'Favoritos'         },
     { path: '/edit-profile',  icon: Settings,  label: 'Editar Perfil'     },
   ]

@@ -47,6 +47,7 @@ import MyBarbers from './pages/MyBarbers'
 import EditProfile from './pages/EditProfile'
 import EmployeeDashboard from './pages/employee/EmployeeDashboard'
 import MyFinances from './pages/MyFinances'
+import MyMemberships from './pages/MyMemberships'
 
 // Ruta raíz: landing siempre, excepto admins que van a su panel
 function HomeRoute() {
@@ -282,6 +283,7 @@ function App() {
                       <Route path="/favorites" element={<Favorites />} />
                       <Route path="/my-visits" element={<MyBarbers />} />
                       <Route path="/edit-profile" element={<EditProfile />} />
+                      <Route path="/memberships" element={<MyMemberships />} />
                       <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
                     </Routes>
                   </Layout>
