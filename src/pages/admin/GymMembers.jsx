@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -1825,18 +1825,112 @@ function CheckinTab({ members, todayAttendance, onCheckin, onDeleteAttendance })
 function MemberForm({ form, setForm, isEditing = false }) {
   const f = (field) => ({ value: form[field], onChange: e => setForm({ ...form, [field]: e.target.value }) })
 
-  const rutValid   = form.rut ? validateRut(form.rut) : null   // null = sin ingresar
-  const emailMissing = !isEditing && form.createAppAccount && !form.email.trim()
+  const [emailLookup, setEmailLookup] = useState('idle') // 'idle' | 'loading' | 'found' | 'not_found'
+  const [foundUser,   setFoundUser]   = useState(null)
+  const lookupTimer = useRef(null)
 
-  const handleRut = (e) => {
-    setForm({ ...form, rut: formatRut(e.target.value) })
+  const rutValid     = form.rut ? validateRut(form.rut) : null
+  const userFound    = emailLookup === 'found'
+  const emailMissing = !isEditing && !userFound && form.createAppAccount && !form.email.trim()
+
+  const handleRut = (e) => setForm({ ...form, rut: formatRut(e.target.value) })
+
+  const handleEmailChange = (e) => {
+    const email = e.target.value
+    setForm(prev => ({ ...prev, email }))
+    setEmailLookup('idle')
+    setFoundUser(null)
+
+    if (lookupTimer.current) clearTimeout(lookupTimer.current)
+    if (isEditing || !email.includes('@') || !email.includes('.')) return
+
+    lookupTimer.current = setTimeout(async () => {
+      setEmailLookup('loading')
+      try {
+        const user = await api.findUserByEmail(email)
+        if (user?.id) {
+          setFoundUser(user)
+          setEmailLookup('found')
+          setForm(prev => ({
+            ...prev,
+            name:  prev.name  || user.fullName || '',
+            phone: prev.phone || user.phone    || '',
+            rut:   prev.rut   || (user.rut ? formatRut(user.rut) : ''),
+            createAppAccount: false,
+          }))
+        } else {
+          setEmailLookup('not_found')
+        }
+      } catch {
+        setEmailLookup('not_found')
+      }
+    }, 700)
   }
 
   return (
     <div className="space-y-5">
 
-      {/* ── Cuenta WeServ (solo al crear) ─────────────────────────── */}
+      {/* ── Email primero (con lookup) ────────────────────────────── */}
       {!isEditing && (
+        <div>
+          <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Buscar por email</p>
+          <FormField label="Email *">
+            <div className="relative">
+              <Input
+                type="email"
+                value={form.email}
+                onChange={handleEmailChange}
+                placeholder="correo@ejemplo.com"
+                className={
+                  emailMissing          ? '!border-amber-400 dark:!border-amber-500' :
+                  userFound             ? '!border-emerald-400 dark:!border-emerald-500' :
+                  emailLookup === 'not_found' ? '!border-blue-400 dark:!border-blue-500' : ''
+                }
+              />
+              {emailLookup === 'loading' && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+              )}
+            </div>
+            {emailMissing && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Requerido para enviar las credenciales de acceso</p>
+            )}
+          </FormField>
+
+          {/* Banner usuario encontrado */}
+          {userFound && foundUser && (
+            <div className="mt-3 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                    Usuario encontrado en WeServ
+                  </p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    Los datos se completaron automáticamente desde su perfil. Se le enviará un correo confirmando su ingreso al gym.
+                  </p>
+                  <div className="flex gap-4 mt-2 text-xs text-emerald-600 dark:text-emerald-400">
+                    {foundUser.fullName && <span className="font-medium">{foundUser.fullName}</span>}
+                    {foundUser.phone    && <span>{foundUser.phone}</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Banner usuario nuevo */}
+          {emailLookup === 'not_found' && form.email.includes('@') && (
+            <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 p-3 flex items-start gap-3">
+              <Smartphone className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                No hay cuenta con este email. Se creará un acceso nuevo y el alumno recibirá sus credenciales por correo.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Cuenta WeServ (solo al crear, si usuario NO encontrado) ── */}
+      {!isEditing && !userFound && (
         <div className={`rounded-xl border-2 p-4 transition-colors ${
           form.createAppAccount
             ? 'border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50'
@@ -1851,7 +1945,7 @@ function MemberForm({ form, setForm, isEditing = false }) {
                 </p>
                 <p className={`text-xs mt-0.5 ${form.createAppAccount ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
                   {form.createAppAccount
-                    ? 'El alumno recibirá un correo con usuario y contraseña provisional. Deberá cambiarla en su primer ingreso.'
+                    ? 'El alumno recibirá un correo con usuario y contraseña provisional.'
                     : 'Activa esta opción para que el alumno pueda ingresar a la app.'}
                 </p>
               </div>
@@ -1866,23 +1960,6 @@ function MemberForm({ form, setForm, isEditing = false }) {
                 : <ToggleLeft  className="w-8 h-8 text-gray-300 dark:text-gray-600" />}
             </button>
           </div>
-
-          {form.createAppAccount && (
-            <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800">
-              <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400">
-                <span className="inline-flex w-4 h-4 rounded-full bg-emerald-500 text-white items-center justify-center font-bold text-[10px]">1</span>
-                Registras al alumno con su email
-              </div>
-              <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 mt-1">
-                <span className="inline-flex w-4 h-4 rounded-full bg-emerald-500 text-white items-center justify-center font-bold text-[10px]">2</span>
-                WeServ envía un correo con contraseña provisional
-              </div>
-              <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 mt-1">
-                <span className="inline-flex w-4 h-4 rounded-full bg-emerald-500 text-white items-center justify-center font-bold text-[10px]">3</span>
-                El alumno inicia sesión y crea su contraseña definitiva
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1903,19 +1980,12 @@ function MemberForm({ form, setForm, isEditing = false }) {
             />
           </FormField>
 
-          <FormField label={form.createAppAccount && !isEditing ? 'Email *' : 'Email'}>
-            <Input
-              type="email"
-              {...f('email')}
-              placeholder="correo@ejemplo.com"
-              className={emailMissing ? '!border-amber-400 dark:!border-amber-500' : ''}
-            />
-            {emailMissing && (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Requerido para enviar las credenciales de acceso
-              </p>
-            )}
-          </FormField>
+          {/* Email en edición */}
+          {isEditing && (
+            <FormField label="Email">
+              <Input type="email" {...f('email')} placeholder="correo@ejemplo.com" />
+            </FormField>
+          )}
 
           <FormField label="Teléfono">
             <Input {...f('phone')} placeholder="+56 9 1234 5678" />
