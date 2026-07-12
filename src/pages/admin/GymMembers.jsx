@@ -34,9 +34,6 @@ import {
   ToggleLeft,
   ToggleRight,
   Smartphone,
-  Layers,
-  Tag,
-  Infinity,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
@@ -128,7 +125,6 @@ const EMPTY_PROGRESS = {
 const TABS = [
   { key: 'dashboard', label: 'Panel',    icon: BarChart2 },
   { key: 'members',   label: 'Miembros', icon: Users },
-  { key: 'planes',    label: 'Planes',   icon: Layers },
   { key: 'checkin',   label: 'Check-in', icon: Activity },
   { key: 'clases',    label: 'Clases',   icon: CalendarDays },
 ]
@@ -225,7 +221,7 @@ export default function GymMembers() {
   const loadPlans = useCallback(async () => {
     setPlansLoading(true)
     try {
-      const data = await api.getGymPlans(shopId)
+      const data = await api.getAdminSubscriptionPlans(shopId)
       setGymPlans(data || [])
     } catch { /* ignore */ }
     finally { setPlansLoading(false) }
@@ -612,16 +608,6 @@ export default function GymMembers() {
             onEditProgress={openEditProgress}
             onDeleteProgress={deleteProgressRecord}
             onDeleteAttendance={deleteAttendanceRecord}
-          />
-        )}
-
-        {/* ── TAB: Planes ───────────────────────────────────────────────── */}
-        {tab === 'planes' && (
-          <PlansTab
-            shopId={shopId}
-            plans={gymPlans}
-            loading={plansLoading}
-            onRefresh={loadPlans}
           />
         )}
 
@@ -1787,187 +1773,6 @@ function MemberProgress({ progress, onAdd, onEdit, onDelete }) {
   )
 }
 
-// ─── PlansTab ─────────────────────────────────────────────────────────────────
-
-const EMPTY_PLAN = { name: '', description: '', price: '', durationMonths: '1', visitsAllowed: '', active: true }
-const DURATION_OPTIONS = [
-  { value: '1',  label: '1 mes' },
-  { value: '2',  label: '2 meses' },
-  { value: '3',  label: '3 meses (trimestral)' },
-  { value: '6',  label: '6 meses (semestral)' },
-  { value: '12', label: '12 meses (anual)' },
-]
-
-function PlansTab({ shopId, plans, loading, onRefresh }) {
-  const [modal, setModal] = useState(null) // null | 'create' | plan-object
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState(EMPTY_PLAN)
-
-  function openCreate() { setForm(EMPTY_PLAN); setModal('create') }
-  function openEdit(p)  { setForm({ name: p.name, description: p.description || '', price: String(p.price), durationMonths: String(p.durationMonths), visitsAllowed: p.visitsAllowed != null ? String(p.visitsAllowed) : '', active: p.active }); setModal(p) }
-
-  async function save() {
-    if (!form.name.trim()) { return }
-    setSaving(true)
-    try {
-      const payload = {
-        name:           form.name.trim(),
-        description:    form.description || null,
-        price:          Number(form.price) || 0,
-        durationMonths: Number(form.durationMonths) || 1,
-        visitsAllowed:  form.visitsAllowed !== '' ? Number(form.visitsAllowed) : null,
-        active:         form.active,
-      }
-      if (modal === 'create') {
-        await api.createGymPlan(shopId, payload)
-        toast.success('Plan creado')
-      } else {
-        await api.updateGymPlan(shopId, modal.id, payload)
-        toast.success('Plan actualizado')
-      }
-      setModal(null)
-      onRefresh()
-    } catch (e) {
-      toast.error(e.message || 'Error al guardar')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function remove(p) {
-    const ok = await confirmDanger(`¿Eliminar plan "${p.name}"?`, 'Las membresías ya asignadas no se verán afectadas.')
-    if (!ok) return
-    try {
-      await api.deleteGymPlan(shopId, p.id)
-      toast.success('Plan eliminado')
-      onRefresh()
-    } catch (e) {
-      toast.error(e.message || 'Error al eliminar')
-    }
-  }
-
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-emerald-500" /></div>
-
-  return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Layers className="w-4 h-4 text-emerald-500" />
-            Catálogo de planes
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Define los planes que ofrece tu gym para asignarlos rápidamente a los miembros.</p>
-        </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-1.5 text-sm px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition whitespace-nowrap">
-          <Plus className="w-4 h-4" />Nuevo plan
-        </button>
-      </div>
-
-      {plans.length === 0 ? (
-        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
-          <Layers className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Sin planes configurados</p>
-          <p className="text-sm mt-1">Crea el primer plan del gym para asignarlo a los miembros.</p>
-          <button onClick={openCreate} className="mt-4 text-sm text-emerald-600 dark:text-emerald-400 hover:underline">
-            + Crear primer plan
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {plans.map(p => (
-            <div key={p.id} className={`bg-white dark:bg-gray-900 rounded-xl border p-4 transition ${p.active ? 'border-gray-200 dark:border-gray-700' : 'border-dashed border-gray-300 dark:border-gray-700 opacity-60'}`}>
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center shrink-0">
-                    <Tag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm">{p.name}</p>
-                    {!p.active && <span className="text-[10px] text-gray-400 font-medium">Inactivo</span>}
-                  </div>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600 transition">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-500 transition">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="font-semibold text-gray-800 dark:text-white">${Number(p.price).toLocaleString('es-CL')}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 shrink-0" />
-                  {p.durationMonths} {p.durationMonths === 1 ? 'mes' : 'meses'}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 shrink-0" />
-                  {p.visitsAllowed ? `${p.visitsAllowed} visitas` : 'Visitas ilimitadas'}
-                </div>
-                {p.description && <p className="text-gray-400 dark:text-gray-500 italic mt-1">{p.description}</p>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Plan form modal */}
-      {modal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-              <h3 className="font-semibold text-gray-900 dark:text-white">{modal === 'create' ? 'Nuevo plan' : 'Editar plan'}</h3>
-              <button onClick={() => setModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-              <FormField label="Nombre del plan *">
-                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="ej. Mensual, Pase Libre, Plan Familiar..." />
-              </FormField>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Precio (CLP) *">
-                  <Input type="number" min="0" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="25000" />
-                </FormField>
-                <FormField label="Duración *">
-                  <select value={form.durationMonths} onChange={e => setForm(f => ({ ...f, durationMonths: e.target.value }))} className={selectCls}>
-                    {DURATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </FormField>
-              </div>
-              <FormField label="Visitas incluidas">
-                <Input type="number" min="0" value={form.visitsAllowed} onChange={e => setForm(f => ({ ...f, visitsAllowed: e.target.value }))} placeholder="Vacío = ilimitadas" />
-              </FormField>
-              <FormField label="Descripción (opcional)">
-                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Breve descripción del plan..." className={`${inputCls} resize-none`} />
-              </FormField>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <button type="button" onClick={() => setForm(f => ({ ...f, active: !f.active }))}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.active ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} />
-                </button>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Plan activo</span>
-              </label>
-            </div>
-            <div className="flex justify-end gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-800">
-              <button onClick={() => setModal(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">Cancelar</button>
-              <button onClick={save} disabled={saving || !form.name.trim() || !form.price}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-60">
-                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {modal === 'create' ? 'Crear plan' : 'Guardar cambios'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── CheckinTab ───────────────────────────────────────────────────────────────
 
 function CheckinTab({ members, todayAttendance, onCheckin, onDeleteAttendance }) {
@@ -2212,15 +2017,15 @@ function MembershipForm({ form, setForm, plans = [], isEditing = false }) {
   function applyPlan(plan) {
     const today = new Date().toISOString().substring(0, 10)
     const end   = new Date()
-    end.setMonth(end.getMonth() + plan.durationMonths)
+    end.setMonth(end.getMonth() + 1)
     const endDate = end.toISOString().substring(0, 10)
     setForm(prev => ({
       ...prev,
       planName:      plan.name,
       monthlyPrice:  String(plan.price),
-      visitsAllowed: plan.visitsAllowed != null ? String(plan.visitsAllowed) : '',
+      visitsAllowed: plan.cutsPerPeriod != null ? String(plan.cutsPerPeriod) : '',
       startDate:     prev.startDate || today,
-      endDate,
+      endDate:       prev.endDate   || endDate,
     }))
   }
 
@@ -2257,8 +2062,7 @@ function MembershipForm({ form, setForm, plans = [], isEditing = false }) {
                       {plan.name}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {plan.durationMonths} {plan.durationMonths === 1 ? 'mes' : 'meses'}
-                      {plan.visitsAllowed ? ` · ${plan.visitsAllowed} visitas` : ' · Visitas ilimitadas'}
+                      {plan.cutsPerPeriod ? `${plan.cutsPerPeriod} clases` : 'Clases ilimitadas'}
                       {plan.description ? ` · ${plan.description}` : ''}
                     </p>
                   </div>
@@ -2278,7 +2082,7 @@ function MembershipForm({ form, setForm, plans = [], isEditing = false }) {
       {!isEditing && activePlans.length === 0 && (
         <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Este gym no tiene planes configurados. Ve a la pestaña <strong>Planes</strong> para crear uno, o completa los datos manualmente.
+          No hay planes de suscripción activos. Créalos desde la sección <strong>Planes de suscripción</strong> en el panel de tu negocio, o completa los datos manualmente.
         </div>
       )}
 
