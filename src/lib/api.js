@@ -375,6 +375,12 @@ export const api = {
   // Cliente — mis membresías de gym
   getMyGymMemberships: () => request('/gym/my-memberships'),
 
+  // Planes del gym
+  getGymPlans:    (shopId)            => request(`/gym/shops/${shopId}/plans`),
+  createGymPlan:  (shopId, data)      => request(`/gym/shops/${shopId}/plans`, { method: 'POST', body: JSON.stringify(data) }),
+  updateGymPlan:  (shopId, id, data)  => request(`/gym/shops/${shopId}/plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteGymPlan:  (shopId, id)        => request(`/gym/shops/${shopId}/plans/${id}`, { method: 'DELETE' }),
+
   // Stats
   getGymStats: (shopId) => request(`/gym/shops/${shopId}/stats`),
 
