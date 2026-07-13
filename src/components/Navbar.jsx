@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Menu, X, Sun, Moon,
-  Bell, CalendarCheck, ShoppingBag,
+  Bell, CalendarCheck, ShoppingBag, Dumbbell,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -57,7 +57,7 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
 
   // Notifications
   const [notifOpen, setNotifOpen]     = useState(false)
-  const [notifData, setNotifData]     = useState({ appointments: [], orders: [] })
+  const [notifData, setNotifData]     = useState({ appointments: [], orders: [], memberships: [] })
   const [notifLoaded, setNotifLoaded] = useState(false)
   const notifRef = useRef(null)
 
@@ -66,9 +66,10 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
     const load = async () => {
       try {
         const today = new Date().toISOString().split('T')[0]
-        const [appts, orders] = await Promise.all([
+        const [appts, orders, gymData] = await Promise.all([
           api.getAppointments(user.userId).catch(() => []),
           api.getMyOrders().catch(() => []),
+          api.getMyGymMemberships().catch(() => []),
         ])
 
         const upcomingAppts = (appts || []).filter(
@@ -77,8 +78,11 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
         const activeOrders = (orders || []).filter(
           o => ['confirmed', 'ready'].includes(o.status)
         )
+        const activeMemberships = (gymData || []).filter(
+          m => m.membershipStatus === 'active'
+        )
 
-        setNotifData({ appointments: upcomingAppts, orders: activeOrders })
+        setNotifData({ appointments: upcomingAppts, orders: activeOrders, memberships: activeMemberships })
       } catch {
         // silently ignore
       } finally {
@@ -105,7 +109,7 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
     navigate('/login', { replace: true })
   }
 
-  const totalNotif = notifData.appointments.length + notifData.orders.length
+  const totalNotif = notifData.appointments.length + notifData.orders.length + notifData.memberships.length
 
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 fixed w-full z-30 top-0 transition-colors">
@@ -260,6 +264,52 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
                                   ))}
                                 </div>
                               )}
+
+                              {/* Membresías activas de gym */}
+                              {notifData.memberships.length > 0 && (
+                                <div>
+                                  <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-100 dark:border-emerald-900/50">
+                                    <div className="flex items-center gap-1.5">
+                                      <Dumbbell className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                                        Membresías activas · {notifData.memberships.length}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {notifData.memberships.map((m, i) => {
+                                    const days = m.endDate
+                                      ? Math.ceil((new Date(m.endDate + 'T00:00:00') - new Date()) / 86400000)
+                                      : null
+                                    return (
+                                      <button
+                                        key={`m-${i}`}
+                                        onClick={() => { setNotifOpen(false); navigate('/memberships') }}
+                                        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b border-gray-50 dark:border-gray-800 last:border-0"
+                                      >
+                                        <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0 mt-0.5">
+                                          <Dumbbell className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                                            {m.shopName}
+                                          </p>
+                                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                                            {m.planName ?? 'Membresía activa'}
+                                          </p>
+                                        </div>
+                                        {days !== null && (
+                                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 whitespace-nowrap
+                                            ${days <= 7 ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                              : days <= 15 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                                            {days > 0 ? `${days}d` : 'Vence hoy'}
+                                          </span>
+                                        )}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
                             </>
                           )}
                         </div>
@@ -279,6 +329,14 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
                                 className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
                               >
                                 Ver mis pedidos →
+                              </button>
+                            )}
+                            {notifData.memberships.length > 0 && (
+                              <button
+                                onClick={() => { setNotifOpen(false); navigate('/memberships') }}
+                                className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+                              >
+                                Ver membresías →
                               </button>
                             )}
                           </div>

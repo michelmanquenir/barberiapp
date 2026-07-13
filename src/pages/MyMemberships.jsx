@@ -5,6 +5,7 @@ import {
   Clock, AlertCircle, ChevronRight, Layers,
 } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -179,6 +180,7 @@ function MembershipCard({ m, onVisit }) {
 
 export default function MyMemberships() {
   const navigate = useNavigate()
+  const { user }  = useAuth()
   const [memberships, setMemberships] = useState([])
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState(null)
@@ -233,9 +235,11 @@ export default function MyMemberships() {
           <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
             <Dumbbell className="w-8 h-8 text-gray-300 dark:text-gray-600" />
           </div>
-          <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">Sin membresías</h3>
-          <p className="text-sm text-gray-400 dark:text-gray-500">
-            No tienes inscripciones registradas en ningún gimnasio.
+          <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">Sin membresías registradas</h3>
+          <p className="text-sm text-gray-400 dark:text-gray-500 max-w-xs mx-auto">
+            No se encontraron inscripciones vinculadas a tu cuenta.
+            Si fuiste registrado en un gym, asegúrate de que el administrador haya guardado
+            tu email <strong className="text-gray-500 dark:text-gray-400">({user?.email ?? 'tu correo'})</strong> en tu perfil de miembro.
           </p>
         </div>
       )}
