@@ -34,6 +34,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Smartphone,
+  Tag,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
