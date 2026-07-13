@@ -299,15 +299,22 @@ export default function GymMembers() {
       if (editingMemberId) {
         await api.updateGymMember(shopId, editingMemberId, memberForm)
         toast.success('Miembro actualizado')
-        if (selectedMember?.id === editingMemberId) {
-          await loadMemberDetail(editingMemberId)
-        }
+        if (selectedMember?.id === editingMemberId) await loadMemberDetail(editingMemberId)
+        setShowMemberForm(false)
+        await loadAll()
       } else {
-        await api.createGymMember(shopId, memberForm)
-        toast.success('Miembro creado')
+        const newMember = await api.createGymMember(shopId, memberForm)
+        toast.success('Miembro creado — ahora asígnale una membresía')
+        setShowMemberForm(false)
+        await loadAll()
+        // Open membership form automatically for the new member
+        setSelectedMember(newMember)
+        setEditingMembershipId(null)
+        const today     = new Date().toISOString().substring(0, 10)
+        const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().substring(0, 10)
+        setMembershipForm({ ...EMPTY_MEMBERSHIP, startDate: today, endDate: nextMonth })
+        setShowMembershipForm(true)
       }
-      setShowMemberForm(false)
-      await loadAll()
     } catch (e) {
       toast.error(e.message || 'Error al guardar')
     } finally {
@@ -665,7 +672,7 @@ export default function GymMembers() {
       )}
 
       {showMembershipForm && (
-        <Modal title={editingMembershipId ? 'Editar membresía' : 'Nueva membresía'} onClose={() => setShowMembershipForm(false)}>
+        <Modal title={editingMembershipId ? 'Editar membresía' : selectedMember ? `Nueva membresía — ${selectedMember.name}` : 'Nueva membresía'} onClose={() => setShowMembershipForm(false)}>
           <MembershipForm form={membershipForm} setForm={setMembershipForm} plans={gymPlans} isEditing={!!editingMembershipId} />
           <ModalFooter
             onCancel={() => setShowMembershipForm(false)}
