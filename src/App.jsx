@@ -48,6 +48,7 @@ import EditProfile from './pages/EditProfile'
 import EmployeeDashboard from './pages/employee/EmployeeDashboard'
 import MyFinances from './pages/MyFinances'
 import MyMemberships from './pages/MyMemberships'
+import GymCheckIn from './pages/GymCheckIn'
 
 // Ruta raíz: landing siempre, excepto admins que van a su panel
 function HomeRoute() {
@@ -79,6 +80,7 @@ function App() {
             <Route path="/shop/:slug" element={<PublicShopCatalog />} />
             <Route path="/transport/:slug" element={<PublicTransport />} />
             <Route path="/booking" element={<Layout><DiscoverShops /></Layout>} />
+            <Route path="/gym-checkin/:shopId" element={<GymCheckIn />} />
             <Route path="/" element={<HomeRoute />} />
 
             {/* Panel Super Admin */}

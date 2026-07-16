@@ -374,6 +374,7 @@ export const api = {
 
   // Cliente — mis membresías de gym
   getMyGymMemberships: () => request('/gym/my-memberships'),
+  selfGymCheckIn: (shopId) => request('/gym/checkin', { method: 'POST', body: JSON.stringify({ shopId }) }),
 
   // Planes del gym
   getGymPlans:    (shopId)            => request(`/gym/shops/${shopId}/plans`),

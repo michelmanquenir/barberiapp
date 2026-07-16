@@ -35,7 +35,11 @@ import {
   ToggleRight,
   Smartphone,
   Tag,
+  QrCode,
+  Download,
+  Printer,
 } from 'lucide-react'
+import QRCodeLib from 'qrcode'
 import { api } from '../../lib/api'
 import { toast, confirm, confirmDanger } from '../../lib/swal'
 import AdminNavbar from '../../components/AdminNavbar'
@@ -190,6 +194,11 @@ export default function GymMembers() {
   // Plans tab state
   const [gymPlans, setGymPlans] = useState([])
   const [plansLoading, setPlansLoading] = useState(false)
+
+  // QR modal
+  const [showQr, setShowQr]       = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState(null)
+  const checkInUrl = `${window.location.origin}/gym-checkin/${shopId}`
 
   // Classes tab state
   const [classes, setClasses] = useState([])
@@ -543,12 +552,28 @@ export default function GymMembers() {
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">Miembros, membresías, asistencia y progreso</p>
           </div>
-          <button
-            onClick={loadAll}
-            className="ml-auto p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={async () => {
+                if (!qrDataUrl) {
+                  const url = await QRCodeLib.toDataURL(checkInUrl, { width: 320, margin: 2, color: { dark: '#000000', light: '#ffffff' } })
+                  setQrDataUrl(url)
+                }
+                setShowQr(true)
+              }}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition"
+              title="Código QR de ingreso"
+            >
+              <QrCode className="w-4 h-4" />
+              <span className="hidden sm:inline">QR Check-in</span>
+            </button>
+            <button
+              onClick={loadAll}
+              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -731,6 +756,72 @@ export default function GymMembers() {
             } catch (e) { toast.error(e.message || 'Error al guardar') }
           }}
         />
+      )}
+
+      {/* ── QR Check-in modal ─────────────────────────────────────────────── */}
+      {showQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-emerald-500" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">QR de Check-in</h3>
+              </div>
+              <button onClick={() => setShowQr(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+
+            {/* QR code */}
+            <div className="flex flex-col items-center px-6 py-6 gap-4">
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="QR Check-in"
+                  className="w-56 h-56 rounded-xl border border-gray-200 dark:border-gray-700 shadow"
+                />
+              ) : (
+                <div className="w-56 h-56 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                </div>
+              )}
+
+              <div className="w-full bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">URL de acceso</p>
+                <p className="text-xs font-mono text-gray-600 dark:text-gray-300 break-all">{checkInUrl}</p>
+              </div>
+
+              <p className="text-xs text-center text-gray-400 dark:text-gray-500 leading-relaxed">
+                Imprime este código o muéstralo en pantalla en la entrada del gym.
+                Los miembros lo escanean con la cámara de su teléfono para registrar su ingreso.
+              </p>
+
+              {/* Actions */}
+              <div className="flex gap-2 w-full">
+                <a
+                  href={qrDataUrl}
+                  download="qr-checkin-gym.png"
+                  className="flex-1 flex items-center justify-center gap-1.5 text-sm py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Descargar
+                </a>
+                <button
+                  onClick={() => {
+                    const win = window.open('', '_blank')
+                    win.document.write(`<html><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fff"><img src="${qrDataUrl}" style="width:300px;height:300px" /><script>window.onload=()=>window.print()<\/script></body></html>`)
+                    win.document.close()
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-sm py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition"
+                >
+                  <Printer className="w-4 h-4" />
+                  Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {enrollModal !== null && (
