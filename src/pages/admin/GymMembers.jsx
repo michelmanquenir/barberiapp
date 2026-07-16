@@ -526,7 +526,7 @@ export default function GymMembers() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         <AdminNavbar />
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-64 pt-16">
           <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
         </div>
       </div>
@@ -537,7 +537,7 @@ export default function GymMembers() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <AdminNavbar />
 
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-10">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <button
