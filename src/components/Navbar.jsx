@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Menu, X, Sun, Moon,
@@ -61,6 +61,9 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
   const [notifLoaded, setNotifLoaded] = useState(false)
   const notifRef = useRef(null)
 
+  // Seen gym membership IDs, persisted in localStorage per user
+  const [seenMembershipIds, setSeenMembershipIds] = useState(() => new Set())
+
   useEffect(() => {
     if (!isAuthenticated || !user?.userId) return
     const load = async () => {
@@ -92,6 +95,37 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
     load()
   }, [isAuthenticated, user?.userId])
 
+  // Load seen IDs from localStorage whenever the logged-in user changes
+  useEffect(() => {
+    if (!user?.userId) return
+    try {
+      const stored = JSON.parse(localStorage.getItem(`weserv_seen_gym_${user.userId}`) || '[]')
+      setSeenMembershipIds(new Set(stored))
+    } catch {
+      setSeenMembershipIds(new Set())
+    }
+  }, [user?.userId])
+
+  // Mark all current active memberships as seen (badge clears immediately)
+  const markMembershipsAsSeen = useCallback(() => {
+    const uid = user?.userId
+    if (!uid) return
+    setSeenMembershipIds(prev => {
+      const next = new Set(prev)
+      notifData.memberships.forEach(m => {
+        if (m.membershipId != null) next.add(String(m.membershipId))
+      })
+      try { localStorage.setItem(`weserv_seen_gym_${uid}`, JSON.stringify([...next])) } catch {}
+      return next
+    })
+  }, [user?.userId, notifData.memberships])
+
+  // Listen for 'memberships-viewed' event dispatched by the /memberships page
+  useEffect(() => {
+    window.addEventListener('memberships-viewed', markMembershipsAsSeen)
+    return () => window.removeEventListener('memberships-viewed', markMembershipsAsSeen)
+  }, [markMembershipsAsSeen])
+
   // Close on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -109,7 +143,12 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
     navigate('/login', { replace: true })
   }
 
-  const totalNotif = notifData.appointments.length + notifData.orders.length + notifData.memberships.length
+  // Only memberships the user hasn't seen yet count toward the badge
+  const unreadMemberships = notifData.memberships.filter(
+    m => m.membershipId != null && !seenMembershipIds.has(String(m.membershipId))
+  )
+
+  const totalNotif = notifData.appointments.length + notifData.orders.length + unreadMemberships.length
 
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 fixed w-full z-30 top-0 transition-colors">
@@ -265,25 +304,25 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
                                 </div>
                               )}
 
-                              {/* Membresías activas de gym */}
-                              {notifData.memberships.length > 0 && (
+                              {/* Membresías nuevas (no vistas) */}
+                              {unreadMemberships.length > 0 && (
                                 <div>
                                   <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-100 dark:border-emerald-900/50">
                                     <div className="flex items-center gap-1.5">
                                       <Dumbbell className="w-3.5 h-3.5 text-emerald-600" />
                                       <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
-                                        Membresías activas · {notifData.memberships.length}
+                                        Membresías nuevas · {unreadMemberships.length}
                                       </span>
                                     </div>
                                   </div>
-                                  {notifData.memberships.map((m, i) => {
+                                  {unreadMemberships.map((m, i) => {
                                     const days = m.endDate
                                       ? Math.ceil((new Date(m.endDate + 'T00:00:00') - new Date()) / 86400000)
                                       : null
                                     return (
                                       <button
                                         key={`m-${i}`}
-                                        onClick={() => { setNotifOpen(false); navigate('/memberships') }}
+                                        onClick={() => { markMembershipsAsSeen(); setNotifOpen(false); navigate('/memberships') }}
                                         className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b border-gray-50 dark:border-gray-800 last:border-0"
                                       >
                                         <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0 mt-0.5">
@@ -331,9 +370,9 @@ function Navbar({ toggleSidebar, isSidebarOpen }) {
                                 Ver mis pedidos →
                               </button>
                             )}
-                            {notifData.memberships.length > 0 && (
+                            {unreadMemberships.length > 0 && (
                               <button
-                                onClick={() => { setNotifOpen(false); navigate('/memberships') }}
+                                onClick={() => { markMembershipsAsSeen(); setNotifOpen(false); navigate('/memberships') }}
                                 className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
                               >
                                 Ver membresías →

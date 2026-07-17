@@ -186,6 +186,9 @@ export default function MyMemberships() {
   const [error, setError]             = useState(null)
 
   useEffect(() => {
+    // Notify Navbar to clear the gym membership badge
+    window.dispatchEvent(new CustomEvent('memberships-viewed'))
+
     api.getMyGymMemberships()
       .then(data => setMemberships(data ?? []))
       .catch(err => setError(err.message ?? 'Error al cargar membresías'))
