@@ -431,6 +431,11 @@ export const api = {
   enrollInGymClass:        (shopId, classId, memberId) => request(`/gym/shops/${shopId}/classes/${classId}/enrollments`, { method: 'POST', body: JSON.stringify({ memberId }) }),
   unenrollFromGymClass:    (shopId, classId, enrollmentId) => request(`/gym/shops/${shopId}/classes/${classId}/enrollments/${enrollmentId}`, { method: 'DELETE' }),
 
+  // ── Clases — endpoints de cliente (inscripción propia) ────────────────────
+  getMyGymClassEnrollments: (shopId) => request(`/gym/${shopId}/my-class-enrollments`),
+  selfEnrollInGymClass:     (shopId, classId) => request(`/gym/${shopId}/classes/${classId}/enroll`, { method: 'POST' }),
+  selfUnenrollFromGymClass: (shopId, classId) => request(`/gym/${shopId}/classes/${classId}/enroll`, { method: 'DELETE' }),
+
   // Categorías de negocio (público — sin auth)
   getCategories: () => request('/categories'),
 

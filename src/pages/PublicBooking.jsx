@@ -4,7 +4,7 @@ import {
   Scissors, Calendar, Clock, Users, CreditCard, Check,
   ChevronRight, ChevronLeft, LogIn, MapPin, Star, Loader2,
   Home, AlertTriangle, Crown, Repeat2, ShoppingBag, Package,
-  X, Images,
+  X, Images, Dumbbell, Lock, User, Plus,
 } from 'lucide-react'
 import { Autocomplete } from '@react-google-maps/api'
 import { api } from '../lib/api'
@@ -118,6 +118,128 @@ function isTransferComplete(shop) {
   )
 }
 
+// ─── Gym classes section ──────────────────────────────────────────────────────
+
+const GYM_DAY_LABELS = {
+  MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
+  THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo',
+}
+const GYM_DAY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY']
+
+function GymClassesSection({ classes, myGymStatus, isAuthenticated, enrollingClassId, onEnroll, onUnenroll, navigate, slug }) {
+  const byDay = GYM_DAY_ORDER.reduce((acc, day) => {
+    const list = classes.filter(c => c.dayOfWeek === day)
+    if (list.length) acc[day] = list
+    return acc
+  }, {})
+
+  const enrolledIds   = new Set(myGymStatus?.enrolledClassIds ?? [])
+  const canEnroll     = myGymStatus?.hasActiveMembership === true
+  const isMember      = myGymStatus?.isMember === true
+
+  return (
+    <div>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50 mb-4 flex items-center gap-2">
+        <Dumbbell className="w-5 h-5 text-emerald-500" /> Clases
+      </h3>
+
+      {/* Banner contextual */}
+      {!isAuthenticated && (
+        <div className="mb-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 flex items-center gap-3">
+          <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
+          <p className="text-sm text-emerald-700 dark:text-emerald-300">
+            <button onClick={() => navigate(`/login?returnUrl=/book/${slug}`)} className="font-semibold underline">Inicia sesión</button> para inscribirte en clases
+          </p>
+        </div>
+      )}
+      {isAuthenticated && !isMember && (
+        <div className="mb-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 flex items-center gap-3">
+          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-700 dark:text-amber-300">Necesitas ser miembro de este gimnasio para inscribirte en clases</p>
+        </div>
+      )}
+      {isAuthenticated && isMember && !canEnroll && (
+        <div className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 flex items-center gap-3">
+          <Lock className="w-4 h-4 text-red-600 shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300">Necesitas una membresía activa para inscribirte en clases</p>
+        </div>
+      )}
+
+      <div className="space-y-5">
+        {Object.entries(byDay).map(([day, dayClasses]) => (
+          <div key={day}>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+              {GYM_DAY_LABELS[day]}
+            </p>
+            <div className="space-y-2">
+              {dayClasses.map(cls => {
+                const enrolled    = enrolledIds.has(cls.id)
+                const isFull      = cls.maxCapacity != null && cls.enrollmentCount >= cls.maxCapacity && !enrolled
+                const isLoading   = enrollingClassId === cls.id
+                return (
+                  <div key={cls.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3.5 flex items-center gap-3">
+                    <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: cls.color || '#6366f1' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-gray-900 dark:text-gray-50 text-sm">{cls.name}</p>
+                        {cls.classType && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            {cls.classType}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />{cls.startTime?.substring(0, 5)} – {cls.endTime?.substring(0, 5)}
+                        </span>
+                        {cls.instructorName && (
+                          <span className="flex items-center gap-1"><User className="w-3 h-3" />{cls.instructorName}</span>
+                        )}
+                        {cls.maxCapacity != null && (
+                          <span className={cls.enrollmentCount >= cls.maxCapacity ? 'text-red-500' : ''}>
+                            {cls.enrollmentCount ?? 0}/{cls.maxCapacity}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Acción */}
+                    {!isAuthenticated || !canEnroll ? (
+                      <Lock className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0" />
+                    ) : enrolled ? (
+                      <button
+                        onClick={() => onUnenroll(cls.id)}
+                        disabled={isLoading}
+                        className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors flex items-center gap-1.5 border border-emerald-200 dark:border-emerald-800"
+                      >
+                        {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        Inscrito
+                      </button>
+                    ) : isFull ? (
+                      <span className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500">
+                        Llena
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => onEnroll(cls.id)}
+                        disabled={isLoading}
+                        className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-emerald-700 dark:hover:bg-emerald-200 transition-colors flex items-center gap-1.5"
+                      >
+                        {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                        Inscribirse
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente principal ──────────────────────────────────────────────────────
 
 function PublicBooking() {
@@ -148,6 +270,10 @@ function PublicBooking() {
   const [confirmed, setConfirmed]           = useState(false)
   const [selectedProducts, setSelectedProducts] = useState({})
 
+  const [gymClasses, setGymClasses]         = useState([])
+  const [myGymStatus, setMyGymStatus]       = useState(null)
+  const [enrollingClassId, setEnrollingClassId] = useState(null)
+
   const sidebarRef = useRef(null)
 
   useEffect(() => {
@@ -167,11 +293,13 @@ function PublicBooking() {
           api.getShopSubscriptionPlans(shopData.id).catch(() => []),
           api.getShopProducts(shopData.id).catch(() => []),
           api.getShopGallery(shopData.id).catch(() => []),
+          api.getGymClasses(shopData.id).catch(() => []),
         ]
         if (isAuthenticated) {
           extras.push(api.getMyActiveSubscription(shopData.id).catch(() => null))
+          extras.push(api.getMyGymClassEnrollments(shopData.id).catch(() => null))
         }
-        const [servicesData, reviewsData, plansData, productsData, galleryData, activeSub] = await Promise.all(extras)
+        const [servicesData, reviewsData, plansData, productsData, galleryData, classesData, activeSub, myGymStatusData] = await Promise.all(extras)
         setShop(shopData)
         setCategorySlug(cat?.slug ?? '')
         setServices(servicesData || [])
@@ -179,7 +307,9 @@ function PublicBooking() {
         setShopGallery(galleryData || [])
         setPlans(plansData || [])
         setProducts(productsData || [])
+        setGymClasses((classesData || []).filter(c => c.active))
         if (activeSub) setActiveSubscription(activeSub)
+        if (myGymStatusData) setMyGymStatus(myGymStatusData)
       })
       .catch(() => setShopError('No se encontró el negocio'))
       .finally(() => setLoadingShop(false))
@@ -216,6 +346,34 @@ function PublicBooking() {
       return true
     }
     return false
+  }
+
+  const handleClassEnroll = async (classId) => {
+    setEnrollingClassId(classId)
+    try {
+      await api.selfEnrollInGymClass(shop.id, classId)
+      setMyGymStatus(prev => ({ ...prev, enrolledClassIds: [...(prev?.enrolledClassIds ?? []), classId] }))
+      setGymClasses(prev => prev.map(c => c.id === classId ? { ...c, enrollmentCount: (c.enrollmentCount ?? 0) + 1 } : c))
+      toast.success('¡Inscrito exitosamente!')
+    } catch (err) {
+      toast.error(err?.message || 'Error al inscribirse')
+    } finally {
+      setEnrollingClassId(null)
+    }
+  }
+
+  const handleClassUnenroll = async (classId) => {
+    setEnrollingClassId(classId)
+    try {
+      await api.selfUnenrollFromGymClass(shop.id, classId)
+      setMyGymStatus(prev => ({ ...prev, enrolledClassIds: (prev?.enrolledClassIds ?? []).filter(id => id !== classId) }))
+      setGymClasses(prev => prev.map(c => c.id === classId ? { ...c, enrollmentCount: Math.max(0, (c.enrollmentCount ?? 0) - 1) } : c))
+      toast.success('Inscripción cancelada')
+    } catch (err) {
+      toast.error(err?.message || 'Error al cancelar')
+    } finally {
+      setEnrollingClassId(null)
+    }
   }
 
   const handleConfirm = async () => {
@@ -451,6 +609,20 @@ function PublicBooking() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Clases del gym */}
+            {gymClasses.length > 0 && (
+              <GymClassesSection
+                classes={gymClasses}
+                myGymStatus={myGymStatus}
+                isAuthenticated={isAuthenticated}
+                enrollingClassId={enrollingClassId}
+                onEnroll={handleClassEnroll}
+                onUnenroll={handleClassUnenroll}
+                navigate={navigate}
+                slug={slug}
+              />
             )}
 
             {/* Reseñas */}
